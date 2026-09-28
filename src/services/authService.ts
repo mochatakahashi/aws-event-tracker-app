@@ -9,7 +9,7 @@ interface MockUser extends User {
   password: string;
 }
 
-const MOCK_USERS: MockUser[] = [
+let MOCK_USERS: MockUser[] = [
   {
     username: 'admin',
     password: 'admin123',
@@ -18,11 +18,36 @@ const MOCK_USERS: MockUser[] = [
     personId: 'per-1',
   },
   {
-    username: 'attendee',
-    password: 'attendee123',
+    username: 'rj',
+    password: 'rj123',
+    name: 'Rodmina Jhoy Ibe',
+    role: 'officer',
+    personId: 'per-2',
+    studentId: 'APC-2024-001',
+  },
+  {
+    username: 'sofia',
+    password: 'sofia123',
     name: 'Sofia Rossi',
     role: 'attendee',
     personId: 'per-3',
+    studentId: 'APC-2024-042',
+  },
+  {
+    username: 'kenji',
+    password: 'kenji123',
+    name: 'Kenji Tanaka',
+    role: 'attendee',
+    personId: 'per-4',
+    studentId: 'APC-2024-088',
+  },
+  {
+    username: 'grace',
+    password: 'grace123',
+    name: 'Grace Adeyemi',
+    role: 'attendee',
+    personId: 'per-5',
+    studentId: 'APC-2024-105',
   },
 ];
 
@@ -51,8 +76,28 @@ export async function login(credentials: Credentials): Promise<User> {
   });
 }
 
-/** The demo credentials, surfaced on the login page as a hint. */
 export const DEMO_CREDENTIALS = {
-  username: 'admin',
-  password: 'admin123',
+  admin: { username: 'admin', password: 'admin123' },
+  officer: { username: 'rj', password: 'rj123' },
+  attendee: { username: 'sofia', password: 'sofia123' },
 };
+
+export async function getUsers(): Promise<User[]> {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve(MOCK_USERS.map(({ password: _pw, ...u }) => u));
+    }, LATENCY);
+  });
+}
+
+export async function updateUserRole(username: string, role: 'admin' | 'officer' | 'attendee'): Promise<User> {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      const idx = MOCK_USERS.findIndex(u => u.username === username);
+      if (idx === -1) return reject(new Error('User not found'));
+      MOCK_USERS[idx].role = role;
+      const { password: _pw, ...user } = MOCK_USERS[idx];
+      resolve(user);
+    }, LATENCY);
+  });
+}

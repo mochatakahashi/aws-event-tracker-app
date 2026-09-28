@@ -1,3 +1,5 @@
+import type { SocialLinks } from './auth';
+
 /** RSVP state for a registration. */
 export type RsvpStatus = 'going' | 'interested' | 'declined';
 
@@ -11,6 +13,14 @@ export interface Person {
   id: string;
   name: string;
   email: string;
+  /** Social links for networking. */
+  socials?: SocialLinks;
+  /** Short bio / tagline. */
+  bio?: string;
+  /** Student ID. */
+  studentId?: string;
+  /** Profile avatar URL. */
+  avatarUrl?: string;
 }
 
 export type NewPersonInput = Omit<Person, 'id'>;
