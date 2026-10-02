@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import theme from './theme/theme';
@@ -33,7 +33,7 @@ function App() {
       <CssBaseline />
       <AuthProvider>
         <EventProvider>
-          <BrowserRouter>
+          <HashRouter>
             <Routes>
               {/* Public routes */}
               <Route path="/" element={<WelcomePage />} />
@@ -78,7 +78,7 @@ function App() {
               {/* 404 */}
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
-          </BrowserRouter>
+          </HashRouter>
         </EventProvider>
       </AuthProvider>
     </ThemeProvider>
