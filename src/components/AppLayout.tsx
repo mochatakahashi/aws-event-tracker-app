@@ -14,14 +14,17 @@ import Avatar from '@mui/material/Avatar';
 import Stack from '@mui/material/Stack';
 import Divider from '@mui/material/Divider';
 import Button from '@mui/material/Button';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
+import Badge from '@mui/material/Badge';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import PeopleAltIcon from '@mui/icons-material/PeopleAlt';
-import BoltRoundedIcon from '@mui/icons-material/BoltRounded';
+import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
 import NotificationsNoneRoundedIcon from '@mui/icons-material/NotificationsNoneRounded';
 import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded';
 import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
 import LogoutIcon from '@mui/icons-material/Logout';
-import MenuIcon from '@mui/icons-material/Menu';
+import BoltRoundedIcon from '@mui/icons-material/BoltRounded';
 import EventNoteIcon from '@mui/icons-material/EventNote';
 import { alpha } from '@mui/material/styles';
 import { useAuth } from '../context/AuthContext';
@@ -39,9 +42,9 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', to: '/home', icon: <DashboardRoundedIcon /> },
-  { label: 'Flow', to: '/flow', icon: <BoltRoundedIcon /> },
+  { label: 'Achievements', to: '/achievements', icon: <EmojiEventsRoundedIcon /> },
   { label: 'Events', to: '/events', icon: <CalendarMonthIcon /> },
-  { label: 'Connect', to: '/profile', icon: <PeopleAltIcon /> },
+  { label: 'Connect', to: '/connect', icon: <PeopleAltIcon /> },
   { label: 'Notifications', to: '/notifications', icon: <NotificationsNoneRoundedIcon /> },
 ];
 
@@ -50,9 +53,13 @@ export default function AppLayout() {
   const { selectedEvent } = useEvent();
   const navigate = useNavigate();
   const location = useLocation();
-  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Profile menu anchor
+  const [profileAnchor, setProfileAnchor] = useState<null | HTMLElement>(null);
+  const profileMenuOpen = Boolean(profileAnchor);
 
   function handleLogout() {
+    setProfileAnchor(null);
     logout();
     navigate('/login', { replace: true });
   }
@@ -137,7 +144,6 @@ export default function AppLayout() {
             component={RouterLink}
             to={item.to}
             selected={isActive(item.to)}
-            onClick={() => setMobileOpen(false)}
           >
             <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
             <ListItemText
@@ -168,7 +174,7 @@ export default function AppLayout() {
             size="small"
             variant="outlined"
             startIcon={<PersonRoundedIcon />}
-            onClick={() => { navigate('/profile'); setMobileOpen(false); }}
+            onClick={() => navigate('/profile')}
             sx={{ flex: 1, fontSize: '0.75rem' }}
           >
             Profile
@@ -189,49 +195,101 @@ export default function AppLayout() {
   );
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+    <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, minHeight: '100vh' }}>
       {/* AppBar — mobile only */}
       <AppBar
-        position="fixed"
+        position="sticky"
+        elevation={2}
         sx={{
           zIndex: (t) => t.zIndex.drawer + 1,
           display: { md: 'none' },
+          borderRadius: 0,
         }}
       >
-        <Toolbar>
+        <Toolbar sx={{ minHeight: 56, px: 2 }}>
+          {/* AWS SBG-APC headline */}
+          <Typography
+            variant="subtitle1"
+            component="div"
+            sx={{
+              flexGrow: 1,
+              fontWeight: 800,
+              color: '#fff',
+              fontSize: '1rem',
+              lineHeight: 1.2,
+            }}
+          >
+            AWS SBG-APC
+          </Typography>
+
+          {/* Bell icon for notifications */}
           <IconButton
             color="inherit"
-            edge="start"
-            onClick={() => setMobileOpen((o) => !o)}
-            sx={{ mr: 1 }}
-            aria-label="open navigation"
+            onClick={() => navigate('/notifications')}
+            sx={{ mr: 0.5 }}
+            aria-label="notifications"
           >
-            <MenuIcon />
+            <Badge badgeContent={2} color="error" variant="dot">
+              <NotificationsNoneRoundedIcon />
+            </Badge>
           </IconButton>
 
-          <Avatar sx={{ width: 32, height: 32, fontSize: '0.75rem', mr: 1.5 }}>
-            {initials}
-          </Avatar>
+          {/* Profile avatar button → dropdown with name + profile + logout */}
+          <IconButton
+            onClick={(e) => setProfileAnchor(e.currentTarget)}
+            sx={{ p: 0.5 }}
+            aria-label="account menu"
+          >
+            <Avatar sx={{ width: 32, height: 32, fontSize: '0.75rem' }}>
+              {initials}
+            </Avatar>
+          </IconButton>
 
-          <Typography variant="body1" component="div" sx={{ flexGrow: 1, fontWeight: 600 }} noWrap>
-            {selectedEvent ? selectedEvent.title : 'AWS SBG-APC'}
-          </Typography>
+          {/* Profile dropdown menu */}
+          <Menu
+            anchorEl={profileAnchor}
+            open={profileMenuOpen}
+            onClose={() => setProfileAnchor(null)}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            slotProps={{
+              paper: {
+                sx: {
+                  mt: 1,
+                  minWidth: 220,
+                  borderRadius: 3,
+                  boxShadow: `0 8px 32px ${alpha(brand.primary, 0.15)}`,
+                },
+              },
+            }}
+          >
+            {/* User info header */}
+            <Box sx={{ px: 2, pt: 1.5, pb: 1 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                {user?.name}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {user?.role === 'admin' ? 'Administrator' : user?.role === 'officer' ? 'Officer' : 'Attendee'}
+              </Typography>
+            </Box>
+            <Divider sx={{ my: 0.5 }} />
+            <MenuItem
+              onClick={() => { setProfileAnchor(null); navigate('/profile'); }}
+              sx={{ py: 1.2 }}
+            >
+              <ListItemIcon><PersonRoundedIcon fontSize="small" /></ListItemIcon>
+              <ListItemText primary="My Profile" />
+            </MenuItem>
+            <MenuItem
+              onClick={handleLogout}
+              sx={{ py: 1.2, color: brand.error }}
+            >
+              <ListItemIcon><LogoutIcon fontSize="small" sx={{ color: brand.error }} /></ListItemIcon>
+              <ListItemText primary="Logout" />
+            </MenuItem>
+          </Menu>
         </Toolbar>
       </AppBar>
-
-      {/* Mobile temporary drawer */}
-      <Drawer
-        variant="temporary"
-        open={mobileOpen}
-        onClose={() => setMobileOpen(false)}
-        ModalProps={{ keepMounted: true }}
-        sx={{
-          display: { xs: 'block', md: 'none' },
-          '& .MuiDrawer-paper': { width: DRAWER_WIDTH, boxSizing: 'border-box' },
-        }}
-      >
-        {drawerContent}
-      </Drawer>
 
       {/* Desktop permanent drawer */}
       <Drawer
@@ -258,12 +316,9 @@ export default function AppLayout() {
           flexGrow: 1,
           width: { md: `calc(100% - ${DRAWER_WIDTH}px)` },
           bgcolor: 'background.default',
-          minHeight: '100vh',
+          minHeight: { xs: 'auto', md: '100vh' },
         }}
       >
-        {/* Toolbar spacer for mobile */}
-        <Toolbar sx={{ display: { md: 'none' } }} />
-
         {/* Page content */}
         <Box sx={{ p: { xs: 2, md: 3 }, pb: { xs: 10, md: 3 } }}>
           <Outlet />

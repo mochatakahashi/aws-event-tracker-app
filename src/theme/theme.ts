@@ -166,6 +166,7 @@ const theme = createTheme({
         root: {
           background: brand.gradientDark,
           boxShadow: `0 2px 20px ${alpha(brand.primaryDarker, 0.3)}`,
+          borderRadius: 0,
         },
       },
     },

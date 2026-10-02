@@ -6,8 +6,6 @@ import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import CardActionArea from '@mui/material/CardActionArea';
 import Stack from '@mui/material/Stack';
-import Chip from '@mui/material/Chip';
-import LinearProgress from '@mui/material/LinearProgress';
 import CircularProgress from '@mui/material/CircularProgress';
 import BoltRoundedIcon from '@mui/icons-material/BoltRounded';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
@@ -19,6 +17,7 @@ import { useAuth } from '../context/AuthContext';
 import { getSessionsByEvent } from '../services/sessionService';
 import { brand } from '../theme/theme';
 import type { Session } from '../types/session';
+import EventStampCard from '../components/EventStampCard';
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -68,14 +67,9 @@ export default function DashboardPage() {
   }
 
   const stampSessions = sessions.filter((s) => s.requiresStamp);
-  // Mock: assume 1 stamp earned for demo
   const stampsEarned = 1;
   const totalStamps = stampSessions.length;
-  const progress = totalStamps > 0 ? (stampsEarned / totalStamps) * 100 : 0;
 
-  const upcomingSessions = sessions
-    .filter((s) => s.status === 'not-started')
-    .slice(0, 3);
 
   if (loading) {
     return (
@@ -142,52 +136,19 @@ export default function DashboardPage() {
         )}
       </Stack>
 
-      {/* Stamp Progress */}
-      {totalStamps > 0 && (
-        <Card sx={{ mb: 3 }}>
-          <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-              <Typography variant="h5">Stamp Progress</Typography>
-              <Chip
-                label={`${Math.round(progress)}%`}
-                size="small"
-                sx={{
-                  backgroundColor: alpha(brand.primary, 0.1),
-                  color: brand.primary,
-                  fontWeight: 700,
-                }}
-              />
-            </Stack>
-            <LinearProgress
-              variant="determinate"
-              value={progress}
-              sx={{
-                height: 8,
-                borderRadius: 4,
-                backgroundColor: alpha(brand.primary, 0.1),
-                '& .MuiLinearProgress-bar': {
-                  borderRadius: 4,
-                  background: brand.gradient,
-                },
-              }}
-            />
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-              Complete workshop activities to earn stamps. Officers will approve your completion.
-            </Typography>
-          </CardContent>
-        </Card>
-      )}
+      {/* Attendee Event Stamp Card */}
+      <EventStampCard />
 
       {/* Quick Actions */}
       <Stack direction="row" spacing={1.5} sx={{ mb: 3 }}>
         <Card
           sx={{ flex: 1, cursor: 'pointer' }}
-          onClick={() => navigate('/flow')}
+          onClick={() => navigate('/achievements')}
         >
           <CardContent sx={{ p: 2, textAlign: 'center', '&:last-child': { pb: 2 } }}>
             <BoltRoundedIcon sx={{ color: brand.primary, fontSize: 28, mb: 0.5 }} />
             <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.8rem' }}>
-              View Flow
+              Achievements
             </Typography>
           </CardContent>
         </Card>
@@ -215,54 +176,6 @@ export default function DashboardPage() {
         </Card>
       </Stack>
 
-      {/* Upcoming Sessions */}
-      <Typography variant="h3" sx={{ mb: 2 }}>
-        Upcoming Sessions
-      </Typography>
-      {upcomingSessions.length === 0 ? (
-        <Typography color="text.secondary">No upcoming sessions for this event.</Typography>
-      ) : (
-        <Stack spacing={1.5}>
-          {upcomingSessions.map((session) => (
-            <Card
-              key={session.id}
-              variant="outlined"
-              sx={{ cursor: 'pointer' }}
-              onClick={() => navigate(`/flow/session/${session.id}`)}
-            >
-              <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                <Typography variant="h5" sx={{ mb: 0.5 }}>
-                  {session.title}
-                </Typography>
-                <Stack direction="row" spacing={1.5} alignItems="center">
-                  <Typography variant="caption" color="text.secondary">
-                    {new Date(session.startTime).toLocaleTimeString('en-US', {
-                      hour: 'numeric',
-                      minute: '2-digit',
-                      hour12: true,
-                    })}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    📍 {session.room}
-                  </Typography>
-                  {session.requiresStamp && (
-                    <Chip
-                      label="⭐ Stamp"
-                      size="small"
-                      sx={{
-                        height: 20,
-                        fontSize: '0.65rem',
-                        backgroundColor: alpha(brand.warning, 0.15),
-                        color: '#D97706',
-                      }}
-                    />
-                  )}
-                </Stack>
-              </CardContent>
-            </Card>
-          ))}
-        </Stack>
-      )}
     </Box>
   );
 }

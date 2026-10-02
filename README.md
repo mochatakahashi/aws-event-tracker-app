@@ -1,119 +1,168 @@
-# EventHub — Frontend
+# AWS SBG-APC Event Tracker ☁️📱
 
-A React + Vite + TypeScript single-page app for discovering and registering for
-real-world events: conferences, workshops, meetups, and webinars. It ships with
-a mock, in-memory data layer so the entire UI runs with no backend. The mock
-services are shaped like a real API so they can be swapped for actual endpoints
-later without touching the components.
+**AWS SBG-APC Event Tracker** is a high-performance, mobile-first web application designed for the **AWS Student Builder Group – Asia Pacific College**. It serves as an all-in-one companion app for students, speakers, and officers during cloud events, conferences, workshops, and meetups.
 
-## Features
+---
 
-Attendee experience (current focus):
+## 🌟 Key Features
 
-- **Login** with mock auth (validated against a hardcoded user list, session
-  persisted to `localStorage`)
-- **Dashboard** with summary cards (upcoming events, total events,
-  registrations, speakers), an events-by-category chart, and an upcoming-events
-  list
-- **Browse events** with search and category/status filters, showing when each
-  event runs, its venue, and availability
-- **Event detail** with the speaker lineup (including LinkedIn links) and a
-  **Register / RSVP** flow that is capacity-aware
-- **My Registrations** listing the events you have signed up for, with RSVP
-  status and the ability to cancel
+### 👤 Attendee Experience
+- **Official Event Stamp Passport (`EventStampCard`)**:
+  - Automatically generates circular stamp slots for every session requiring activity completion in the selected event.
+  - Visual status indicators:
+    - 🟢 **STAMP APPROVED**: Emerald gradient badge seal with officer verification.
+    - 🟠 **PENDING OFFICER APPROVAL**: Amber pulsing indicator awaiting review.
+    - ⚪ **UNCLAIMED**: Dashed star slot with one-tap "Request Stamp" functionality.
+  - Progress tracking with a completion bar and "PASSPORT COMPLETED 🎉" status badge.
+- **Event Flow & Real-Time Schedule**: View time-grouped sessions with room locations, speaker profiles, and activity requirements.
+- **Inline Networking QR Card (`NetworkingCard`)**: Generate a scannable QR code linking to your LinkedIn/social profiles without dark modal overlays.
+- **My Registrations**: Manage event RSVPs (`going`, `interested`, `declined`) and view upcoming events.
 
-Admin-facing (partial, more to come):
+### 🛡️ Officer & Admin Capabilities
+- **Officer Verification Portal (`OfficerDashboardPage`)**: Real-time review queue for officers to verify and approve/decline student stamp requests.
+- **Admin Role Management (`AdminDashboardPage`)**: Manage user permissions, promoting attendees to officers or administrators.
+- **Multi-Role Support**: Built-in access control for `attendee`, `officer`, and `admin` roles.
 
-- **Create / edit events** including speaker assignment from a shared directory
-  and adding a new speaker via a (mock) LinkedIn import
+### 📱 Mobile-First & Overlay-Free UX
+- **No Overlays**: Replaced screen-obscuring backdrop modals and popups with inline expandable cards and collapse panels.
+- **Sticky Edge-to-Edge Navigation**: Clean 0-radius top app bar with text truncation for seamless mobile viewing.
+- **Fixed Bottom Navigation Bar (`BottomNav`)**: Thumb-friendly navigation bar for mobile viewports (`xs`) giving instant access to Events, Profile/Connect, Schedule Flow, Notifications, and More.
 
-## Roles
+---
 
-The logged-in user maps to a person in the attendee directory.
+## 👥 Demo User Accounts
 
-| Username  | Password    | Role     | Maps to      |
-| --------- | ----------- | -------- | ------------ |
-| admin     | admin123    | admin    | Admin User   |
-| attendee  | attendee123 | attendee | Sofia Rossi  |
+| Username | Password | Role | Name | Purpose |
+| :--- | :--- | :--- | :--- | :--- |
+| `admin` | `admin123` | **Admin** | Admin User | Manage user roles & verify stamps |
+| `officer` | `officer123` | **Officer** | Rodmina Jhoy Ibe | Approve attendee stamp requests |
+| `attendee` | `attendee123` | **Attendee** | Sofia Rossi | Track event flow, request stamps & network |
 
-Admins additionally see the **New Event** navigation item. Full admin
-management screens (attendee lists, check-in, speaker management) are planned
-for a later pass.
+---
 
-## Tech stack
+## 🛠️ Tech Stack
 
-- React 18 + TypeScript
-- Vite (dev server + build)
-- Material UI (MUI) v6 + `@mui/x-charts`
-- React Router v6
-- Vitest + React Testing Library
+- **Framework**: React 18 + TypeScript
+- **Build Tool**: Vite
+- **UI Library**: Material UI (MUI) v6
+- **Routing**: React Router v6
+- **Testing**: Vitest + React Testing Library
+- **State Management**: React Context (`AuthContext`, `EventContext`) + LocalStorage Persistence
 
-## Getting started
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- **Node.js**: v18.0.0 or higher
+- **npm**: v9.0.0 or higher
+
+### Installation
 
 ```bash
+# Clone repository
+git clone https://github.com/mochatakahashi/aws-event-tracker-app.git
+
+# Navigate into project directory
+cd aws-event-tracker-app
+
+# Install dependencies
 npm install
+
+# Launch development server
 npm run dev
 ```
 
-Then open the URL Vite prints (default http://localhost:5173) and sign in with
-one of the accounts above.
+Open [http://localhost:5173](http://localhost:5173) in your browser and sign in with any of the demo accounts above.
 
-## Scripts
+---
 
-| Command              | Description                          |
-| -------------------- | ------------------------------------ |
-| `npm run dev`        | Start the Vite dev server            |
-| `npm run build`      | Type-check and build for production  |
-| `npm run preview`    | Preview the production build locally |
-| `npm test`           | Run the test suite once (Vitest)     |
-| `npm run test:watch` | Run tests in watch mode              |
+## 📜 Available Scripts
 
-## Project structure
+| Command | Description |
+| :--- | :--- |
+| `npm run dev` | Starts the Vite development server with HMR |
+| `npm run build` | Type-checks (`tsc -b`) and builds production bundle |
+| `npm run preview` | Previews the production build locally |
+| `npm test` | Runs the Vitest test suite once |
+| `npm run test:watch` | Runs Vitest in watch mode |
+
+---
+
+## 📁 Project Structure
 
 ```
-src/
-  components/    Reusable UI (layout, route guard, chips)
-  context/       AuthContext (auth state + localStorage persistence)
-  pages/         Route-level screens (login, dashboard, browse, detail,
-                 my registrations, event form)
-  services/      Mock API layer (event / speaker / registration) + seed data
-  theme/         Shared MUI theme
-  types/         Shared TypeScript types (event, speaker, attendee, auth)
-  utils/         Display helpers (colors, date formatting)
-  test/          Test setup + provider render helper
+aws-event-tracker-app/
+├── public/                # Static public assets
+├── src/
+│   ├── components/        # Reusable UI components
+│   │   ├── AppLayout.tsx         # Main layout with sticky header & mobile bottom nav
+│   │   ├── BottomNav.tsx         # Mobile bottom navigation bar
+│   │   ├── EventStampCard.tsx    # Automatic circle stamp passport card
+│   │   ├── NetworkingCard.tsx    # Inline modal-free QR card
+│   │   ├── ProtectedRoute.tsx    # Auth route guard
+│   │   ├── SessionCard.tsx       # Flow session card
+│   │   └── StampBadge.tsx        # Circle badge indicator
+│   ├── context/           # Global React Contexts
+│   │   ├── AuthContext.tsx       # Auth state & localStorage persistence
+│   │   └── EventContext.tsx      # Active event selection state
+│   ├── pages/             # Page route views
+│   │   ├── AdminDashboardPage.tsx
+│   │   ├── DashboardPage.tsx
+│   │   ├── EventDetailPage.tsx
+│   │   ├── EventFlowPage.tsx
+│   │   ├── EventsPage.tsx
+│   │   ├── LoginPage.tsx
+│   │   ├── MorePage.tsx
+│   │   ├── NotificationsPage.tsx
+│   │   ├── OfficerDashboardPage.tsx
+│   │   ├── ProfilePage.tsx
+│   │   ├── SelectEventPage.tsx
+│   │   ├── SessionDetailPage.tsx
+│   │   ├── SignUpPage.tsx
+│   │   └── WelcomePage.tsx
+│   ├── services/          # Mock service & data layer
+│   │   ├── authService.ts
+│   │   ├── eventService.ts
+│   │   ├── registrationService.ts
+│   │   ├── sessionService.ts
+│   │   ├── speakerService.ts
+│   │   └── seedData.ts
+│   ├── theme/             # MUI theme configuration & brand tokens
+│   │   └── theme.ts
+│   └── types/             # Shared TypeScript declarations
+│       ├── attendee.ts
+│       ├── auth.ts
+│       ├── event.ts
+│       ├── session.ts
+│       └── speaker.ts
+├── ARCHITECTURE.md        # Technical architecture documentation
+├── CHANGELOG.md           # Version release history
+├── DECISIONS.md           # Architectural Decision Records (ADRs)
+├── ROADMAP.md             # Project roadmap & upcoming features
+├── README.md              # Project documentation
+└── package.json
 ```
 
-## Data model
+---
 
-- **Event** — title, description, category (conference / workshop / meetup /
-  webinar), status (upcoming / ongoing / completed / cancelled), start & end
-  datetime, venue, capacity (0 = unlimited), and assigned speaker ids
-- **Speaker** — a shared directory entry (name, headline, company, bio,
-  optional LinkedIn + avatar URLs), assignable to any number of events
-- **Person** — a shared attendee-directory entry (name, email)
-- **Registration** — links a person to an event (the "ticket"): RSVP status
-  (going / interested / declined), check-in flag, and a timestamp
+## 🔌 Backend Integration Guide
 
-## Mock data layer → real backend
+The app utilizes async mock service functions in `src/services/` that simulate HTTP network latency (`delay()`). To integrate a live AWS backend (e.g., API Gateway + AWS Lambda + DynamoDB):
 
-The app talks to service modules that simulate async network calls:
+1. **Replace Service Calls**: Swap local storage operations in `src/services/*.ts` with `fetch` or AWS SDK v3 calls.
+2. **Preserve Signatures**: Keep function return types (`Promise<Session[]>`, `Promise<Stamp>`) unchanged to avoid modifying React components.
+3. **Authentication**: Connect `AuthContext.tsx` to AWS Cognito / Amplify Auth.
 
-- `src/services/eventService.ts` — event CRUD + speaker assignment
-- `src/services/speakerService.ts` — speaker directory + LinkedIn lookup
-- `src/services/registrationService.ts` — people + registrations
+---
 
-Every function returns a `Promise` with simulated latency, exactly as a real
-HTTP client would. To connect a real backend, replace the function bodies with
-`fetch`/SDK calls and keep the same signatures. The components need no changes.
+## 📄 Documentation Links
 
-### A note on the LinkedIn import
+- 📐 [Architecture Documentation](ARCHITECTURE.md)
+- 🗺️ [Project Roadmap](ROADMAP.md)
+- 📝 [Changelog](CHANGELOG.md)
+- 💡 [Architectural Decision Records (ADRs)](DECISIONS.md)
 
-LinkedIn profile data is not publicly retrievable from a URL without an
-approved partner integration. `lookupLinkedInProfile` in `speakerService.ts` is
-a **mock**: it derives a plausible name from the profile URL slug and fills
-placeholder details, simulating the shape of what a real integration would
-return. Swap it for a real integration (or a backend proxy) later.
+---
 
-> Note: the hardcoded users and passwords in `authService.ts` exist only
-> because there is no backend yet. Never ship credentials in client code in a
-> real application.
+&copy; 2026 **AWS Student Builder Group – Asia Pacific College**. Built with ❤️ for AWS Builders.

@@ -35,7 +35,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const from = (location.state as LocationState)?.from?.pathname ?? '/flow';
+  const from = (location.state as LocationState)?.from?.pathname ?? '/home';
 
   function validate(): boolean {
     const errors: { username?: string; password?: string } = {};

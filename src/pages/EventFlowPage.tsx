@@ -7,7 +7,6 @@ import Stack from '@mui/material/Stack';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import Button from '@mui/material/Button';
-import BoltRoundedIcon from '@mui/icons-material/BoltRounded';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
 import CardActionArea from '@mui/material/CardActionArea';
@@ -21,6 +20,7 @@ import type { Session } from '../types/session';
 import type { Stamp } from '../types/session';
 import type { Speaker } from '../types/speaker';
 import SessionCard from '../components/SessionCard';
+import EventStampCard from '../components/EventStampCard';
 
 function formatTimeGroup(iso: string): string {
   return new Date(iso).toLocaleTimeString('en-US', {
@@ -135,8 +135,11 @@ export default function EventFlowPage() {
       </Stack>
 
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3, fontSize: '0.8rem' }}>
-        The full schedule for this event. Tap on any session for details.
+        The full schedule for this event. Tap on any session for details or to request a stamp.
       </Typography>
+
+      {/* Attendee Event Stamp Card */}
+      <EventStampCard />
 
       {/* Session groups */}
       {grouped.map((group) => (

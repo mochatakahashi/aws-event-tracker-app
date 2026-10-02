@@ -1,6 +1,6 @@
 import Box from '@mui/material/Box';
-import Dialog from '@mui/material/Dialog';
-import DialogContent from '@mui/material/DialogContent';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
@@ -18,13 +18,15 @@ import { brand } from '../theme/theme';
 import type { SocialLinks } from '../types/auth';
 
 interface NetworkingCardProps {
-  open: boolean;
-  onClose: () => void;
+  open?: boolean;
+  onClose?: () => void;
   name: string;
   socials?: SocialLinks;
 }
 
-export default function NetworkingCard({ open, onClose, name, socials }: NetworkingCardProps) {
+export default function NetworkingCard({ open = true, onClose, name, socials }: NetworkingCardProps) {
+  if (!open) return null;
+
   const linkedInUrl = socials?.linkedIn ?? '';
   const qrData = linkedInUrl || socials?.github || socials?.website || '';
   const qrUrl = qrData
@@ -38,16 +40,13 @@ export default function NetworkingCard({ open, onClose, name, socials }: Network
   }
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth="xs"
-      fullWidth
-      PaperProps={{
-        sx: {
-          borderRadius: 4,
-          overflow: 'hidden',
-        },
+    <Card
+      variant="outlined"
+      sx={{
+        borderRadius: 4,
+        overflow: 'hidden',
+        boxShadow: `0 4px 20px ${alpha(brand.primary, 0.08)}`,
+        mb: 3,
       }}
     >
       {/* Header */}
@@ -56,17 +55,19 @@ export default function NetworkingCard({ open, onClose, name, socials }: Network
           background: brand.gradientDark,
           color: '#fff',
           p: 3,
-          pb: 4,
+          pb: 3,
           position: 'relative',
           textAlign: 'center',
         }}
       >
-        <IconButton
-          onClick={onClose}
-          sx={{ position: 'absolute', top: 8, right: 8, color: 'rgba(255,255,255,0.7)' }}
-        >
-          <CloseIcon />
-        </IconButton>
+        {onClose && (
+          <IconButton
+            onClick={onClose}
+            sx={{ position: 'absolute', top: 8, right: 8, color: 'rgba(255,255,255,0.7)' }}
+          >
+            <CloseIcon />
+          </IconButton>
+        )}
         <Typography
           variant="h6"
           sx={{
@@ -83,7 +84,7 @@ export default function NetworkingCard({ open, onClose, name, socials }: Network
         </Typography>
       </Box>
 
-      <DialogContent sx={{ p: 3, textAlign: 'center' }}>
+      <CardContent sx={{ p: 3, textAlign: 'center' }}>
         {qrUrl ? (
           <>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -103,12 +104,12 @@ export default function NetworkingCard({ open, onClose, name, socials }: Network
                 alt="QR Code"
                 width={200}
                 height={200}
-                style={{ display: 'block' }}
+                style={{ display: 'block', maxWidth: '100%', height: 'auto' }}
               />
             </Box>
           </>
         ) : (
-          <Typography variant="body2" color="text.secondary" sx={{ py: 4 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ py: 3 }}>
             Add social links in your profile to generate a QR code.
           </Typography>
         )}
@@ -178,7 +179,7 @@ export default function NetworkingCard({ open, onClose, name, socials }: Network
             )}
           </Stack>
         )}
-      </DialogContent>
-    </Dialog>
+      </CardContent>
+    </Card>
   );
 }

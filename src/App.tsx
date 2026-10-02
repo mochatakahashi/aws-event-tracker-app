@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import theme from './theme/theme';
@@ -15,11 +15,12 @@ import SignUpPage from './pages/SignUpPage';
 // Protected pages
 import SelectEventPage from './pages/SelectEventPage';
 import DashboardPage from './pages/DashboardPage';
-import EventFlowPage from './pages/EventFlowPage';
+import AchievementsPage from './pages/AchievementsPage';
 import SessionDetailPage from './pages/SessionDetailPage';
 import EventsPage from './pages/EventsPage';
 import EventDetailPage from './pages/EventDetailPage';
 import ProfilePage from './pages/ProfilePage';
+import ConnectPage from './pages/ConnectPage';
 import NotificationsPage from './pages/NotificationsPage';
 import MorePage from './pages/MorePage';
 import OfficerDashboardPage from './pages/OfficerDashboardPage';
@@ -58,15 +59,20 @@ function App() {
                 }
               >
                 <Route path="/home" element={<DashboardPage />} />
-                <Route path="/flow" element={<EventFlowPage />} />
-                <Route path="/flow/session/:id" element={<SessionDetailPage />} />
+                <Route path="/achievements" element={<AchievementsPage />} />
+                <Route path="/achievements/session/:id" element={<SessionDetailPage />} />
                 <Route path="/events" element={<EventsPage />} />
                 <Route path="/events/:id" element={<EventDetailPage />} />
                 <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/connect" element={<ConnectPage />} />
                 <Route path="/notifications" element={<NotificationsPage />} />
                 <Route path="/more" element={<MorePage />} />
                 <Route path="/officer" element={<OfficerDashboardPage />} />
                 <Route path="/admin" element={<AdminDashboardPage />} />
+
+                {/* Redirect old /flow routes to /achievements */}
+                <Route path="/flow" element={<Navigate to="/achievements" replace />} />
+                <Route path="/flow/session/:id" element={<Navigate to="/achievements" replace />} />
               </Route>
 
               {/* 404 */}

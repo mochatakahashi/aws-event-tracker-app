@@ -15,7 +15,6 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AccessTimeIcon from '@mui/icons-material/AccessTimeRounded';
 import PlaceIcon from '@mui/icons-material/PlaceRounded';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { alpha } from '@mui/material/styles';
 import { getSessionById, getStampsByAttendee, createStamp } from '../services/sessionService';
 import { getSpeakers } from '../services/speakerService';

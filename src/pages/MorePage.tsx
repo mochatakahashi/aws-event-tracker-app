@@ -11,6 +11,8 @@ import Stack from '@mui/material/Stack';
 import EventNoteIcon from '@mui/icons-material/EventNote';
 import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
 import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded';
+import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
+import PeopleAltIcon from '@mui/icons-material/PeopleAlt';
 import LogoutIcon from '@mui/icons-material/Logout';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
@@ -71,9 +73,17 @@ export default function MorePage() {
           <ListItemIcon><DashboardRoundedIcon /></ListItemIcon>
           <ListItemText primary="Dashboard" />
         </ListItemButton>
+        <ListItemButton onClick={() => navigate('/achievements')}>
+          <ListItemIcon><EmojiEventsRoundedIcon /></ListItemIcon>
+          <ListItemText primary="My Achievements" secondary="Stamps & milestones" />
+        </ListItemButton>
         <ListItemButton onClick={() => navigate('/profile')}>
           <ListItemIcon><PersonRoundedIcon /></ListItemIcon>
           <ListItemText primary="My Profile" />
+        </ListItemButton>
+        <ListItemButton onClick={() => navigate('/connect')}>
+          <ListItemIcon><PeopleAltIcon /></ListItemIcon>
+          <ListItemText primary="Connect" secondary="Networking & Bio" />
         </ListItemButton>
         <ListItemButton onClick={() => navigate('/select-event')}>
           <ListItemIcon><EventNoteIcon /></ListItemIcon>

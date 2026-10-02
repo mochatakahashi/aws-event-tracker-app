@@ -120,7 +120,7 @@ export default function WelcomePage() {
         variant="contained"
         size="large"
         fullWidth
-        onClick={() => navigate(isAuthenticated ? '/flow' : '/login')}
+        onClick={() => navigate(isAuthenticated ? '/home' : '/login')}
         sx={{
           mt: 4,
           py: 1.8,

@@ -2,18 +2,18 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import BottomNavigation from '@mui/material/BottomNavigation';
 import BottomNavigationAction from '@mui/material/BottomNavigationAction';
 import Paper from '@mui/material/Paper';
+import DashboardIcon from '@mui/icons-material/DashboardRounded';
 import EventIcon from '@mui/icons-material/CalendarMonth';
 import ConnectIcon from '@mui/icons-material/PeopleAlt';
-import FlowIcon from '@mui/icons-material/BoltRounded';
-import NotificationsIcon from '@mui/icons-material/NotificationsNoneRounded';
+import AchievementsIcon from '@mui/icons-material/EmojiEventsRounded';
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import { brand } from '../theme/theme';
 
 const NAV_ITEMS = [
+  { label: 'Home', icon: <DashboardIcon />, path: '/home' },
   { label: 'Events', icon: <EventIcon />, path: '/events' },
-  { label: 'Connect', icon: <ConnectIcon />, path: '/profile' },
-  { label: 'Flow', icon: <FlowIcon />, path: '/flow' },
-  { label: 'Notifications', icon: <NotificationsIcon />, path: '/notifications' },
+  { label: 'Achievements', icon: <AchievementsIcon />, path: '/achievements' },
+  { label: 'Connect', icon: <ConnectIcon />, path: '/connect' },
   { label: 'More', icon: <MoreHorizIcon />, path: '/more' },
 ];
 
@@ -38,7 +38,7 @@ export default function BottomNav() {
       elevation={8}
     >
       <BottomNavigation
-        value={currentIndex === -1 ? 2 : currentIndex}
+        value={currentIndex === -1 ? 0 : currentIndex}
         onChange={(_e, newValue) => {
           navigate(NAV_ITEMS[newValue].path);
         }}
