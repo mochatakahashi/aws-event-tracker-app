@@ -15,8 +15,8 @@ import EventStampCard from '../components/EventStampCard';
 import EngagementScoreCard from '../components/EngagementScoreCard';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
 import Stack from '@mui/material/Stack';
+import type { Session, Stamp } from '../types/session';
 
 export default function DashboardPage() {
   const navigate = useNavigate();
