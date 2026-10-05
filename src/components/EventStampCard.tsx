@@ -335,11 +335,12 @@ export default function EventStampCard({
               const isApproved = stamp?.status === 'approved';
               const isPending = stamp?.status === 'pending';
               const coverImage =
-                session.type === 'workshop'
+                session.imageUrl ??
+                (session.type === 'workshop'
                   ? 'https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=600&q=80'
                   : session.type === 'keynote'
                   ? 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=600&q=80'
-                  : 'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?auto=format&fit=crop&w=600&q=80';
+                  : 'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?auto=format&fit=crop&w=600&q=80');
 
               return (
                 <Card

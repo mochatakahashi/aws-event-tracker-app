@@ -5,6 +5,7 @@ import Typography from '@mui/material/Typography';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import Card from '@mui/material/Card';
+import Button from '@mui/material/Button';
 import CardActionArea from '@mui/material/CardActionArea';
 import CardContent from '@mui/material/CardContent';
 import Chip from '@mui/material/Chip';
@@ -14,11 +15,14 @@ import AvatarGroup from '@mui/material/AvatarGroup';
 import IconButton from '@mui/material/IconButton';
 import CircularProgress from '@mui/material/CircularProgress';
 import PlaceIcon from '@mui/icons-material/PlaceRounded';
+import AccessTimeIcon from '@mui/icons-material/AccessTimeRounded';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import BookmarkBorderRoundedIcon from '@mui/icons-material/BookmarkBorderRounded';
+import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import { alpha } from '@mui/material/styles';
 import { getEvents } from '../services/eventService';
 import { getRegistrationsByEvent } from '../services/registrationService';
+import { useAuth } from '../context/AuthContext';
 import { brand } from '../theme/theme';
 import type { AppEvent } from '../types/event';
 
@@ -37,6 +41,10 @@ function formatMonthDay(iso: string): { month: string; day: string } {
   return { month, day };
 }
 
+function formatTimeOnly(iso: string): string {
+  return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
 const statusConfig: Record<string, { bg: string; color: string; label: string }> = {
   upcoming: { bg: '#EDE9FE', color: '#7C3AED', label: 'Upcoming' },
   ongoing: { bg: '#FEF3C7', color: '#D97706', label: 'Ongoing' },
@@ -50,6 +58,7 @@ interface EventWithCount extends AppEvent {
 
 export default function EventsPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [events, setEvents] = useState<EventWithCount[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState(0);
@@ -98,24 +107,40 @@ export default function EventsPage() {
             AWS Student Builder Group – Asia Pacific College
           </Typography>
         </Box>
-        <Chip
-          icon={<ArrowForwardIcon sx={{ fontSize: 16 }} />}
-          label="Switch Event"
-          onClick={() => navigate('/select-event')}
-          clickable
-          sx={{
-            fontWeight: 700,
-            fontSize: '0.78rem',
-            bgcolor: alpha(brand.primary, 0.1),
-            color: brand.primary,
-            border: `1px solid ${alpha(brand.primary, 0.25)}`,
-            py: 1.8,
-            px: 1,
-            '&:hover': {
-              bgcolor: alpha(brand.primary, 0.18),
-            },
-          }}
-        />
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          {user?.role === 'admin' && (
+            <Button
+              variant="contained"
+              size="small"
+              sx={{ background: brand.gradient, borderRadius: 2 }}
+              onClick={() => {
+                navigate('/admin/events/new');
+              }}
+            >
+              + Create Event
+            </Button>
+          )}
+          {user?.role !== 'admin' && (
+            <Chip
+              icon={<ArrowForwardIcon sx={{ fontSize: 16 }} />}
+              label="Switch Event"
+              onClick={() => navigate('/select-event')}
+              clickable
+              sx={{
+                fontWeight: 700,
+                fontSize: '0.78rem',
+                bgcolor: alpha(brand.primary, 0.1),
+                color: brand.primary,
+                border: `1px solid ${alpha(brand.primary, 0.25)}`,
+                py: 1.8,
+                px: 1,
+                '&:hover': {
+                  bgcolor: alpha(brand.primary, 0.18),
+                },
+              }}
+            />
+          )}
+        </Box>
       </Stack>
 
       <Tabs
@@ -161,8 +186,9 @@ export default function EventsPage() {
         >
           {displayEvents.map((event) => {
             const st = statusConfig[event.status] ?? statusConfig.upcoming;
-            const coverImage = EVENT_COVER_IMAGES[event.category] ?? EVENT_COVER_IMAGES.conference;
+            const coverImage = event.imageUrl || EVENT_COVER_IMAGES[event.category] || EVENT_COVER_IMAGES.conference;
             const { month, day } = formatMonthDay(event.startAt);
+            const eventTime = formatTimeOnly(event.startAt);
 
             return (
               <Card
@@ -241,7 +267,7 @@ export default function EventsPage() {
                       </Typography>
                     </Box>
 
-                    {/* Bookmark Icon (Top Right) */}
+                    {/* Bookmark or Edit Icon (Top Right) */}
                     <IconButton
                       size="small"
                       sx={{
@@ -250,15 +276,24 @@ export default function EventsPage() {
                         right: 12,
                         bgcolor: 'rgba(255, 255, 255, 0.92)',
                         backdropFilter: 'blur(6px)',
-                        color: '#EF4444',
+                        color: user?.role === 'admin' ? brand.primary : '#EF4444',
                         width: 32,
                         height: 32,
                         boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
                         '&:hover': { bgcolor: '#fff' },
                       }}
-                      onClick={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (user?.role === 'admin') {
+                          navigate(`/admin/events/${event.id}/edit`);
+                        }
+                      }}
                     >
-                      <BookmarkBorderRoundedIcon sx={{ fontSize: 18 }} />
+                      {user?.role === 'admin' ? (
+                        <EditRoundedIcon sx={{ fontSize: 18 }} />
+                      ) : (
+                        <BookmarkBorderRoundedIcon sx={{ fontSize: 18 }} />
+                      )}
                     </IconButton>
                   </Box>
 
@@ -302,8 +337,12 @@ export default function EventsPage() {
                       </Typography>
                     </Stack>
 
-                    {/* Venue Location Row */}
+                    {/* Venue & Time Row */}
                     <Stack direction="row" alignItems="center" spacing={0.75} sx={{ mb: 2 }}>
+                      <AccessTimeIcon sx={{ fontSize: 16, color: '#9CA3AF' }} />
+                      <Typography variant="caption" sx={{ color: '#6B7280', fontWeight: 500, fontSize: '0.75rem', mr: 1.5 }}>
+                        {eventTime}
+                      </Typography>
                       <PlaceIcon sx={{ fontSize: 16, color: '#9CA3AF' }} />
                       <Typography variant="caption" sx={{ color: '#6B7280', fontWeight: 500, fontSize: '0.75rem' }}>
                         {event.venue}

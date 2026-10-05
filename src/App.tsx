@@ -25,6 +25,7 @@ import NotificationsPage from './pages/NotificationsPage';
 import MorePage from './pages/MorePage';
 import OfficerDashboardPage from './pages/OfficerDashboardPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
+import EventBuilderPage from './pages/EventBuilderPage';
 import NotFoundPage from './pages/NotFoundPage';
 
 function App() {
@@ -69,6 +70,8 @@ function App() {
                 <Route path="/more" element={<MorePage />} />
                 <Route path="/officer" element={<OfficerDashboardPage />} />
                 <Route path="/admin" element={<AdminDashboardPage />} />
+                <Route path="/admin/events/new" element={<EventBuilderPage />} />
+                <Route path="/admin/events/:id/edit" element={<EventBuilderPage />} />
 
                 {/* Redirect old /flow routes to /achievements */}
                 <Route path="/flow" element={<Navigate to="/achievements" replace />} />

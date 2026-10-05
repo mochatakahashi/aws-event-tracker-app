@@ -39,6 +39,10 @@ export interface AppEvent {
   capacity: number;
   /** Ids of speakers (from the speaker directory) assigned to this event. */
   speakerIds: string[];
+  /** Optional custom image URL for the event cover. */
+  imageUrl?: string;
+  /** Automatically assigned timestamp. */
+  createdAt?: string;
 }
 
 export type NewEventInput = Omit<AppEvent, 'id'>;

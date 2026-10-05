@@ -16,6 +16,7 @@ import AccessTimeFilledIcon from '@mui/icons-material/AccessTimeFilled';
 import { alpha, keyframes } from '@mui/material/styles';
 import { brand } from '../theme/theme';
 import { getEvents } from '../services/eventService';
+import { useAuth } from '../context/AuthContext';
 import type { AppEvent } from '../types/event';
 
 // ── Live pulse animation ──
@@ -102,6 +103,33 @@ const MOCK_NOTIFICATIONS: Notification[] = [
   },
 ];
 
+const ADMIN_MOCK_NOTIFICATIONS: Notification[] = [
+  {
+    id: 'a-1',
+    type: 'announcement',
+    title: 'New User Registrations',
+    message: 'You have 3 new user accounts pending role approval in the Admin Dashboard.',
+    time: '10 mins ago',
+    read: false,
+  },
+  {
+    id: 'a-2',
+    type: 'info',
+    title: 'System Update',
+    message: 'AWS Event Tracker v1.2 has been deployed. New event management features are now live.',
+    time: '1 hour ago',
+    read: false,
+  },
+  {
+    id: 'a-3',
+    type: 'event',
+    title: 'Venue Capacity Warning',
+    message: 'The "Serverless API" workshop is nearing maximum capacity (95/100).',
+    time: '2 hours ago',
+    read: true,
+  },
+];
+
 const typeConfig: Record<string, { icon: React.ReactNode; color: string }> = {
   announcement: { icon: <CampaignIcon />, color: brand.primary },
   event: { icon: <EventIcon />, color: brand.warning },
@@ -110,6 +138,7 @@ const typeConfig: Record<string, { icon: React.ReactNode; color: string }> = {
 };
 
 export default function NotificationsPage() {
+  const { user } = useAuth();
   const [events, setEvents] = useState<AppEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -142,7 +171,13 @@ export default function NotificationsPage() {
     })
     .filter((n) => !n.read); // Only show unread / active event notifications
 
-  const allNotifications = [...eventNotifications, ...MOCK_NOTIFICATIONS];
+  let allNotifications: Notification[] = [];
+  if (user?.role === 'admin') {
+    allNotifications = [...ADMIN_MOCK_NOTIFICATIONS];
+  } else {
+    allNotifications = [...eventNotifications, ...MOCK_NOTIFICATIONS];
+  }
+  
   const unread = allNotifications.filter((n) => !n.read);
   const read = allNotifications.filter((n) => n.read);
 

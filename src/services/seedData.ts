@@ -384,6 +384,7 @@ export const seedSessions: Session[] = [
     eventId: 'evt-7',
     title: 'WordPress Campus Connect',
     description: 'Introduction to WordPress. (Note: You need to show your work that you finished before approval from the officer)',
+    imageUrl: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=600&q=80',
     startTime: daysFromNow(5, 10, 0),
     endTime: daysFromNow(5, 11, 30),
     room: 'Innovation Center Lab 1',

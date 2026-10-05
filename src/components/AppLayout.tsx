@@ -40,7 +40,7 @@ interface NavItem {
   icon: ReactNode;
 }
 
-const NAV_ITEMS: NavItem[] = [
+const ALL_NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', to: '/home', icon: <DashboardRoundedIcon /> },
   { label: 'Achievements', to: '/achievements', icon: <EmojiEventsRoundedIcon /> },
   { label: 'Events', to: '/events', icon: <CalendarMonthIcon /> },
@@ -86,7 +86,7 @@ export default function AppLayout() {
       </Box>
 
       {/* Selected event indicator */}
-      {selectedEvent && (
+      {selectedEvent && user?.role !== 'admin' && (
         <Box sx={{ px: 2, py: 1 }}>
           <Box
             component={RouterLink}
@@ -116,7 +116,12 @@ export default function AppLayout() {
 
       {/* Nav items */}
       <List sx={{ flex: 1, px: 1 }}>
-        {NAV_ITEMS.map((item) => (
+        {ALL_NAV_ITEMS.filter(
+          (item) => !(user?.role === 'admin' && (item.label === 'Achievements' || item.label === 'Connect' || item.label === 'Events'))
+        ).map(item => {
+          if (user?.role === 'admin' && item.label === 'Dashboard') return { ...item, label: 'Admin Dashboard' };
+          return item;
+        }).map((item) => (
           <ListItemButton
             key={item.to}
             component={RouterLink}

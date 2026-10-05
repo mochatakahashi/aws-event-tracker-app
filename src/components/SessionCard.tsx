@@ -9,6 +9,7 @@ import Avatar from '@mui/material/Avatar';
 import AvatarGroup from '@mui/material/AvatarGroup';
 import IconButton from '@mui/material/IconButton';
 import PlaceIcon from '@mui/icons-material/PlaceRounded';
+import AccessTimeIcon from '@mui/icons-material/AccessTimeRounded';
 import BookmarkBorderRoundedIcon from '@mui/icons-material/BookmarkBorderRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import HourglassTopRoundedIcon from '@mui/icons-material/HourglassTopRounded';
@@ -31,6 +32,10 @@ function formatMonthDay(iso: string): { month: string; day: string } {
   return { month, day };
 }
 
+function formatTimeOnly(iso: string): string {
+  return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
 interface SessionCardProps {
   session: Session;
   hasStamp?: boolean;
@@ -46,8 +51,9 @@ export default function SessionCard({
   speakers,
   onClick,
 }: SessionCardProps) {
-  const coverImage = SESSION_IMAGES[session.type] ?? SESSION_IMAGES.talk;
+  const coverImage = session.imageUrl ?? SESSION_IMAGES[session.type] ?? SESSION_IMAGES.talk;
   const { month, day } = formatMonthDay(session.startTime);
+  const sessionTime = formatTimeOnly(session.startTime);
   const isApproved = stampStatus === 'approved';
   const isPending = stampStatus === 'pending';
 
@@ -149,8 +155,12 @@ export default function SessionCard({
             </Typography>
           </Stack>
 
-          {/* Venue Location Line */}
+          {/* Venue & Time Row */}
           <Stack direction="row" alignItems="center" spacing={0.75} sx={{ mb: 2 }}>
+            <AccessTimeIcon sx={{ fontSize: 16, color: '#9CA3AF' }} />
+            <Typography variant="caption" sx={{ color: '#6B7280', fontWeight: 500, fontSize: '0.75rem', mr: 1.5 }}>
+              {sessionTime}
+            </Typography>
             <PlaceIcon sx={{ fontSize: 16, color: '#9CA3AF' }} />
             <Typography variant="caption" sx={{ color: '#6B7280', fontWeight: 500, fontSize: '0.75rem' }}>
               {session.room}

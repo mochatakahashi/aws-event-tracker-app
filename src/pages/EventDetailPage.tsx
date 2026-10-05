@@ -151,8 +151,16 @@ export default function EventDetailPage() {
   const closed = event.status === 'completed' || event.status === 'cancelled';
   const canRegister = !closed && (!isFull || myReg !== null);
 
+  const EVENT_COVER_IMAGES: Record<string, string> = {
+    conference: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=1200&q=80',
+    meetup: 'https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=1200&q=80',
+    workshop: 'https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=1200&q=80',
+    hackathon: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=1200&q=80',
+    webinar: 'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?auto=format&fit=crop&w=1200&q=80',
+  };
+
   const heroImage =
-    'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=1200&q=80';
+    event.imageUrl || EVENT_COVER_IMAGES[event.category] || EVENT_COVER_IMAGES.conference;
 
   return (
     <Box sx={{ pb: 6 }}>
@@ -207,17 +215,39 @@ export default function EventDetailPage() {
             Event Details
           </Button>
 
-          <IconButton
-            sx={{
-              bgcolor: 'rgba(255, 255, 255, 0.9)',
-              backdropFilter: 'blur(8px)',
-              color: '#EF4444',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-              '&:hover': { bgcolor: '#fff' },
-            }}
-          >
-            <BookmarkBorderRoundedIcon />
-          </IconButton>
+          <Stack direction="row" spacing={1} alignItems="center">
+            {user?.role === 'admin' && (
+              <Button
+                onClick={() => navigate(`/admin/events/${id}/edit`)}
+                sx={{
+                  bgcolor: 'rgba(255, 255, 255, 0.9)',
+                  backdropFilter: 'blur(8px)',
+                  color: brand.primary,
+                  fontWeight: 700,
+                  borderRadius: '20px',
+                  px: 2,
+                  py: 0.8,
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                  '&:hover': { bgcolor: '#fff' },
+                }}
+              >
+                Edit Event
+              </Button>
+            )}
+            {user?.role !== 'admin' && (
+              <IconButton
+                sx={{
+                  bgcolor: 'rgba(255, 255, 255, 0.9)',
+                  backdropFilter: 'blur(8px)',
+                  color: '#EF4444',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                  '&:hover': { bgcolor: '#fff' },
+                }}
+              >
+                <BookmarkBorderRoundedIcon />
+              </IconButton>
+            )}
+          </Stack>
         </Stack>
       </Box>
 

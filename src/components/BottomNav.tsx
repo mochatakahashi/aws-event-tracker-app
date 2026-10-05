@@ -9,7 +9,9 @@ import AchievementsIcon from '@mui/icons-material/EmojiEventsRounded';
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import { brand } from '../theme/theme';
 
-const NAV_ITEMS = [
+import { useAuth } from '../context/AuthContext';
+
+const ALL_NAV_ITEMS = [
   { label: 'Home', icon: <DashboardIcon />, path: '/home' },
   { label: 'Events', icon: <EventIcon />, path: '/events' },
   { label: 'Achievements', icon: <AchievementsIcon />, path: '/achievements' },
@@ -18,10 +20,19 @@ const NAV_ITEMS = [
 ];
 
 export default function BottomNav() {
+  const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
-  const currentIndex = NAV_ITEMS.findIndex((item) =>
+  const navItems = ALL_NAV_ITEMS.filter((item) => {
+    if (user?.role === 'admin' && (item.label === 'Achievements' || item.label === 'Connect' || item.label === 'Events')) return false;
+    return true;
+  }).map(item => {
+    if (user?.role === 'admin' && item.label === 'Home') return { ...item, label: 'Dashboard' };
+    return item;
+  });
+
+  const currentIndex = navItems.findIndex((item) =>
     location.pathname.startsWith(item.path),
   );
 
@@ -40,11 +51,11 @@ export default function BottomNav() {
       <BottomNavigation
         value={currentIndex === -1 ? 0 : currentIndex}
         onChange={(_e, newValue) => {
-          navigate(NAV_ITEMS[newValue].path);
+          navigate(navItems[newValue].path);
         }}
         showLabels
       >
-        {NAV_ITEMS.map((item, index) => (
+        {navItems.map((item, index) => (
           <BottomNavigationAction
             key={item.label}
             label={item.label}

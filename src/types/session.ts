@@ -12,6 +12,8 @@ export interface Session {
   eventId: string;
   title: string;
   description: string;
+  /** Optional specific image for this session. */
+  imageUrl?: string;
   /** ISO 8601 start time. */
   startTime: string;
   /** ISO 8601 end time. */

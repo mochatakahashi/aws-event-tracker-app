@@ -9,6 +9,8 @@ export interface User {
   avatarUrl?: string;
   /** Student ID for APC students. */
   studentId?: string;
+  /** Role requested during sign up, pending admin approval. */
+  requestedRole?: 'officer' | 'admin' | null;
 }
 
 /** Social links that a user can add to their profile. */
@@ -31,4 +33,5 @@ export interface SignUpData {
   email: string;
   password: string;
   studentId?: string;
+  requestedRole?: 'officer' | 'admin';
 }

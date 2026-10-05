@@ -165,7 +165,7 @@ export default function SessionDetailPage() {
                 color={myStamp.status === 'approved' ? 'success' : 'warning'}
                 sx={{ mt: 1.5 }}
               />
-            ) : !isOfficer ? (
+            ) : (
               <Button
                 variant="contained"
                 size="small"
@@ -181,7 +181,7 @@ export default function SessionDetailPage() {
               >
                 {requesting ? 'Requesting...' : 'Request Stamp'}
               </Button>
-            ) : null}
+            )}
           </CardContent>
         </Card>
       )}

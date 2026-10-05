@@ -49,6 +49,15 @@ let MOCK_USERS: MockUser[] = [
     personId: 'per-5',
     studentId: 'APC-2024-105',
   },
+  {
+    username: 'new_applicant',
+    password: 'password123',
+    name: 'John Doe',
+    role: 'attendee',
+    personId: 'per-6',
+    studentId: 'APC-2024-999',
+    requestedRole: 'officer',
+  },
 ];
 
 /** Simulated network latency (ms). */
@@ -96,6 +105,7 @@ export async function updateUserRole(username: string, role: 'admin' | 'officer'
       const idx = MOCK_USERS.findIndex(u => u.username === username);
       if (idx === -1) return reject(new Error('User not found'));
       MOCK_USERS[idx].role = role;
+      MOCK_USERS[idx].requestedRole = null;
       const { password: _pw, ...user } = MOCK_USERS[idx];
       resolve(user);
     }, LATENCY);

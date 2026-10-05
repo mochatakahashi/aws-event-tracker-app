@@ -1,8 +1,8 @@
 import type { Session, Stamp, NewStampInput } from '../types/session';
 import { seedSessions, seedStamps } from './seedData';
 
-const SESSIONS_KEY = 'aws-event-tracker.sessions.v2';
-const STAMPS_KEY = 'aws-event-tracker.stamps.v2';
+const SESSIONS_KEY = 'aws-event-tracker.sessions.v4';
+const STAMPS_KEY = 'aws-event-tracker.stamps.v4';
 
 /** Simulated network latency (ms). */
 const LATENCY = 100;

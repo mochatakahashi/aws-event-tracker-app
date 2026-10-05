@@ -8,6 +8,10 @@ import Typography from '@mui/material/Typography';
 import Alert from '@mui/material/Alert';
 import Link from '@mui/material/Link';
 import Divider from '@mui/material/Divider';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
 import BoltRoundedIcon from '@mui/icons-material/BoltRounded';
 import GoogleIcon from '@mui/icons-material/Google';
 import { alpha } from '@mui/material/styles';
@@ -19,6 +23,7 @@ export default function SignUpPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [studentId, setStudentId] = useState('');
+  const [requestedRole, setRequestedRole] = useState<'attendee' | 'officer'>('attendee');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -154,6 +159,18 @@ export default function SignUpPage() {
           margin="normal"
           placeholder="e.g. APC-2024-001"
         />
+        <FormControl fullWidth margin="normal">
+          <InputLabel id="requested-role-label">Requested Role</InputLabel>
+          <Select
+            labelId="requested-role-label"
+            value={requestedRole}
+            label="Requested Role"
+            onChange={(e) => setRequestedRole(e.target.value as any)}
+          >
+            <MenuItem value="attendee">Attendee (Default)</MenuItem>
+            <MenuItem value="officer">Officer</MenuItem>
+          </Select>
+        </FormControl>
         <TextField
           label="Password"
           type="password"

@@ -68,58 +68,58 @@ export default function MorePage() {
       </Typography>
 
       {/* User Info */}
-      <Stack
-        direction="row"
-        alignItems="center"
-        spacing={2}
+      <Box
+        onClick={() => navigate('/profile')}
         sx={{
           p: 2,
           mb: 2,
           borderRadius: 3,
           backgroundColor: alpha(brand.primary, 0.05),
+          cursor: 'pointer',
+          transition: 'background-color 0.2s ease',
+          '&:hover': {
+            backgroundColor: alpha(brand.primary, 0.08),
+          }
         }}
       >
-        <Avatar sx={{ width: 50, height: 50, fontSize: '1.2rem' }}>
-          {initials}
-        </Avatar>
-        <Box>
-          <Typography variant="h4">{user?.name}</Typography>
-          <Typography variant="body2" color="text.secondary">
-            {user?.role === 'admin' ? 'Administrator' : user?.role === 'officer' ? 'Officer' : 'Attendee'}
-          </Typography>
-        </Box>
-      </Stack>
+        <Stack direction="row" alignItems="center" spacing={2}>
+          <Avatar sx={{ width: 50, height: 50, fontSize: '1.2rem' }}>
+            {initials}
+          </Avatar>
+          <Box>
+            <Typography variant="h4">{user?.name}</Typography>
+            <Typography variant="body2" color="text.secondary">
+              {user?.role === 'admin' ? 'Administrator' : user?.role === 'officer' ? 'Officer' : 'Attendee'}
+            </Typography>
+          </Box>
+        </Stack>
+      </Box>
 
       <List>
         <ListItemButton onClick={() => navigate('/home')}>
           <ListItemIcon><DashboardRoundedIcon /></ListItemIcon>
           <ListItemText primary="Dashboard" />
         </ListItemButton>
-        <ListItemButton onClick={() => navigate('/achievements')}>
-          <ListItemIcon><EmojiEventsRoundedIcon /></ListItemIcon>
-          <ListItemText primary="My Achievements" secondary="Stamps & milestones" />
-        </ListItemButton>
-        <ListItemButton onClick={() => navigate('/profile')}>
-          <ListItemIcon><PersonRoundedIcon /></ListItemIcon>
-          <ListItemText primary="My Profile" />
-        </ListItemButton>
-        <ListItemButton onClick={() => navigate('/connect')}>
-          <ListItemIcon><PeopleAltIcon /></ListItemIcon>
-          <ListItemText primary="Connect" secondary="Networking & Bio" />
-        </ListItemButton>
-        <ListItemButton onClick={() => navigate('/select-event')}>
-          <ListItemIcon><EventNoteIcon /></ListItemIcon>
-          <ListItemText primary="Switch Event" />
-        </ListItemButton>
 
-        {user?.role === 'admin' && (
-          <ListItemButton onClick={() => navigate('/admin')}>
-            <ListItemIcon><AdminPanelSettingsIcon /></ListItemIcon>
-            <ListItemText primary="Admin Dashboard" secondary="Manage user roles" />
-          </ListItemButton>
+        {user?.role !== 'admin' && (
+          <>
+            <ListItemButton onClick={() => navigate('/achievements')}>
+              <ListItemIcon><EmojiEventsRoundedIcon /></ListItemIcon>
+              <ListItemText primary="My Achievements" secondary="Stamps & milestones" />
+            </ListItemButton>
+            <ListItemButton onClick={() => navigate('/connect')}>
+              <ListItemIcon><PeopleAltIcon /></ListItemIcon>
+              <ListItemText primary="Connect" secondary="Networking & Bio" />
+            </ListItemButton>
+            <ListItemButton onClick={() => navigate('/select-event')}>
+              <ListItemIcon><EventNoteIcon /></ListItemIcon>
+              <ListItemText primary="Switch Event" />
+            </ListItemButton>
+          </>
         )}
 
-        {(user?.role === 'admin' || user?.role === 'officer') && (
+
+        {user?.role === 'officer' && (
           <ListItemButton onClick={() => navigate('/officer')}>
             <ListItemIcon><VerifiedUserIcon /></ListItemIcon>
             <ListItemText primary="Officer Dashboard" secondary="Approve stamps" />
