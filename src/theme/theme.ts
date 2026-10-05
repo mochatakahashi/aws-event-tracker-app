@@ -74,7 +74,7 @@ const theme = createTheme({
     caption: { fontSize: '0.75rem', color: brand.textSecondary },
   },
   shape: {
-    borderRadius: 12,
+    borderRadius: 14,
   },
   components: {
     MuiCssBaseline: {
@@ -117,7 +117,7 @@ const theme = createTheme({
     MuiCard: {
       styleOverrides: {
         root: {
-          borderRadius: 16,
+          borderRadius: 15,
           border: `1px solid ${alpha(brand.primary, 0.08)}`,
           transition: 'all 0.25s ease-in-out',
           '&:hover': {
@@ -130,7 +130,7 @@ const theme = createTheme({
     MuiPaper: {
       styleOverrides: {
         root: {
-          borderRadius: 16,
+          borderRadius: 15,
         },
         elevation1: {
           boxShadow: `0 2px 12px ${alpha(brand.primary, 0.06)}`,

@@ -13,6 +13,8 @@ import CircularProgress from '@mui/material/CircularProgress';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import PlaceIcon from '@mui/icons-material/Place';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import Button from '@mui/material/Button';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { alpha } from '@mui/material/styles';
 import { getEvents } from '../services/eventService';
@@ -90,10 +92,29 @@ export default function SelectEventPage() {
         mx: 'auto',
       }}
     >
-      {/* User avatar */}
-      <Avatar sx={{ width: 44, height: 44, mb: 4, fontSize: '1rem' }}>
-        {initials}
-      </Avatar>
+      {/* Top Header Row with Back Button & Avatar */}
+      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
+        <Button
+          startIcon={<ArrowBackIcon />}
+          onClick={() => navigate('/home')}
+          sx={{
+            color: brand.primary,
+            fontWeight: 700,
+            borderRadius: '20px',
+            px: 2,
+            py: 0.8,
+            bgcolor: alpha(brand.primary, 0.08),
+            '&:hover': {
+              bgcolor: alpha(brand.primary, 0.15),
+            },
+          }}
+        >
+          Back
+        </Button>
+        <Avatar sx={{ width: 40, height: 40, fontSize: '0.9rem' }}>
+          {initials}
+        </Avatar>
+      </Stack>
 
       <Typography
         variant="h1"

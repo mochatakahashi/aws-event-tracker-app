@@ -24,13 +24,13 @@ import NotificationsNoneRoundedIcon from '@mui/icons-material/NotificationsNoneR
 import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded';
 import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
 import LogoutIcon from '@mui/icons-material/Logout';
-import BoltRoundedIcon from '@mui/icons-material/BoltRounded';
 import EventNoteIcon from '@mui/icons-material/EventNote';
 import { alpha } from '@mui/material/styles';
 import { useAuth } from '../context/AuthContext';
 import { useEvent } from '../context/EventContext';
 import { brand } from '../theme/theme';
 import BottomNav from './BottomNav';
+import EventOrganizerLogo from './EventOrganizerLogo';
 
 const DRAWER_WIDTH = 260;
 
@@ -82,29 +82,7 @@ export default function AppLayout() {
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Logo / Brand */}
       <Box sx={{ p: 2.5, pb: 1 }}>
-        <Stack direction="row" alignItems="center" spacing={1.5}>
-          <Box
-            sx={{
-              width: 40,
-              height: 40,
-              borderRadius: 2,
-              background: brand.gradient,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <BoltRoundedIcon sx={{ color: '#fff', fontSize: 24 }} />
-          </Box>
-          <Box>
-            <Typography variant="h5" sx={{ fontWeight: 700, color: brand.primary, lineHeight: 1.2 }}>
-              AWS SBG-APC
-            </Typography>
-            <Typography variant="caption" sx={{ color: brand.textSecondary, fontSize: '0.65rem' }}>
-              Event Tracker
-            </Typography>
-          </Box>
-        </Stack>
+        <EventOrganizerLogo size="medium" showSubtitle={true} />
       </Box>
 
       {/* Selected event indicator */}
@@ -207,20 +185,10 @@ export default function AppLayout() {
         }}
       >
         <Toolbar sx={{ minHeight: 56, px: 2 }}>
-          {/* AWS SBG-APC headline */}
-          <Typography
-            variant="subtitle1"
-            component="div"
-            sx={{
-              flexGrow: 1,
-              fontWeight: 800,
-              color: '#fff',
-              fontSize: '1rem',
-              lineHeight: 1.2,
-            }}
-          >
-            AWS SBG-APC
-          </Typography>
+          {/* AWS SBG-APC branding logo */}
+          <Box sx={{ flexGrow: 1 }}>
+            <EventOrganizerLogo size="small" showSubtitle={false} />
+          </Box>
 
           {/* Bell icon for notifications */}
           <IconButton

@@ -6,17 +6,16 @@ import CardContent from '@mui/material/CardContent';
 import Typography from '@mui/material/Typography';
 import Stack from '@mui/material/Stack';
 import Chip from '@mui/material/Chip';
-import LinearProgress from '@mui/material/LinearProgress';
 import Button from '@mui/material/Button';
-import Tooltip from '@mui/material/Tooltip';
+import Avatar from '@mui/material/Avatar';
+import AvatarGroup from '@mui/material/AvatarGroup';
 import CircularProgress from '@mui/material/CircularProgress';
 import Divider from '@mui/material/Divider';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import HourglassTopRoundedIcon from '@mui/icons-material/HourglassTopRounded';
-import StarsRoundedIcon from '@mui/icons-material/StarsRounded';
-import VerifiedRoundedIcon from '@mui/icons-material/VerifiedRounded';
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
 import WorkspacePremiumRoundedIcon from '@mui/icons-material/WorkspacePremiumRounded';
+import PlaceIcon from '@mui/icons-material/PlaceRounded';
 import { alpha } from '@mui/material/styles';
 import { brand } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
@@ -113,7 +112,7 @@ export default function EventStampCard({
       variant="outlined"
       sx={{
         mb: 3,
-        borderRadius: 4,
+        borderRadius: '15px',
         overflow: 'hidden',
         border: `1.5px solid ${isComplete ? '#10B981' : alpha(brand.primary, 0.2)}`,
         boxShadow: isComplete
@@ -187,31 +186,122 @@ export default function EventStampCard({
           )}
         </Stack>
 
-        {/* Progress Bar inside banner */}
+        {/* Multi-Segment Status Progress Bar (Matches mockups in screenshot) */}
         <Box sx={{ mt: 2.5 }}>
           <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.8 }}>
-            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.75rem' }}>
-              {isComplete
-                ? 'All required session stamps verified by officers!'
-                : `${approvedCount} approved · ${pendingCount} pending officer review`}
+            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.75rem', fontWeight: 600 }}>
+              PASSPORT STATUS DISTRIBUTION
             </Typography>
             <Typography variant="caption" sx={{ fontWeight: 800, color: '#fff' }}>
-              {Math.round(progressPercent)}%
+              {Math.round(progressPercent)}% Approved
             </Typography>
           </Stack>
-          <LinearProgress
-            variant="determinate"
-            value={progressPercent}
+
+          {/* Segmented Stacked Bar */}
+          <Box
             sx={{
-              height: 8,
-              borderRadius: 4,
-              backgroundColor: 'rgba(255,255,255,0.2)',
-              '& .MuiLinearProgress-bar': {
-                borderRadius: 4,
-                backgroundColor: isComplete ? '#FBBF24' : '#C084FC',
-              },
+              height: 10,
+              borderRadius: 5,
+              width: '100%',
+              bgcolor: 'rgba(255,255,255,0.2)',
+              display: 'flex',
+              overflow: 'hidden',
+              mb: 1.5,
             }}
-          />
+          >
+            <Box
+              sx={{
+                width: `${progressPercent}%`,
+                bgcolor: '#10B981',
+                transition: 'width 0.5s ease',
+              }}
+            />
+            <Box
+              sx={{
+                width: `${totalStampSlots > 0 ? (pendingCount / totalStampSlots) * 100 : 0}%`,
+                bgcolor: '#F59E0B',
+                transition: 'width 0.5s ease',
+              }}
+            />
+          </Box>
+
+          {/* Status Breakdown Pills Row */}
+          <Stack direction="row" spacing={1} flexWrap="wrap">
+            <Box
+              sx={{
+                flex: 1,
+                minWidth: 80,
+                p: 0.8,
+                px: 1.2,
+                borderRadius: 2,
+                bgcolor: 'rgba(255,255,255,0.12)',
+                backdropFilter: 'blur(4px)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <Typography variant="caption" sx={{ color: '#A7F3D0', fontWeight: 700, fontSize: '0.7rem' }}>
+                Approved
+              </Typography>
+              <Typography variant="caption" sx={{ color: '#fff', fontWeight: 800, fontSize: '0.75rem' }}>
+                {totalStampSlots > 0 ? Math.round((approvedCount / totalStampSlots) * 100) : 0}%
+              </Typography>
+            </Box>
+
+            <Box
+              sx={{
+                flex: 1,
+                minWidth: 80,
+                p: 0.8,
+                px: 1.2,
+                borderRadius: 2,
+                bgcolor: 'rgba(255,255,255,0.18)',
+                backdropFilter: 'blur(4px)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                border: '1px solid rgba(255,255,255,0.3)',
+              }}
+            >
+              <Typography variant="caption" sx={{ color: '#FDE68A', fontWeight: 700, fontSize: '0.7rem' }}>
+                Pending
+              </Typography>
+              <Typography variant="caption" sx={{ color: '#fff', fontWeight: 800, fontSize: '0.75rem' }}>
+                {totalStampSlots > 0 ? Math.round((pendingCount / totalStampSlots) * 100) : 0}%
+              </Typography>
+            </Box>
+
+            <Box
+              sx={{
+                flex: 1,
+                minWidth: 80,
+                p: 0.8,
+                px: 1.2,
+                borderRadius: 2,
+                bgcolor: 'rgba(255,255,255,0.08)',
+                backdropFilter: 'blur(4px)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', fontWeight: 600, fontSize: '0.7rem' }}>
+                Unclaimed
+              </Typography>
+              <Typography variant="caption" sx={{ color: '#fff', fontWeight: 800, fontSize: '0.75rem' }}>
+                {totalStampSlots > 0
+                  ? Math.max(
+                      0,
+                      100 -
+                        Math.round((approvedCount / totalStampSlots) * 100) -
+                        Math.round((pendingCount / totalStampSlots) * 100)
+                    )
+                  : 0}
+                %
+              </Typography>
+            </Box>
+          </Stack>
         </Box>
       </Box>
 
@@ -244,202 +334,179 @@ export default function EventStampCard({
               const stamp = stamps.find((s) => s.sessionId === session.id);
               const isApproved = stamp?.status === 'approved';
               const isPending = stamp?.status === 'pending';
+              const coverImage =
+                session.type === 'workshop'
+                  ? 'https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=600&q=80'
+                  : session.type === 'keynote'
+                  ? 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=600&q=80'
+                  : 'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?auto=format&fit=crop&w=600&q=80';
 
               return (
-                <Box
+                <Card
                   key={session.id}
+                  variant="outlined"
                   onClick={() => navigate(`/achievements/session/${session.id}`)}
                   sx={{
-                    p: 2,
-                    borderRadius: 3,
-                    border: '1.5px solid',
+                    borderRadius: '15px',
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    cursor: 'pointer',
                     borderColor: isApproved
                       ? '#10B981'
                       : isPending
-                      ? '#F59E0B'
+                      ? '#6366F1'
                       : alpha(brand.primary, 0.15),
-                    backgroundColor: isApproved
-                      ? alpha('#10B981', 0.04)
-                      : isPending
-                      ? alpha('#F59E0B', 0.04)
-                      : brand.surface,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    textAlign: 'center',
-                    cursor: 'pointer',
                     transition: 'all 0.25s ease-in-out',
-                    position: 'relative',
                     '&:hover': {
-                      transform: 'translateY(-2px)',
-                      borderColor: isApproved ? '#059669' : brand.primary,
-                      boxShadow: `0 6px 20px ${alpha(
-                        isApproved ? '#10B981' : brand.primary,
-                        0.15
-                      )}`,
+                      transform: 'translateY(-3px)',
+                      boxShadow: `0 8px 25px ${alpha(brand.primary, 0.15)}`,
                     },
                   }}
                 >
-                  {/* Slot Number Badge */}
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      position: 'absolute',
-                      top: 8,
-                      left: 12,
-                      fontWeight: 700,
-                      color: brand.textSecondary,
-                      fontSize: '0.65rem',
-                    }}
-                  >
-                    SLOT #{index + 1}
-                  </Typography>
+                  {/* Image Header with Badges */}
+                  <Box sx={{ position: 'relative', height: 130, width: '100%' }}>
+                    <Box
+                      component="img"
+                      src={coverImage}
+                      alt={session.title}
+                      sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
 
-                  {/* AUTOMATIC CIRCLE STAMP EMBLEM */}
-                  <Box sx={{ mt: 1, mb: 1.5, position: 'relative' }}>
-                    {isApproved ? (
-                      /* APPROVED CIRCLE */
-                      <Tooltip title={`Approved Stamp #${index + 1}! Verified by Officer.`}>
-                        <Box
+                    {/* Date Badge Overlay */}
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        top: 10,
+                        left: 10,
+                        bgcolor: 'rgba(255, 255, 255, 0.92)',
+                        backdropFilter: 'blur(6px)',
+                        borderRadius: '10px',
+                        px: 1.2,
+                        py: 0.4,
+                        textAlign: 'center',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ fontWeight: 800, color: '#EF4444', display: 'block', fontSize: '0.65rem', lineHeight: 1.1 }}>
+                        10
+                      </Typography>
+                      <Typography variant="caption" sx={{ fontWeight: 800, color: '#1A0A2E', display: 'block', fontSize: '0.65rem', lineHeight: 1.1 }}>
+                        OCT
+                      </Typography>
+                    </Box>
+
+                    {/* Slot Badge Overlay */}
+                    <Chip
+                      label={`SLOT #${index + 1}`}
+                      size="small"
+                      sx={{
+                        position: 'absolute',
+                        top: 10,
+                        right: 10,
+                        bgcolor: 'rgba(255, 255, 255, 0.92)',
+                        backdropFilter: 'blur(6px)',
+                        fontWeight: 800,
+                        fontSize: '0.65rem',
+                        color: brand.primary,
+                        height: 24,
+                      }}
+                    />
+                  </Box>
+
+                  {/* Card Content Body */}
+                  <CardContent sx={{ p: 2, flex: 1, display: 'flex', flexDirection: 'column' }}>
+                    <Typography
+                      variant="h5"
+                      sx={{
+                        fontWeight: 700,
+                        fontSize: '0.9rem',
+                        lineHeight: 1.3,
+                        mb: 1,
+                        color: brand.textPrimary,
+                      }}
+                    >
+                      {session.title}
+                    </Typography>
+
+                    {/* Attendees Stack */}
+                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                      <AvatarGroup max={3} sx={{ '& .MuiAvatar-root': { width: 20, height: 20, fontSize: '0.6rem' } }}>
+                        <Avatar src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80" />
+                        <Avatar src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80" />
+                      </AvatarGroup>
+                      <Typography variant="caption" sx={{ color: '#EF4444', fontWeight: 700, fontSize: '0.72rem' }}>
+                        +12 Going
+                      </Typography>
+                    </Stack>
+
+                    {/* Venue Line */}
+                    <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mb: 2 }}>
+                      <PlaceIcon sx={{ fontSize: 15, color: '#9CA3AF' }} />
+                      <Typography variant="caption" sx={{ color: '#6B7280', fontSize: '0.75rem', fontWeight: 500 }}>
+                        {session.room}
+                      </Typography>
+                    </Stack>
+
+                    {/* Full-Width Action Pill Button */}
+                    <Box sx={{ mt: 'auto' }}>
+                      {isApproved ? (
+                        <Button
+                          fullWidth
+                          size="small"
+                          variant="contained"
+                          startIcon={<CheckCircleRoundedIcon fontSize="small" />}
                           sx={{
-                            width: 64,
-                            height: 64,
-                            borderRadius: '50%',
+                            borderRadius: '24px',
+                            py: 0.8,
+                            fontSize: '0.7rem',
+                            fontWeight: 800,
                             background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
-                            border: '3px solid #D1FAE5',
-                            boxShadow: `0 4px 14px ${alpha('#10B981', 0.4)}`,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
                             color: '#fff',
                           }}
                         >
-                          <VerifiedRoundedIcon sx={{ fontSize: 34 }} />
-                        </Box>
-                      </Tooltip>
-                    ) : isPending ? (
-                      /* PENDING CIRCLE */
-                      <Tooltip title="Stamp Request Pending Officer Review">
-                        <Box
+                          STAMP APPROVED ✓
+                        </Button>
+                      ) : isPending ? (
+                        <Button
+                          fullWidth
+                          size="small"
+                          variant="contained"
+                          startIcon={<HourglassTopRoundedIcon fontSize="small" />}
                           sx={{
-                            width: 64,
-                            height: 64,
-                            borderRadius: '50%',
-                            background: 'linear-gradient(135deg, #FDE68A 0%, #F59E0B 100%)',
-                            border: '3px solid #FEF3C7',
-                            boxShadow: `0 4px 14px ${alpha('#F59E0B', 0.35)}`,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
+                            borderRadius: '24px',
+                            py: 0.8,
+                            fontSize: '0.7rem',
+                            fontWeight: 800,
+                            background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)',
                             color: '#fff',
-                            animation: 'pulse 1.8s infinite',
-                            '@keyframes pulse': {
-                              '0%, 100%': { transform: 'scale(1)' },
-                              '50%': { transform: 'scale(1.06)' },
-                            },
+                            boxShadow: '0 4px 14px rgba(79, 70, 229, 0.35)',
                           }}
                         >
-                          <HourglassTopRoundedIcon sx={{ fontSize: 32 }} />
-                        </Box>
-                      </Tooltip>
-                    ) : (
-                      /* UNCLAIMED CIRCLE */
-                      <Tooltip title="Unclaimed Stamp — Click to complete session activity & request stamp!">
-                        <Box
+                          PENDING OFFICER APPROVAL
+                        </Button>
+                      ) : (
+                        <Button
+                          fullWidth
+                          size="small"
+                          variant="contained"
+                          disabled={requestingSessionId === session.id}
+                          onClick={(e) => handleQuickRequestStamp(session.id, e)}
                           sx={{
-                            width: 64,
-                            height: 64,
-                            borderRadius: '50%',
-                            backgroundColor: alpha(brand.primary, 0.05),
-                            border: `2px dashed ${alpha(brand.primary, 0.35)}`,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: alpha(brand.primary, 0.4),
+                            borderRadius: '24px',
+                            py: 0.8,
+                            fontSize: '0.7rem',
+                            fontWeight: 800,
+                            background: brand.gradient,
+                            color: '#fff',
                           }}
                         >
-                          <StarsRoundedIcon sx={{ fontSize: 30 }} />
-                        </Box>
-                      </Tooltip>
-                    )}
-                  </Box>
-
-                  {/* Session Title & Room */}
-                  <Typography
-                    variant="h5"
-                    sx={{
-                      fontWeight: 700,
-                      fontSize: '0.85rem',
-                      lineHeight: 1.3,
-                      mb: 0.5,
-                      display: '-webkit-box',
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: 'vertical',
-                      overflow: 'hidden',
-                    }}
-                  >
-                    {session.title}
-                  </Typography>
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{ fontSize: '0.7rem', mb: 1.5 }}
-                  >
-                    📍 {session.room}
-                  </Typography>
-
-                  {/* Circle Stamp Status Badge / Action Button */}
-                  <Box sx={{ width: '100%', mt: 'auto' }}>
-                    {isApproved ? (
-                      <Chip
-                        icon={<CheckCircleRoundedIcon sx={{ color: '#059669 !important', fontSize: 16 }} />}
-                        label="STAMP APPROVED"
-                        size="small"
-                        sx={{
-                          width: '100%',
-                          backgroundColor: '#D1FAE5',
-                          color: '#047857',
-                          fontWeight: 700,
-                          fontSize: '0.68rem',
-                        }}
-                      />
-                    ) : isPending ? (
-                      <Chip
-                        icon={<HourglassTopRoundedIcon sx={{ color: '#D97706 !important', fontSize: 16 }} />}
-                        label="PENDING OFFICER APPROVAL"
-                        size="small"
-                        sx={{
-                          width: '100%',
-                          backgroundColor: '#FEF3C7',
-                          color: '#B45309',
-                          fontWeight: 700,
-                          fontSize: '0.65rem',
-                        }}
-                      />
-                    ) : (
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        disabled={requestingSessionId === session.id}
-                        onClick={(e) => handleQuickRequestStamp(session.id, e)}
-                        sx={{
-                          width: '100%',
-                          py: 0.5,
-                          fontSize: '0.7rem',
-                          fontWeight: 600,
-                          borderColor: alpha(brand.primary, 0.4),
-                          color: brand.primary,
-                        }}
-                      >
-                        {requestingSessionId === session.id ? (
-                          <CircularProgress size={14} color="inherit" />
-                        ) : (
-                          'Request Stamp'
-                        )}
-                      </Button>
-                    )}
-                  </Box>
-                </Box>
+                          {requestingSessionId === session.id ? 'REQUESTING...' : 'CLAIM STAMP'}
+                        </Button>
+                      )}
+                    </Box>
+                  </CardContent>
+                </Card>
               );
             })}
           </Box>

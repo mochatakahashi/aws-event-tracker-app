@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { useParams, Link as RouterLink } from 'react-router-dom';
+import { useCallback, useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Paper from '@mui/material/Paper';
@@ -17,11 +17,17 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import IconButton from '@mui/material/IconButton';
+import Chip from '@mui/material/Chip';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import BookmarkBorderRoundedIcon from '@mui/icons-material/BookmarkBorderRounded';
+import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded';
+import PlaceRoundedIcon from '@mui/icons-material/PlaceRounded';
 import LinkedInIcon from '@mui/icons-material/LinkedIn';
-import EventSeatIcon from '@mui/icons-material/EventSeat';
-import PlaceIcon from '@mui/icons-material/Place';
-import ScheduleIcon from '@mui/icons-material/Schedule';
+import InstagramIcon from '@mui/icons-material/Instagram';
+import FacebookIcon from '@mui/icons-material/Facebook';
+import EmailRoundedIcon from '@mui/icons-material/EmailRounded';
+import { alpha } from '@mui/material/styles';
 import { getEvent } from '../services/eventService';
 import { getSpeakersByIds } from '../services/speakerService';
 import {
@@ -36,21 +42,7 @@ import type { Registration, RsvpStatus } from '../types/attendee';
 import { CategoryChip, StatusChip } from '../components/EventChips';
 import { formatDateRange } from '../utils/eventDisplay';
 import { useAuth } from '../context/AuthContext';
-
-function InfoRow({
-  icon,
-  children,
-}: {
-  icon: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <Stack direction="row" spacing={1} alignItems="center" color="text.secondary">
-      {icon}
-      <Typography color="text.primary">{children}</Typography>
-    </Stack>
-  );
-}
+import { brand } from '../theme/theme';
 
 function initials(name: string): string {
   return name
@@ -64,6 +56,7 @@ function initials(name: string): string {
 
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const personId = user?.personId;
 
@@ -131,7 +124,7 @@ export default function EventDetailPage() {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
         <CircularProgress />
       </Box>
     );
@@ -139,119 +132,309 @@ export default function EventDetailPage() {
 
   if (notFound || !event) {
     return (
-      <Box sx={{ textAlign: 'center', py: 6 }}>
+      <Box sx={{ textAlign: 'center', py: 8 }}>
         <Typography variant="h2" gutterBottom>
           Event not found
         </Typography>
         <Typography color="text.secondary" sx={{ mb: 3 }}>
           The event you are looking for does not exist or was removed.
         </Typography>
-        <Button variant="contained" component={RouterLink} to="/events">
+        <Button variant="contained" onClick={() => navigate('/events')}>
           Back to Events
         </Button>
       </Box>
     );
   }
 
-  const spotsLeft =
-    event.capacity === 0 ? null : event.capacity - registrations.length;
+  const spotsLeft = event.capacity === 0 ? null : event.capacity - registrations.length;
   const isFull = spotsLeft !== null && spotsLeft <= 0;
   const closed = event.status === 'completed' || event.status === 'cancelled';
   const canRegister = !closed && (!isFull || myReg !== null);
 
-  return (
-    <Box>
-      <Button
-        startIcon={<ArrowBackIcon />}
-        component={RouterLink}
-        to="/events"
-        sx={{ mb: 2 }}
-      >
-        Back to Events
-      </Button>
+  const heroImage =
+    'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=1200&q=80';
 
+  return (
+    <Box sx={{ pb: 6 }}>
+      {/* Top Hero Image Header (Matches "Inspired" mockup in Image 4 & 5) */}
+      <Box
+        sx={{
+          position: 'relative',
+          height: { xs: 220, sm: 300 },
+          width: '100%',
+          borderRadius: '15px',
+          overflow: 'hidden',
+          mb: 3,
+          boxShadow: '0 8px 30px rgba(0,0,0,0.15)',
+        }}
+      >
+        <Box
+          component="img"
+          src={heroImage}
+          alt={event.title}
+          sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+        />
+        <Box
+          sx={{
+            position: 'absolute',
+            inset: 0,
+            background: 'linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.6) 100%)',
+          }}
+        />
+
+        {/* Overlay Navigation Bar */}
+        <Stack
+          direction="row"
+          justifyContent="space-between"
+          alignItems="center"
+          sx={{ position: 'absolute', top: 16, left: 16, right: 16 }}
+        >
+          <Button
+            startIcon={<ArrowBackIcon />}
+            onClick={() => navigate('/events')}
+            sx={{
+              bgcolor: 'rgba(255, 255, 255, 0.9)',
+              backdropFilter: 'blur(8px)',
+              color: brand.textPrimary,
+              fontWeight: 700,
+              borderRadius: '20px',
+              px: 2,
+              py: 0.8,
+              boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+              '&:hover': { bgcolor: '#fff' },
+            }}
+          >
+            Event Details
+          </Button>
+
+          <IconButton
+            sx={{
+              bgcolor: 'rgba(255, 255, 255, 0.9)',
+              backdropFilter: 'blur(8px)',
+              color: '#EF4444',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+              '&:hover': { bgcolor: '#fff' },
+            }}
+          >
+            <BookmarkBorderRoundedIcon />
+          </IconButton>
+        </Stack>
+      </Box>
+
+      {/* Main Grid Content */}
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 8 }}>
-          <Paper sx={{ p: 3 }}>
-            <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
+          <Paper sx={{ p: { xs: 2.5, sm: 3.5 }, borderRadius: '15px' }}>
+            <Stack direction="row" spacing={1} sx={{ mb: 1.5 }}>
               <CategoryChip category={event.category} />
               <StatusChip status={event.status} />
             </Stack>
-            <Typography variant="h1" gutterBottom>
+
+            <Typography variant="h1" sx={{ fontWeight: 800, mb: 2, lineHeight: 1.2 }}>
               {event.title}
             </Typography>
 
-            <Stack spacing={1} sx={{ my: 2 }}>
-              <InfoRow icon={<ScheduleIcon fontSize="small" />}>
-                {formatDateRange(event.startAt, event.endAt)}
-              </InfoRow>
-              <InfoRow icon={<PlaceIcon fontSize="small" />}>
-                {event.venue}
-              </InfoRow>
-              <InfoRow icon={<EventSeatIcon fontSize="small" />}>
-                {event.capacity === 0
-                  ? `${registrations.length} registered`
-                  : `${registrations.length} registered · ${
-                      spotsLeft && spotsLeft > 0 ? `${spotsLeft} spots left` : 'Full'
-                    }`}
-              </InfoRow>
+            {/* Structured Info Cards (Inspired by reference mockup in Image 4) */}
+            <Stack spacing={2} sx={{ my: 3 }}>
+              {/* Date & Time Row */}
+              <Stack direction="row" spacing={2} alignItems="center">
+                <Box
+                  sx={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: '12px',
+                    bgcolor: alpha(brand.primary, 0.08),
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  <CalendarMonthRoundedIcon sx={{ color: brand.primary, fontSize: 24 }} />
+                </Box>
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                    {formatDateRange(event.startAt, event.endAt)}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Event Schedule
+                  </Typography>
+                </Box>
+              </Stack>
+
+              {/* Venue Row */}
+              <Stack direction="row" spacing={2} alignItems="center">
+                <Box
+                  sx={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: '12px',
+                    bgcolor: alpha(brand.primary, 0.08),
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  <PlaceRoundedIcon sx={{ color: brand.primary, fontSize: 24 }} />
+                </Box>
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                    {event.venue}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Venue Location
+                  </Typography>
+                </Box>
+              </Stack>
+
+              {/* Host / Organizer Row */}
+              <Stack direction="row" spacing={2} alignItems="center">
+                <Avatar
+                  sx={{ width: 44, height: 44, borderRadius: '12px', bgcolor: brand.primary }}
+                >
+                  AWS
+                </Avatar>
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                    AWS Student Builder Group – APC
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Organizer
+                  </Typography>
+                </Box>
+                <Stack direction="row" spacing={0.5}>
+                  <IconButton
+                    size="small"
+                    component="a"
+                    href="https://www.instagram.com/awssbgapc"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    sx={{
+                      color: '#E1306C',
+                      bgcolor: alpha('#E1306C', 0.08),
+                      width: 30,
+                      height: 30,
+                      '&:hover': { bgcolor: alpha('#E1306C', 0.18) },
+                    }}
+                  >
+                    <InstagramIcon sx={{ fontSize: 16 }} />
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    component="a"
+                    href="https://www.facebook.com/awssbgapc"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    sx={{
+                      color: '#1877F2',
+                      bgcolor: alpha('#1877F2', 0.08),
+                      width: 30,
+                      height: 30,
+                      '&:hover': { bgcolor: alpha('#1877F2', 0.18) },
+                    }}
+                  >
+                    <FacebookIcon sx={{ fontSize: 16 }} />
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    component="a"
+                    href="https://www.linkedin.com/company/awssbgapc/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    sx={{
+                      color: '#0A66C2',
+                      bgcolor: alpha('#0A66C2', 0.08),
+                      width: 30,
+                      height: 30,
+                      '&:hover': { bgcolor: alpha('#0A66C2', 0.18) },
+                    }}
+                  >
+                    <LinkedInIcon sx={{ fontSize: 16 }} />
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    component="a"
+                    href="https://tiktok.com/@awssbgapc"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    sx={{
+                      color: '#010101',
+                      bgcolor: alpha('#010101', 0.08),
+                      width: 30,
+                      height: 30,
+                      '&:hover': { bgcolor: alpha('#010101', 0.18) },
+                    }}
+                  >
+                    {/* TikTok doesn't have an MUI icon, using a custom SVG */}
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                      <path d="M16.6 5.82s.51.5 0 0A4.278 4.278 0 0 1 15.54 3h-3.09v12.4a2.592 2.592 0 0 1-2.59 2.5c-1.42 0-2.6-1.16-2.6-2.6 0-1.72 1.66-3.01 3.37-2.48V9.66c-3.45-.46-6.47 2.22-6.47 5.64 0 3.33 2.76 5.7 5.69 5.7 3.14 0 5.69-2.55 5.69-5.7V9.01a7.35 7.35 0 0 0 4.3 1.38V7.3s-1.88.09-3.24-1.48z" />
+                    </svg>
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    component="a"
+                    href="mailto:aws.apcofficial@gmail.com"
+                    sx={{
+                      color: '#EF4444',
+                      bgcolor: alpha('#EF4444', 0.08),
+                      width: 30,
+                      height: 30,
+                      '&:hover': { bgcolor: alpha('#EF4444', 0.18) },
+                    }}
+                  >
+                    <EmailRoundedIcon sx={{ fontSize: 16 }} />
+                  </IconButton>
+                </Stack>
+              </Stack>
             </Stack>
 
-            <Divider sx={{ my: 2 }} />
+            <Divider sx={{ my: 3 }} />
 
-            <Typography variant="h3" gutterBottom>
-              About this event
+            <Typography variant="h3" sx={{ fontWeight: 800, mb: 1 }}>
+              About Event
             </Typography>
-            <Typography sx={{ whiteSpace: 'pre-line' }}>
+            <Typography sx={{ whiteSpace: 'pre-line', color: brand.textSecondary, lineHeight: 1.7 }}>
               {event.description}
             </Typography>
 
             <Divider sx={{ my: 3 }} />
 
-            <Typography variant="h3" gutterBottom>
-              Speakers
+            <Typography variant="h3" sx={{ fontWeight: 800, mb: 2 }}>
+              Speakers Lineup
             </Typography>
             {speakers.length === 0 ? (
-              <Typography color="text.secondary">
-                No speakers announced yet.
-              </Typography>
+              <Typography color="text.secondary">No speakers announced yet.</Typography>
             ) : (
-              <List>
+              <List disablePadding>
                 {speakers.map((s) => (
-                  <ListItem key={s.id} alignItems="flex-start" disableGutters>
+                  <ListItem key={s.id} alignItems="flex-start" disableGutters sx={{ mb: 1 }}>
                     <ListItemAvatar>
-                      <Avatar src={s.avatarUrl || undefined}>
+                      <Avatar src={s.avatarUrl || undefined} sx={{ width: 44, height: 44 }}>
                         {initials(s.name)}
                       </Avatar>
                     </ListItemAvatar>
                     <ListItemText
                       primary={
-                        <Stack
-                          direction="row"
-                          spacing={1}
-                          alignItems="center"
-                          flexWrap="wrap"
-                        >
-                          <span>{s.name}</span>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                            {s.name}
+                          </Typography>
                           {s.linkedInUrl && (
-                            <Link
-                              href={s.linkedInUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              sx={{ display: 'inline-flex', alignItems: 'center' }}
-                              aria-label={`${s.name} on LinkedIn`}
-                            >
-                              <LinkedInIcon fontSize="small" />
+                            <Link href={s.linkedInUrl} target="_blank" rel="noopener noreferrer">
+                              <LinkedInIcon fontSize="small" sx={{ color: '#0A66C2' }} />
                             </Link>
                           )}
                         </Stack>
                       }
                       secondary={
                         <>
-                          <Typography variant="body2" color="text.secondary">
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                             {[s.headline, s.company].filter(Boolean).join(' · ')}
                           </Typography>
-                          <Typography variant="body2">{s.bio}</Typography>
+                          <Typography variant="body2" sx={{ mt: 0.5 }}>
+                            {s.bio}
+                          </Typography>
                         </>
                       }
                     />
@@ -262,41 +445,40 @@ export default function EventDetailPage() {
           </Paper>
         </Grid>
 
-        {/* Registration panel */}
+        {/* Registration Sidebar Panel */}
         <Grid size={{ xs: 12, md: 4 }}>
-          <Paper sx={{ p: 3, position: { md: 'sticky' }, top: 88 }}>
-            <Typography variant="h3" gutterBottom>
-              {myReg ? 'You are registered' : 'Register'}
+          <Paper sx={{ p: 3, borderRadius: '15px', position: { md: 'sticky' }, top: 88 }}>
+            <Typography variant="h3" sx={{ fontWeight: 800, mb: 2 }}>
+              {myReg ? 'You are registered 🎉' : 'Event Registration'}
             </Typography>
 
             {closed && (
-              <Alert severity="info" sx={{ mb: 2 }}>
+              <Alert severity="info" sx={{ mb: 2, borderRadius: '12px' }}>
                 This event is {event.status}. Registration is closed.
               </Alert>
             )}
             {!closed && isFull && !myReg && (
-              <Alert severity="warning" sx={{ mb: 2 }}>
+              <Alert severity="warning" sx={{ mb: 2, borderRadius: '12px' }}>
                 This event is full.
               </Alert>
             )}
 
             {myReg ? (
               <>
-                <Typography color="text.secondary" gutterBottom>
-                  Your RSVP
+                <Typography color="text.secondary" variant="caption" sx={{ mb: 1, display: 'block' }}>
+                  YOUR RSVP STATUS
                 </Typography>
                 <ToggleButtonGroup
                   exclusive
                   value={myReg.rsvp}
                   onChange={(_e, val) => val && handleRegister(val as RsvpStatus)}
                   size="small"
-                  sx={{ mb: 2, flexWrap: 'wrap' }}
+                  sx={{ mb: 2, width: '100%' }}
                   disabled={working}
-                  aria-label="rsvp"
                 >
-                  <ToggleButton value="going">Going</ToggleButton>
-                  <ToggleButton value="interested">Interested</ToggleButton>
-                  <ToggleButton value="declined">Declined</ToggleButton>
+                  <ToggleButton value="going" sx={{ flex: 1, fontWeight: 700 }}>Going</ToggleButton>
+                  <ToggleButton value="interested" sx={{ flex: 1, fontWeight: 700 }}>Interested</ToggleButton>
+                  <ToggleButton value="declined" sx={{ flex: 1 }}>Declined</ToggleButton>
                 </ToggleButtonGroup>
                 <Button
                   fullWidth
@@ -304,25 +486,30 @@ export default function EventDetailPage() {
                   variant="outlined"
                   onClick={handleCancel}
                   disabled={working}
+                  sx={{ borderRadius: '12px' }}
                 >
-                  Cancel registration
+                  Cancel Registration
                 </Button>
               </>
             ) : (
-              <Stack spacing={1}>
+              <Stack spacing={1.5}>
                 <Button
                   fullWidth
                   variant="contained"
+                  size="large"
                   onClick={() => handleRegister('going')}
                   disabled={!canRegister || working}
+                  sx={{ borderRadius: '24px', py: 1.2, fontWeight: 800 }}
                 >
                   Register — I'm going
                 </Button>
                 <Button
                   fullWidth
                   variant="outlined"
+                  size="large"
                   onClick={() => handleRegister('interested')}
                   disabled={!canRegister || working}
+                  sx={{ borderRadius: '24px', py: 1.2, fontWeight: 700 }}
                 >
                   I'm interested
                 </Button>
