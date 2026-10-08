@@ -25,6 +25,8 @@ import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded';
 import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
 import LogoutIcon from '@mui/icons-material/Logout';
 import EventNoteIcon from '@mui/icons-material/EventNote';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import { alpha } from '@mui/material/styles';
 import { useAuth } from '../context/AuthContext';
 import { useEvent } from '../context/EventContext';
@@ -135,6 +137,19 @@ export default function AppLayout() {
             />
           </ListItemButton>
         ))}
+        {(user?.role === 'officer' || (user?.personId && selectedEvent?.officerIds?.includes(user.personId))) && (
+          <ListItemButton
+            component={RouterLink}
+            to="/officer"
+            selected={isActive('/officer')}
+          >
+            <ListItemIcon sx={{ minWidth: 40 }}><VerifiedUserIcon /></ListItemIcon>
+            <ListItemText
+              primary="Officer Dashboard"
+              primaryTypographyProps={{ fontWeight: isActive('/officer') ? 600 : 400, fontSize: '0.9rem' }}
+            />
+          </ListItemButton>
+        )}
       </List>
 
       <Divider sx={{ mx: 2 }} />
@@ -254,6 +269,17 @@ export default function AppLayout() {
               <ListItemText primary="My Profile" />
             </MenuItem>
             <MenuItem
+              onClick={() => setProfileAnchor(null)}
+              sx={{ py: 1.2 }}
+            >
+              <ListItemIcon><InfoOutlinedIcon fontSize="small" /></ListItemIcon>
+              <ListItemText 
+                primary="About AWS SBG-APC" 
+                secondary="Event Tracker v0.1.0"
+                secondaryTypographyProps={{ fontSize: '0.7rem' }}
+              />
+            </MenuItem>
+            <MenuItem
               onClick={handleLogout}
               sx={{ py: 1.2, color: brand.error }}
             >
@@ -287,9 +313,11 @@ export default function AppLayout() {
         component="main"
         sx={{
           flexGrow: 1,
-          width: { md: `calc(100% - ${DRAWER_WIDTH}px)` },
+          width: { xs: '100%', md: `calc(100% - ${DRAWER_WIDTH}px)` },
+          maxWidth: '100vw',
           bgcolor: 'background.default',
           minHeight: { xs: 'auto', md: '100vh' },
+          overflowX: 'hidden',
         }}
       >
         {/* Page content */}

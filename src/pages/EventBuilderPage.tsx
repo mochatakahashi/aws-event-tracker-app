@@ -78,6 +78,7 @@ export default function EventBuilderPage() {
         description: formData.description || '',
         capacity: Number(formData.capacity) || 100,
         speakerIds: formData.speakerIds || [],
+        officerIds: formData.officerIds || [],
         imageUrl: formData.imageUrl || undefined,
       };
       
@@ -201,6 +202,17 @@ export default function EventBuilderPage() {
             value={formData.imageUrl || ''}
             onChange={handleChange('imageUrl')}
             placeholder="https://example.com/image.jpg"
+          />
+
+          <TextField
+            label="Officer IDs (comma-separated person IDs)"
+            fullWidth
+            value={formData.officerIds ? formData.officerIds.join(', ') : ''}
+            onChange={(e) => {
+              const val = e.target.value;
+              setFormData(prev => ({ ...prev, officerIds: val.split(',').map(s => s.trim()).filter(Boolean) }));
+            }}
+            placeholder="per-1, per-2"
           />
 
           <TextField

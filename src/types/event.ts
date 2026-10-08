@@ -39,6 +39,10 @@ export interface AppEvent {
   capacity: number;
   /** Ids of speakers (from the speaker directory) assigned to this event. */
   speakerIds: string[];
+  /** Ids of people assigned as officers for this event. */
+  officerIds?: string[];
+  /** Roles of the assigned officers mapped by their person ID. */
+  officerRoles?: Record<string, string>;
   /** Optional custom image URL for the event cover. */
   imageUrl?: string;
   /** Automatically assigned timestamp. */

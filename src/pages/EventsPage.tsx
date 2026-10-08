@@ -17,14 +17,16 @@ import CircularProgress from '@mui/material/CircularProgress';
 import PlaceIcon from '@mui/icons-material/PlaceRounded';
 import AccessTimeIcon from '@mui/icons-material/AccessTimeRounded';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import BookmarkBorderRoundedIcon from '@mui/icons-material/BookmarkBorderRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import { alpha } from '@mui/material/styles';
-import { getEvents } from '../services/eventService';
-import { getRegistrationsByEvent } from '../services/registrationService';
+import { getEvents, deleteEvent } from '../services/eventService';
+import { getRegistrationsByEvent, getPeople } from '../services/registrationService';
 import { useAuth } from '../context/AuthContext';
 import { brand } from '../theme/theme';
 import type { AppEvent } from '../types/event';
+import type { Person } from '../types/attendee';
 
 const EVENT_COVER_IMAGES: Record<string, string> = {
   conference: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=800&q=80',
@@ -60,12 +62,13 @@ export default function EventsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [events, setEvents] = useState<EventWithCount[]>([]);
+  const [people, setPeople] = useState<Person[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState(0);
 
   useEffect(() => {
-    getEvents()
-      .then(async (data) => {
+    Promise.all([getEvents(), getPeople()])
+      .then(async ([data, peopleData]) => {
         const withCounts = await Promise.all(
           data.map(async (e) => ({
             ...e,
@@ -73,9 +76,17 @@ export default function EventsPage() {
           })),
         );
         setEvents(withCounts);
+        setPeople(peopleData);
       })
       .finally(() => setLoading(false));
   }, []);
+
+  const handleDelete = async (id: string) => {
+    if (window.confirm('Are you sure you want to delete this event?')) {
+      await deleteEvent(id);
+      setEvents(events.filter(e => e.id !== id));
+    }
+  };
 
   const upcoming = useMemo(
     () => events.filter((e) => e.status === 'upcoming' || e.status === 'ongoing'),
@@ -98,6 +109,11 @@ export default function EventsPage() {
 
   return (
     <Box>
+      {user?.role === 'admin' && (
+        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)} sx={{ mb: 2 }}>
+          Back
+        </Button>
+      )}
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 2 }}>
         <Box>
           <Typography variant="h1" sx={{ mb: 0.5 }}>
@@ -191,9 +207,9 @@ export default function EventsPage() {
             const eventTime = formatTimeOnly(event.startAt);
 
             return (
-              <Card
-                key={event.id}
-                variant="outlined"
+              <Box key={event.id} sx={{ display: 'flex', flexDirection: 'column' }}>
+                <Card
+                  variant="outlined"
                 sx={{
                   borderRadius: '15px',
                   overflow: 'hidden',
@@ -371,6 +387,8 @@ export default function EventsPage() {
                   </CardContent>
                 </CardActionArea>
               </Card>
+
+            </Box>
             );
           })}
         </Box>

@@ -6,21 +6,23 @@ import DashboardIcon from '@mui/icons-material/DashboardRounded';
 import EventIcon from '@mui/icons-material/CalendarMonth';
 import ConnectIcon from '@mui/icons-material/PeopleAlt';
 import AchievementsIcon from '@mui/icons-material/EmojiEventsRounded';
+import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import { brand } from '../theme/theme';
 
 import { useAuth } from '../context/AuthContext';
+import { useEvent } from '../context/EventContext';
 
 const ALL_NAV_ITEMS = [
   { label: 'Home', icon: <DashboardIcon />, path: '/home' },
   { label: 'Events', icon: <EventIcon />, path: '/events' },
   { label: 'Achievements', icon: <AchievementsIcon />, path: '/achievements' },
   { label: 'Connect', icon: <ConnectIcon />, path: '/connect' },
-  { label: 'More', icon: <MoreHorizIcon />, path: '/more' },
 ];
 
 export default function BottomNav() {
   const { user } = useAuth();
+  const { selectedEvent } = useEvent();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -31,6 +33,11 @@ export default function BottomNav() {
     if (user?.role === 'admin' && item.label === 'Home') return { ...item, label: 'Dashboard' };
     return item;
   });
+
+  const isOfficer = user?.role === 'officer' || (user?.personId && selectedEvent?.officerIds?.includes(user.personId));
+  if (isOfficer) {
+    navItems.push({ label: 'Officer', icon: <VerifiedUserIcon />, path: '/officer' });
+  }
 
   const currentIndex = navItems.findIndex((item) =>
     location.pathname.startsWith(item.path),

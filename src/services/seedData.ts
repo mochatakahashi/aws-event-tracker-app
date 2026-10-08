@@ -129,6 +129,7 @@ export const seedEvents: AppEvent[] = [
     venue: 'Auditorium, Asia Pacific College',
     capacity: 150,
     speakerIds: ['spk-1', 'spk-2', 'spk-3'],
+    officerIds: ['per-2'],
   },
   {
     id: 'evt-2',

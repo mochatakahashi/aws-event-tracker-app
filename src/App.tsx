@@ -22,7 +22,6 @@ import EventDetailPage from './pages/EventDetailPage';
 import ProfilePage from './pages/ProfilePage';
 import ConnectPage from './pages/ConnectPage';
 import NotificationsPage from './pages/NotificationsPage';
-import MorePage from './pages/MorePage';
 import OfficerDashboardPage from './pages/OfficerDashboardPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import EventBuilderPage from './pages/EventBuilderPage';
@@ -67,7 +66,6 @@ function App() {
                 <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/connect" element={<ConnectPage />} />
                 <Route path="/notifications" element={<NotificationsPage />} />
-                <Route path="/more" element={<MorePage />} />
                 <Route path="/officer" element={<OfficerDashboardPage />} />
                 <Route path="/admin" element={<AdminDashboardPage />} />
                 <Route path="/admin/events/new" element={<EventBuilderPage />} />

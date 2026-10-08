@@ -18,6 +18,10 @@ import Alert from '@mui/material/Alert';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import IconButton from '@mui/material/IconButton';
+import MenuItem from '@mui/material/MenuItem';
+import Select from '@mui/material/Select';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
 
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import BookmarkBorderRoundedIcon from '@mui/icons-material/BookmarkBorderRounded';
@@ -27,18 +31,22 @@ import LinkedInIcon from '@mui/icons-material/LinkedIn';
 import InstagramIcon from '@mui/icons-material/Instagram';
 import FacebookIcon from '@mui/icons-material/Facebook';
 import EmailRoundedIcon from '@mui/icons-material/EmailRounded';
+import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
 import { alpha } from '@mui/material/styles';
-import { getEvent } from '../services/eventService';
+import TextField from '@mui/material/TextField';
+import { getEvent, updateEvent } from '../services/eventService';
 import { getSpeakersByIds } from '../services/speakerService';
 import {
   getRegistrationsByEvent,
   findRegistration,
   registerForEvent,
   cancelRegistration,
+  getPeopleByIds,
+  getPeople,
 } from '../services/registrationService';
 import type { AppEvent } from '../types/event';
 import type { Speaker } from '../types/speaker';
-import type { Registration, RsvpStatus } from '../types/attendee';
+import type { Registration, RsvpStatus, Person } from '../types/attendee';
 import { CategoryChip, StatusChip } from '../components/EventChips';
 import { formatDateRange } from '../utils/eventDisplay';
 import { useAuth } from '../context/AuthContext';
@@ -62,11 +70,16 @@ export default function EventDetailPage() {
 
   const [event, setEvent] = useState<AppEvent | null>(null);
   const [speakers, setSpeakers] = useState<Speaker[]>([]);
+  const [officers, setOfficers] = useState<Person[]>([]);
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [myReg, setMyReg] = useState<Registration | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [working, setWorking] = useState(false);
+  const [newOfficerId, setNewOfficerId] = useState('');
+  const [newOfficerRole, setNewOfficerRole] = useState('');
+  const [showAllSpeakers, setShowAllSpeakers] = useState(false);
+  const [allPeople, setAllPeople] = useState<Person[]>([]);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -78,14 +91,18 @@ export default function EventDetailPage() {
       return;
     }
     setEvent(data);
-    const [lineup, regs, mine] = await Promise.all([
+    const [lineup, team, regs, mine, people] = await Promise.all([
       getSpeakersByIds(data.speakerIds),
+      getPeopleByIds(data.officerIds || []),
       getRegistrationsByEvent(id),
       personId ? findRegistration(id, personId) : Promise.resolve(null),
+      getPeople(),
     ]);
     setSpeakers(lineup);
+    setOfficers(team);
     setRegistrations(regs);
     setMyReg(mine);
+    setAllPeople(people);
     setLoading(false);
   }, [id, personId]);
 
@@ -117,6 +134,23 @@ export default function EventDetailPage() {
       const regs = await getRegistrationsByEvent(id);
       setRegistrations(regs);
       setMyReg(null);
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function handleAddOfficer() {
+    if (!id || !event || !newOfficerId.trim()) return;
+    setWorking(true);
+    try {
+      const updatedOfficerIds = [...(event.officerIds || []), newOfficerId.trim()];
+      const updatedRoles = { ...(event.officerRoles || {}), [newOfficerId.trim()]: newOfficerRole.trim() || 'Officer' };
+      await updateEvent(id, { ...event, officerIds: updatedOfficerIds, officerRoles: updatedRoles });
+      await load();
+      setNewOfficerId('');
+      setNewOfficerRole('');
+    } catch (e) {
+      console.error(e);
     } finally {
       setWorking(false);
     }
@@ -318,105 +352,7 @@ export default function EventDetailPage() {
                 </Box>
               </Stack>
 
-              {/* Host / Organizer Row */}
-              <Stack direction="row" spacing={2} alignItems="center">
-                <Avatar
-                  sx={{ width: 44, height: 44, borderRadius: '12px', bgcolor: brand.primary }}
-                >
-                  AWS
-                </Avatar>
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                    AWS Student Builder Group – APC
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Organizer
-                  </Typography>
-                </Box>
-                <Stack direction="row" spacing={0.5}>
-                  <IconButton
-                    size="small"
-                    component="a"
-                    href="https://www.instagram.com/awssbgapc"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    sx={{
-                      color: '#E1306C',
-                      bgcolor: alpha('#E1306C', 0.08),
-                      width: 30,
-                      height: 30,
-                      '&:hover': { bgcolor: alpha('#E1306C', 0.18) },
-                    }}
-                  >
-                    <InstagramIcon sx={{ fontSize: 16 }} />
-                  </IconButton>
-                  <IconButton
-                    size="small"
-                    component="a"
-                    href="https://www.facebook.com/awssbgapc"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    sx={{
-                      color: '#1877F2',
-                      bgcolor: alpha('#1877F2', 0.08),
-                      width: 30,
-                      height: 30,
-                      '&:hover': { bgcolor: alpha('#1877F2', 0.18) },
-                    }}
-                  >
-                    <FacebookIcon sx={{ fontSize: 16 }} />
-                  </IconButton>
-                  <IconButton
-                    size="small"
-                    component="a"
-                    href="https://www.linkedin.com/company/awssbgapc/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    sx={{
-                      color: '#0A66C2',
-                      bgcolor: alpha('#0A66C2', 0.08),
-                      width: 30,
-                      height: 30,
-                      '&:hover': { bgcolor: alpha('#0A66C2', 0.18) },
-                    }}
-                  >
-                    <LinkedInIcon sx={{ fontSize: 16 }} />
-                  </IconButton>
-                  <IconButton
-                    size="small"
-                    component="a"
-                    href="https://tiktok.com/@awssbgapc"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    sx={{
-                      color: '#010101',
-                      bgcolor: alpha('#010101', 0.08),
-                      width: 30,
-                      height: 30,
-                      '&:hover': { bgcolor: alpha('#010101', 0.18) },
-                    }}
-                  >
-                    {/* TikTok doesn't have an MUI icon, using a custom SVG */}
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                      <path d="M16.6 5.82s.51.5 0 0A4.278 4.278 0 0 1 15.54 3h-3.09v12.4a2.592 2.592 0 0 1-2.59 2.5c-1.42 0-2.6-1.16-2.6-2.6 0-1.72 1.66-3.01 3.37-2.48V9.66c-3.45-.46-6.47 2.22-6.47 5.64 0 3.33 2.76 5.7 5.69 5.7 3.14 0 5.69-2.55 5.69-5.7V9.01a7.35 7.35 0 0 0 4.3 1.38V7.3s-1.88.09-3.24-1.48z" />
-                    </svg>
-                  </IconButton>
-                  <IconButton
-                    size="small"
-                    component="a"
-                    href="mailto:aws.apcofficial@gmail.com"
-                    sx={{
-                      color: '#EF4444',
-                      bgcolor: alpha('#EF4444', 0.08),
-                      width: 30,
-                      height: 30,
-                      '&:hover': { bgcolor: alpha('#EF4444', 0.18) },
-                    }}
-                  >
-                    <EmailRoundedIcon sx={{ fontSize: 16 }} />
-                  </IconButton>
-                </Stack>
-              </Stack>
+              {/* Host / Organizer Row moved below */}
             </Stack>
 
             <Divider sx={{ my: 3 }} />
@@ -437,7 +373,7 @@ export default function EventDetailPage() {
               <Typography color="text.secondary">No speakers announced yet.</Typography>
             ) : (
               <List disablePadding>
-                {speakers.map((s) => (
+                {(showAllSpeakers ? speakers : speakers.slice(0, 2)).map((s) => (
                   <ListItem key={s.id} alignItems="flex-start" disableGutters sx={{ mb: 1 }}>
                     <ListItemAvatar>
                       <Avatar src={s.avatarUrl || undefined} sx={{ width: 44, height: 44 }}>
@@ -472,10 +408,213 @@ export default function EventDetailPage() {
                 ))}
               </List>
             )}
+
+            {speakers.length > 2 && (
+              <Button
+                fullWidth
+                endIcon={<ArrowForwardRoundedIcon sx={{ transform: showAllSpeakers ? 'rotate(-90deg)' : 'none', transition: 'transform 0.2s' }} />}
+                onClick={() => setShowAllSpeakers(!showAllSpeakers)}
+                sx={{
+                  mt: 2,
+                  bgcolor: '#f2e5f7',
+                  color: '#1a1a1a',
+                  fontWeight: 700,
+                  borderRadius: '12px',
+                  textTransform: 'none',
+                  py: 1,
+                  '&:hover': { bgcolor: '#e6d0ef' }
+                }}
+              >
+                {showAllSpeakers ? 'See less' : 'See more'}
+              </Button>
+            )}
+
+            <Divider sx={{ my: 3 }} />
+
+            {/* Organizer Card */}
+            <Box
+              sx={{
+                bgcolor: '#D8B4E2',
+                borderRadius: '16px',
+                p: 3,
+                mb: 4,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2,
+              }}
+            >
+              <Stack direction="row" spacing={2} alignItems="center">
+                <Box
+                  sx={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: '50%',
+                    bgcolor: '#B282C9',
+                    flexShrink: 0,
+                  }}
+                />
+                <Box>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#1a1a1a' }}>
+                    AWS Student Builder Group - APC
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#5C3D75', fontWeight: 600 }}>
+                    Organizer
+                  </Typography>
+                </Box>
+              </Stack>
+              
+              <Box
+                sx={{
+                  bgcolor: '#fff',
+                  borderRadius: '12px',
+                  py: 0.8,
+                  px: 1.5,
+                  display: 'flex',
+                  alignSelf: 'flex-start',
+                }}
+              >
+                <Stack direction="row" spacing={1}>
+                  <IconButton
+                    size="small"
+                    component="a"
+                    href="https://www.instagram.com/awssbgapc"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    sx={{ color: '#E1306C', width: 28, height: 28 }}
+                  >
+                    <InstagramIcon sx={{ fontSize: 18 }} />
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    component="a"
+                    href="https://www.facebook.com/awssbgapc"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    sx={{ color: '#1877F2', width: 28, height: 28 }}
+                  >
+                    <FacebookIcon sx={{ fontSize: 18 }} />
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    component="a"
+                    href="https://www.linkedin.com/company/awssbgapc/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    sx={{ color: '#0A66C2', width: 28, height: 28 }}
+                  >
+                    <LinkedInIcon sx={{ fontSize: 18 }} />
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    component="a"
+                    href="https://tiktok.com/@awssbgapc"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    sx={{ color: '#010101', width: 28, height: 28 }}
+                  >
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                      <path d="M16.6 5.82s.51.5 0 0A4.278 4.278 0 0 1 15.54 3h-3.09v12.4a2.592 2.592 0 0 1-2.59 2.5c-1.42 0-2.6-1.16-2.6-2.6 0-1.72 1.66-3.01 3.37-2.48V9.66c-3.45-.46-6.47 2.22-6.47 5.64 0 3.33 2.76 5.7 5.69 5.7 3.14 0 5.69-2.55 5.69-5.7V9.01a7.35 7.35 0 0 0 4.3 1.38V7.3s-1.88.09-3.24-1.48z" />
+                    </svg>
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    component="a"
+                    href="mailto:aws.apcofficial@gmail.com"
+                    sx={{ color: '#EF4444', width: 28, height: 28 }}
+                  >
+                    <EmailRoundedIcon sx={{ fontSize: 18 }} />
+                  </IconButton>
+                </Stack>
+              </Box>
+            </Box>
+
+            <Typography variant="h3" sx={{ fontWeight: 800, mb: 2 }}>
+              Assigned Officers
+            </Typography>
+
+            <Box sx={{ mb: 3, p: 2, bgcolor: alpha(brand.primary, 0.04), borderRadius: '12px', border: '1px solid', borderColor: alpha(brand.primary, 0.1) }}>
+              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700 }}>
+                Assign an Officer
+              </Typography>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                <FormControl fullWidth size="small" sx={{ bgcolor: '#fff', borderRadius: 1 }}>
+                  <Select
+                    value={newOfficerId}
+                    onChange={(e) => setNewOfficerId(e.target.value as string)}
+                    disabled={working}
+                    displayEmpty
+                    sx={{ borderRadius: '8px', color: newOfficerId ? 'inherit' : 'text.secondary' }}
+                  >
+                    <MenuItem value="" disabled>Select Person</MenuItem>
+                    {allPeople.map((p) => (
+                      <MenuItem key={p.id} value={p.id}>
+                        {p.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                
+                <FormControl fullWidth size="small" sx={{ bgcolor: '#fff', borderRadius: 1 }}>
+                  <Select
+                    value={newOfficerRole}
+                    onChange={(e) => setNewOfficerRole(e.target.value as string)}
+                    disabled={working}
+                    displayEmpty
+                    sx={{ borderRadius: '8px', color: newOfficerRole ? 'inherit' : 'text.secondary' }}
+                  >
+                    <MenuItem value="" disabled>Select Role</MenuItem>
+                    <MenuItem value="creatives">Creatives</MenuItem>
+                    <MenuItem value="media">Media</MenuItem>
+                    <MenuItem value="lead">Lead</MenuItem>
+                    <MenuItem value="host">Host</MenuItem>
+                    <MenuItem value="usher">Usher</MenuItem>
+                    <MenuItem value="registration booth">Registration Booth</MenuItem>
+                  </Select>
+                </FormControl>
+
+                <Button 
+                  variant="contained" 
+                  onClick={handleAddOfficer}
+                  disabled={working || !newOfficerId.trim()}
+                  sx={{ borderRadius: '8px', px: 3, fontWeight: 700, textTransform: 'none' }}
+                >
+                  Add
+                </Button>
+              </Stack>
+            </Box>
+
+            {officers.length === 0 ? (
+              <Typography color="text.secondary">No officers assigned yet.</Typography>
+            ) : (
+              <List disablePadding>
+                {officers.map((o) => (
+                  <ListItem key={o.id} alignItems="flex-start" disableGutters sx={{ mb: 1 }}>
+                    <ListItemAvatar>
+                      <Avatar sx={{ width: 44, height: 44, bgcolor: alpha(brand.secondary, 0.1), color: brand.secondary }}>
+                        {initials(o.name)}
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={
+                        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                          {o.name}
+                        </Typography>
+                      }
+                      secondary={
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                          {event.officerRoles?.[o.id] || o.bio || 'Officer'}
+                        </Typography>
+                      }
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            )}
           </Paper>
         </Grid>
 
         {/* Registration Sidebar Panel */}
+        {user?.role !== 'admin' && (
         <Grid size={{ xs: 12, md: 4 }}>
           <Paper sx={{ p: 3, borderRadius: '15px', position: { md: 'sticky' }, top: 88 }}>
             <Typography variant="h3" sx={{ fontWeight: 800, mb: 2 }}>
@@ -547,6 +686,7 @@ export default function EventDetailPage() {
             )}
           </Paper>
         </Grid>
+        )}
       </Grid>
     </Box>
   );

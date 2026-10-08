@@ -11,6 +11,7 @@ import MenuItem from '@mui/material/MenuItem';
 import FormControl from '@mui/material/FormControl';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DownloadIcon from '@mui/icons-material/Download';
 import AnalyticsIcon from '@mui/icons-material/Analytics';
 import { getUsers, updateUserRole } from '../services/authService';
@@ -89,6 +90,9 @@ export default function AdminDashboardPage() {
 
   return (
     <Box>
+      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)} sx={{ mb: 2 }}>
+        Back
+      </Button>
       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
         <Typography variant="h2">
           Manage Accounts

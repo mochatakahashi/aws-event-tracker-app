@@ -33,6 +33,12 @@ export async function getPerson(id: string): Promise<Person | null> {
   return delay(found ? { ...found } : null);
 }
 
+/** Multiple people by id. */
+export async function getPeopleByIds(ids: string[]): Promise<Person[]> {
+  const set = new Set(ids);
+  return delay(people.filter((p) => set.has(p.id)).map(p => ({ ...p })));
+}
+
 /** Registrations for a given event. */
 export async function getRegistrationsByEvent(
   eventId: string,

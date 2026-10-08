@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.0] - 2026-10-08
+
+### Added
+- **Dynamic Event Details Organization**: Added a prominent purple Organizer block in `EventDetailPage`.
+- **Expandable Speakers Lineup**: Implemented a "See more" / "See less" interactive toggle for the speakers list in the event details page.
+- **Enhanced Officer Assignment**: 
+  - Added dropdown options for assigning event roles (`Creatives`, `Media`, `Lead`, `Host`, `Usher`, `Registration Booth`).
+  - Implemented dynamic user dropdown fetching all registered attendees for easy officer assignment.
+  - Dynamically displays the assigned custom role underneath the officer's name.
+
+### Changed
+- **Admin Events UI Overhaul**: 
+  - Removed clutter on the `EventsPage` by hiding the assigned officers list from individual event cards (visible inside event details).
+  - Removed "Update" and "Delete" buttons from the event cards list.
+- **Global Layout & Responsiveness**: 
+  - Enforced strict horizontal boundaries (`maxWidth: 100vw`, `overflowX: hidden`) on `AppLayout.tsx` to fix unintended horizontal scrolling and wrapping glitches on mobile devices.
+
+---
+
 ## [0.2.5] - 2026-10-02
 
 ### Added
