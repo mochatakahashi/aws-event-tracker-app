@@ -17,8 +17,8 @@ describe('registrationService', () => {
 
   it('lists registrations for an event', async () => {
     const regs = await getRegistrationsByEvent('evt-1');
-    // Seed has 3 registrations for evt-1.
-    expect(regs).toHaveLength(3);
+    // Seed has 4 registrations for evt-1.
+    expect(regs).toHaveLength(4);
   });
 
   it('lists registrations for a person', async () => {

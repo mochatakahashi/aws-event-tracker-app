@@ -135,7 +135,9 @@ export default function EventFlowPage() {
       </Stack>
 
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3, fontSize: '0.8rem' }}>
-        The full schedule for this event. Tap on any session for details or to request a stamp.
+        {sessions.length > 0
+          ? 'The full schedule for this event. Tap on any session for details or to request a stamp.'
+          : 'Session details for this event.'}
       </Typography>
 
       {/* Attendee Event Stamp Card */}

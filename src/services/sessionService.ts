@@ -1,8 +1,8 @@
 import type { Session, Stamp, NewStampInput } from '../types/session';
 import { seedSessions, seedStamps } from './seedData';
 
-const SESSIONS_KEY = 'aws-event-tracker.sessions.v4';
-const STAMPS_KEY = 'aws-event-tracker.stamps.v4';
+const SESSIONS_KEY = 'aws-event-tracker.sessions.v5';
+const STAMPS_KEY = 'aws-event-tracker.stamps.v5';
 
 /** Simulated network latency (ms). */
 const LATENCY = 100;
@@ -38,10 +38,10 @@ function saveStamps(stamps: Stamp[]) {
 }
 
 function ensureSeeded() {
-  if (loadSessions().length === 0) {
+  const currentSessions = loadSessions();
+  // Ensure only Tech Barangay sessions are seeded as per requirement
+  if (currentSessions.length === 0 || currentSessions.some((s) => s.eventId !== 'evt-1')) {
     saveSessions(seedSessions);
-  }
-  if (loadStamps().length === 0) {
     saveStamps(seedStamps);
   }
 }

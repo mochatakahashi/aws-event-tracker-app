@@ -15,6 +15,9 @@ import EventStampCard from '../components/EventStampCard';
 import EngagementScoreCard from '../components/EngagementScoreCard';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import Chip from '@mui/material/Chip';
+import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
 import type { Session, Stamp } from '../types/session';
 
@@ -156,11 +159,107 @@ export default function DashboardPage() {
         </Stack>
       ) : (
         <>
-          {/* Engagement Score & Activity Gauge Widget */}
-          <EngagementScoreCard sessions={sessions} stamps={stamps} />
+          {sessions.length > 0 ? (
+            <>
+              {/* Engagement Score & Activity Gauge Widget */}
+              <EngagementScoreCard sessions={sessions} stamps={stamps} />
 
-          {/* Attendee Event Stamp Card */}
-          <EventStampCard />
+              {/* Attendee Event Stamp Card */}
+              <EventStampCard />
+            </>
+          ) : (
+            <Card
+              variant="outlined"
+              sx={{
+                borderRadius: '16px',
+                overflow: 'hidden',
+                mb: 3,
+                borderColor: alpha(brand.primary, 0.2),
+              }}
+            >
+              {selectedEvent.imageUrl && (
+                <Box
+                  component="img"
+                  src={selectedEvent.imageUrl}
+                  alt={selectedEvent.title}
+                  sx={{
+                    width: '100%',
+                    height: { xs: 200, sm: 260 },
+                    objectFit: 'cover',
+                  }}
+                />
+              )}
+              <CardContent sx={{ p: 2.5 }}>
+                <Stack direction="row" spacing={1} sx={{ mb: 1.5 }}>
+                  <Chip
+                    label={selectedEvent.modality.toUpperCase()}
+                    size="small"
+                    sx={{ bgcolor: alpha(brand.primary, 0.1), color: brand.primary, fontWeight: 700 }}
+                  />
+                  <Chip
+                    label={selectedEvent.status.toUpperCase()}
+                    size="small"
+                    sx={{
+                      bgcolor:
+                        selectedEvent.status === 'accomplished'
+                          ? alpha('#10B981', 0.1)
+                          : alpha(brand.accent, 0.1),
+                      color: selectedEvent.status === 'accomplished' ? '#10B981' : brand.accent,
+                      fontWeight: 700,
+                    }}
+                  />
+                </Stack>
+                <Typography variant="h3" sx={{ fontWeight: 800, mb: 1 }}>
+                  {selectedEvent.title}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
+                  {selectedEvent.description}
+                </Typography>
+
+                <Box
+                  sx={{
+                    p: 2,
+                    borderRadius: 2.5,
+                    bgcolor: alpha(brand.primary, 0.04),
+                    border: `1px solid ${alpha(brand.primary, 0.12)}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: 1.5,
+                  }}
+                >
+                  <Box sx={{ maxWidth: 380 }}>
+                    <Typography
+                      variant="caption"
+                      sx={{ color: brand.primary, fontWeight: 700, display: 'block', mb: 0.3 }}
+                    >
+                      STAMP PASSPORT SYSTEM
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Activity stamps and passport completion are held exclusively during{' '}
+                      <strong>Tech Barangay: AWS x WordPress x Notion</strong>.
+                    </Typography>
+                  </Box>
+                  <Button
+                    variant="contained"
+                    size="small"
+                    onClick={() => navigate('/select-event')}
+                    sx={{
+                      background: brand.gradient,
+                      color: '#fff',
+                      fontWeight: 600,
+                      borderRadius: 2,
+                      px: 2,
+                      py: 0.8,
+                    }}
+                  >
+                    Select Tech Barangay
+                  </Button>
+                </Box>
+              </CardContent>
+            </Card>
+          )}
         </>
       )}
 

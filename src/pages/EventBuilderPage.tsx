@@ -12,11 +12,14 @@ import FormControl from '@mui/material/FormControl';
 import CircularProgress from '@mui/material/CircularProgress';
 import Paper from '@mui/material/Paper';
 import Divider from '@mui/material/Divider';
+import Chip from '@mui/material/Chip';
+import Autocomplete from '@mui/material/Autocomplete';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { getEvent, createEvent, updateEvent, deleteEvent } from '../services/eventService';
 import { useAuth } from '../context/AuthContext';
 import { brand } from '../theme/theme';
-import type { AppEvent } from '../types/event';
+import { EVENT_TAGS, type AppEvent } from '../types/event';
+import { tagColor, tagLabel } from '../utils/eventDisplay';
 
 export default function EventBuilderPage() {
   const { id } = useParams<{ id: string }>();
@@ -30,13 +33,15 @@ export default function EventBuilderPage() {
 
   const [formData, setFormData] = useState<Partial<AppEvent>>({
     title: '',
-    category: 'conference',
+    modality: 'onsite',
     status: 'upcoming',
+    tags: [],
     venue: '',
     startAt: new Date().toISOString().slice(0, 16),
     endAt: new Date(Date.now() + 3600000).toISOString().slice(0, 16),
     description: '',
     capacity: 100,
+    participants: 0,
     imageUrl: '',
   });
 
@@ -70,13 +75,15 @@ export default function EventBuilderPage() {
     try {
       const eventToSave: any = {
         title: formData.title || 'Untitled Event',
-        category: (formData.category as any) || 'conference',
+        modality: (formData.modality as any) || 'onsite',
         status: (formData.status as any) || 'upcoming',
+        tags: formData.tags || [],
         venue: formData.venue || 'TBA',
         startAt: new Date(formData.startAt!).toISOString(),
         endAt: new Date(formData.endAt!).toISOString(),
         description: formData.description || '',
         capacity: Number(formData.capacity) || 100,
+        participants: Number(formData.participants) || 0,
         speakerIds: formData.speakerIds || [],
         officerIds: formData.officerIds || [],
         imageUrl: formData.imageUrl || undefined,
@@ -137,13 +144,11 @@ export default function EventBuilderPage() {
           
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
             <FormControl fullWidth>
-              <InputLabel>Category</InputLabel>
-              <Select value={formData.category} label="Category" onChange={handleChange('category')}>
-                <MenuItem value="conference">Conference</MenuItem>
-                <MenuItem value="meetup">Meetup</MenuItem>
-                <MenuItem value="workshop">Workshop</MenuItem>
-                <MenuItem value="hackathon">Hackathon</MenuItem>
-                <MenuItem value="webinar">Webinar</MenuItem>
+              <InputLabel>Modality</InputLabel>
+              <Select value={formData.modality} label="Modality" onChange={handleChange('modality')}>
+                <MenuItem value="onsite">Onsite</MenuItem>
+                <MenuItem value="hybrid">Hybrid</MenuItem>
+                <MenuItem value="virtual">Virtual</MenuItem>
               </Select>
             </FormControl>
             
@@ -152,11 +157,39 @@ export default function EventBuilderPage() {
               <Select value={formData.status} label="Status" onChange={handleChange('status')}>
                 <MenuItem value="upcoming">Upcoming</MenuItem>
                 <MenuItem value="ongoing">Ongoing</MenuItem>
-                <MenuItem value="completed">Completed</MenuItem>
+                <MenuItem value="accomplished">Accomplished</MenuItem>
                 <MenuItem value="cancelled">Cancelled</MenuItem>
               </Select>
             </FormControl>
           </Stack>
+
+          {/* Tags */}
+          <Autocomplete
+            multiple
+            options={EVENT_TAGS}
+            getOptionLabel={(t) => tagLabel(t)}
+            value={formData.tags || []}
+            onChange={(_e, value) => setFormData(prev => ({ ...prev, tags: value }))}
+            renderTags={(value, getTagProps) =>
+              value.map((tag, index) => (
+                <Chip
+                  {...getTagProps({ index })}
+                  key={tag}
+                  label={tagLabel(tag)}
+                  size="small"
+                  sx={{
+                    backgroundColor: tagColor(tag) + '18',
+                    color: tagColor(tag),
+                    fontWeight: 600,
+                    border: `1px solid ${tagColor(tag)}40`,
+                  }}
+                />
+              ))
+            }
+            renderInput={(params) => (
+              <TextField {...params} label="Event Tags" placeholder="Select tags…" />
+            )}
+          />
 
           <TextField
             label="Venue / Location"
@@ -204,6 +237,25 @@ export default function EventBuilderPage() {
             placeholder="https://example.com/image.jpg"
           />
 
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+            <TextField
+              label="Participants"
+              type="number"
+              fullWidth
+              value={formData.participants}
+              onChange={handleChange('participants')}
+            />
+
+            <TextField
+              label="Max Capacity"
+              type="number"
+              required
+              fullWidth
+              value={formData.capacity}
+              onChange={handleChange('capacity')}
+            />
+          </Stack>
+
           <TextField
             label="Officer IDs (comma-separated person IDs)"
             fullWidth
@@ -213,15 +265,6 @@ export default function EventBuilderPage() {
               setFormData(prev => ({ ...prev, officerIds: val.split(',').map(s => s.trim()).filter(Boolean) }));
             }}
             placeholder="per-1, per-2"
-          />
-
-          <TextField
-            label="Max Capacity"
-            type="number"
-            required
-            fullWidth
-            value={formData.capacity}
-            onChange={handleChange('capacity')}
           />
 
           <Divider sx={{ my: 2 }} />

@@ -1,4 +1,4 @@
-import type { EventCategory, EventStatus } from '../types/event';
+import type { EventModality, EventStatus, EventTag } from '../types/event';
 import type { RsvpStatus } from '../types/attendee';
 
 type MuiColor =
@@ -10,17 +10,15 @@ type MuiColor =
   | 'error'
   | 'success';
 
-/** Chip color for an event category. */
-export function categoryColor(category: EventCategory): MuiColor {
-  switch (category) {
-    case 'conference':
+/** Chip color for an event modality. */
+export function modalityColor(modality: EventModality): MuiColor {
+  switch (modality) {
+    case 'onsite':
       return 'primary';
-    case 'workshop':
+    case 'hybrid':
       return 'secondary';
-    case 'meetup':
+    case 'virtual':
       return 'info';
-    case 'webinar':
-      return 'success';
     default:
       return 'default';
   }
@@ -33,12 +31,44 @@ export function statusColor(status: EventStatus): MuiColor {
       return 'info';
     case 'ongoing':
       return 'success';
-    case 'completed':
+    case 'accomplished':
       return 'default';
     case 'cancelled':
       return 'error';
     default:
       return 'default';
+  }
+}
+
+/** CSS color for an event tag. */
+export function tagColor(tag: EventTag): string {
+  switch (tag) {
+    case 'technical':
+      return '#3B82F6';   // blue
+    case 'leadership':
+      return '#8B5CF6';   // purple
+    case 'career-growth':
+      return '#F59E0B';   // amber
+    case 'diversity':
+      return '#EC4899';   // pink
+    default:
+      return '#6B7280';
+  }
+}
+
+/** Human-friendly label for a tag. */
+export function tagLabel(tag: EventTag): string {
+  switch (tag) {
+    case 'technical':
+      return 'Technical';
+    case 'leadership':
+      return 'Leadership';
+    case 'career-growth':
+      return 'Career Growth';
+    case 'diversity':
+      return 'Diversity';
+    default:
+      return tag;
   }
 }
 

@@ -22,7 +22,7 @@ describe('speakerService', () => {
   });
 
   it('gets a speaker by id and by ids', async () => {
-    expect((await getSpeaker('spk-1'))?.name).toBe('Dr. Amara Chen');
+    expect((await getSpeaker('spk-1'))?.name).toBe('Programs Team');
     const lineup = await getSpeakersByIds(['spk-1', 'spk-3']);
     expect(lineup.map((s) => s.id).sort()).toEqual(['spk-1', 'spk-3']);
   });

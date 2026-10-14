@@ -21,19 +21,17 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import BookmarkBorderRoundedIcon from '@mui/icons-material/BookmarkBorderRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import { alpha } from '@mui/material/styles';
-import { getEvents, deleteEvent } from '../services/eventService';
-import { getRegistrationsByEvent, getPeople } from '../services/registrationService';
+import { getEvents } from '../services/eventService';
+import { getRegistrationsByEvent } from '../services/registrationService';
 import { useAuth } from '../context/AuthContext';
 import { brand } from '../theme/theme';
+import { TagChip } from '../components/EventChips';
 import type { AppEvent } from '../types/event';
-import type { Person } from '../types/attendee';
 
 const EVENT_COVER_IMAGES: Record<string, string> = {
-  conference: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=800&q=80',
-  meetup: 'https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=800&q=80',
-  workshop: 'https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=800&q=80',
-  hackathon: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=800&q=80',
-  webinar: 'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?auto=format&fit=crop&w=800&q=80',
+  onsite: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=800&q=80',
+  hybrid: 'https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=800&q=80',
+  virtual: 'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?auto=format&fit=crop&w=800&q=80',
 };
 
 function formatMonthDay(iso: string): { month: string; day: string } {
@@ -50,8 +48,14 @@ function formatTimeOnly(iso: string): string {
 const statusConfig: Record<string, { bg: string; color: string; label: string }> = {
   upcoming: { bg: '#EDE9FE', color: '#7C3AED', label: 'Upcoming' },
   ongoing: { bg: '#FEF3C7', color: '#D97706', label: 'Ongoing' },
-  completed: { bg: '#ECFDF5', color: '#059669', label: 'Finished' },
+  accomplished: { bg: '#ECFDF5', color: '#059669', label: 'Accomplished' },
   cancelled: { bg: '#FEE2E2', color: '#DC2626', label: 'Cancelled' },
+};
+
+const modalityConfig: Record<string, { bg: string; color: string }> = {
+  onsite: { bg: '#DBEAFE', color: '#2563EB' },
+  hybrid: { bg: '#FDE68A', color: '#92400E' },
+  virtual: { bg: '#E0E7FF', color: '#4338CA' },
 };
 
 interface EventWithCount extends AppEvent {
@@ -62,13 +66,12 @@ export default function EventsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [events, setEvents] = useState<EventWithCount[]>([]);
-  const [people, setPeople] = useState<Person[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState(0);
 
   useEffect(() => {
-    Promise.all([getEvents(), getPeople()])
-      .then(async ([data, peopleData]) => {
+    getEvents()
+      .then(async (data) => {
         const withCounts = await Promise.all(
           data.map(async (e) => ({
             ...e,
@@ -76,24 +79,16 @@ export default function EventsPage() {
           })),
         );
         setEvents(withCounts);
-        setPeople(peopleData);
       })
       .finally(() => setLoading(false));
   }, []);
-
-  const handleDelete = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this event?')) {
-      await deleteEvent(id);
-      setEvents(events.filter(e => e.id !== id));
-    }
-  };
 
   const upcoming = useMemo(
     () => events.filter((e) => e.status === 'upcoming' || e.status === 'ongoing'),
     [events],
   );
   const past = useMemo(
-    () => events.filter((e) => e.status === 'completed' || e.status === 'cancelled'),
+    () => events.filter((e) => e.status === 'accomplished' || e.status === 'cancelled'),
     [events],
   );
 
@@ -202,7 +197,8 @@ export default function EventsPage() {
         >
           {displayEvents.map((event) => {
             const st = statusConfig[event.status] ?? statusConfig.upcoming;
-            const coverImage = event.imageUrl || EVENT_COVER_IMAGES[event.category] || EVENT_COVER_IMAGES.conference;
+            const md = modalityConfig[event.modality] ?? modalityConfig.onsite;
+            const coverImage = event.imageUrl || EVENT_COVER_IMAGES[event.modality] || EVENT_COVER_IMAGES.onsite;
             const { month, day } = formatMonthDay(event.startAt);
             const eventTime = formatTimeOnly(event.startAt);
 
@@ -237,7 +233,7 @@ export default function EventsPage() {
                         width: '100%',
                         height: '100%',
                         objectFit: 'cover',
-                        filter: event.status === 'completed' ? 'grayscale(0.4)' : 'none',
+                        filter: event.status === 'accomplished' ? 'grayscale(0.4)' : 'none',
                       }}
                     />
 
@@ -349,12 +345,12 @@ export default function EventsPage() {
                         <Avatar src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=100&q=80" />
                       </AvatarGroup>
                       <Typography variant="caption" sx={{ color: '#EF4444', fontWeight: 700, fontSize: '0.75rem' }}>
-                        +{event.registered} Going
+                        {event.participantsEstimated ? 'Est. ' : ''}{event.participants} {event.status === 'upcoming' ? 'Expected' : 'Attended'}
                       </Typography>
                     </Stack>
 
                     {/* Venue & Time Row */}
-                    <Stack direction="row" alignItems="center" spacing={0.75} sx={{ mb: 2 }}>
+                    <Stack direction="row" alignItems="center" spacing={0.75} sx={{ mb: 1.5 }}>
                       <AccessTimeIcon sx={{ fontSize: 16, color: '#9CA3AF' }} />
                       <Typography variant="caption" sx={{ color: '#6B7280', fontWeight: 500, fontSize: '0.75rem', mr: 1.5 }}>
                         {eventTime}
@@ -365,7 +361,14 @@ export default function EventsPage() {
                       </Typography>
                     </Stack>
 
-                    {/* Status Chip Row */}
+                    {/* Tags Row */}
+                    <Stack direction="row" spacing={0.5} sx={{ mb: 1.5, flexWrap: 'wrap', gap: 0.5 }}>
+                      {event.tags.map((tag) => (
+                        <TagChip key={tag} tag={tag} />
+                      ))}
+                    </Stack>
+
+                    {/* Status & Modality Chip Row */}
                     <Stack direction="row" spacing={1} sx={{ mt: 'auto' }}>
                       <Chip
                         label={st.label}
@@ -378,10 +381,14 @@ export default function EventsPage() {
                         }}
                       />
                       <Chip
-                        label={event.category.charAt(0).toUpperCase() + event.category.slice(1)}
+                        label={event.modality.charAt(0).toUpperCase() + event.modality.slice(1)}
                         size="small"
-                        variant="outlined"
-                        sx={{ fontSize: '0.7rem', fontWeight: 600 }}
+                        sx={{
+                          backgroundColor: md.bg,
+                          color: md.color,
+                          fontWeight: 600,
+                          fontSize: '0.7rem',
+                        }}
                       />
                     </Stack>
                   </CardContent>

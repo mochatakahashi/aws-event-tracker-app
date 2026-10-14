@@ -21,7 +21,6 @@ import IconButton from '@mui/material/IconButton';
 import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
 import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
 
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import BookmarkBorderRoundedIcon from '@mui/icons-material/BookmarkBorderRounded';
@@ -33,7 +32,6 @@ import FacebookIcon from '@mui/icons-material/Facebook';
 import EmailRoundedIcon from '@mui/icons-material/EmailRounded';
 import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
 import { alpha } from '@mui/material/styles';
-import TextField from '@mui/material/TextField';
 import { getEvent, updateEvent } from '../services/eventService';
 import { getSpeakersByIds } from '../services/speakerService';
 import {
@@ -47,7 +45,7 @@ import {
 import type { AppEvent } from '../types/event';
 import type { Speaker } from '../types/speaker';
 import type { Registration, RsvpStatus, Person } from '../types/attendee';
-import { CategoryChip, StatusChip } from '../components/EventChips';
+import { ModalityChip, StatusChip, TagChip } from '../components/EventChips';
 import { formatDateRange } from '../utils/eventDisplay';
 import { useAuth } from '../context/AuthContext';
 import { brand } from '../theme/theme';
@@ -182,19 +180,17 @@ export default function EventDetailPage() {
 
   const spotsLeft = event.capacity === 0 ? null : event.capacity - registrations.length;
   const isFull = spotsLeft !== null && spotsLeft <= 0;
-  const closed = event.status === 'completed' || event.status === 'cancelled';
+  const closed = event.status === 'accomplished' || event.status === 'cancelled';
   const canRegister = !closed && (!isFull || myReg !== null);
 
   const EVENT_COVER_IMAGES: Record<string, string> = {
-    conference: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=1200&q=80',
-    meetup: 'https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=1200&q=80',
-    workshop: 'https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=1200&q=80',
-    hackathon: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=1200&q=80',
-    webinar: 'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?auto=format&fit=crop&w=1200&q=80',
+    onsite: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=1200&q=80',
+    hybrid: 'https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=1200&q=80',
+    virtual: 'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?auto=format&fit=crop&w=1200&q=80',
   };
 
   const heroImage =
-    event.imageUrl || EVENT_COVER_IMAGES[event.category] || EVENT_COVER_IMAGES.conference;
+    event.imageUrl || EVENT_COVER_IMAGES[event.modality] || EVENT_COVER_IMAGES.onsite;
 
   return (
     <Box sx={{ pb: 6 }}>
@@ -289,9 +285,12 @@ export default function EventDetailPage() {
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 8 }}>
           <Paper sx={{ p: { xs: 2.5, sm: 3.5 }, borderRadius: '15px' }}>
-            <Stack direction="row" spacing={1} sx={{ mb: 1.5 }}>
-              <CategoryChip category={event.category} />
+            <Stack direction="row" spacing={1} sx={{ mb: 1.5, flexWrap: 'wrap', gap: 0.5 }}>
+              <ModalityChip modality={event.modality} />
               <StatusChip status={event.status} />
+              {event.tags.map((tag) => (
+                <TagChip key={tag} tag={tag} />
+              ))}
             </Stack>
 
             <Typography variant="h1" sx={{ fontWeight: 800, mb: 2, lineHeight: 1.2 }}>

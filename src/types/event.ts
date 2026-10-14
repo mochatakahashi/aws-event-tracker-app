@@ -1,40 +1,56 @@
-/** Kind of event. */
-export type EventCategory = 'conference' | 'workshop' | 'meetup' | 'webinar';
+/** How the event is delivered. */
+export type EventModality = 'onsite' | 'hybrid' | 'virtual';
 
 /** Lifecycle status of an event. */
-export type EventStatus = 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
+export type EventStatus = 'upcoming' | 'ongoing' | 'accomplished' | 'cancelled';
 
-export const EVENT_CATEGORIES: EventCategory[] = [
-  'conference',
-  'workshop',
-  'meetup',
-  'webinar',
+/** Tag/type classifications for an event. */
+export type EventTag = 'technical' | 'leadership' | 'career-growth' | 'diversity';
+
+export const EVENT_MODALITIES: EventModality[] = [
+  'onsite',
+  'hybrid',
+  'virtual',
 ];
 
 export const EVENT_STATUSES: EventStatus[] = [
   'upcoming',
   'ongoing',
-  'completed',
+  'accomplished',
   'cancelled',
 ];
 
+export const EVENT_TAGS: EventTag[] = [
+  'technical',
+  'leadership',
+  'career-growth',
+  'diversity',
+];
+
 /**
- * A real-world event (conference, workshop, meetup, webinar). Speakers are
- * referenced by id from the shared speaker directory; attendees are tracked
- * separately via registrations.
+ * A real-world event tracked by AWS Student Builder Group – Asia Pacific College.
+ * Speakers are referenced by id from the shared speaker directory; attendees are
+ * tracked separately via registrations.
  */
 export interface AppEvent {
   id: string;
   title: string;
   description: string;
-  category: EventCategory;
+  /** How the event is delivered (onsite, hybrid, virtual). */
+  modality: EventModality;
   status: EventStatus;
+  /** Classification tags (technical, leadership, career-growth, diversity). */
+  tags: EventTag[];
   /** ISO 8601 start datetime. */
   startAt: string;
   /** ISO 8601 end datetime. */
   endAt: string;
-  /** Venue / location, e.g. "Main Hall, Convention Center" or "Online". */
+  /** Venue / location, e.g. "Asia Pacific College" or "Online". */
   venue: string;
+  /** Number of participants (actual or estimated). */
+  participants: number;
+  /** Whether the participants count is an estimate. */
+  participantsEstimated?: boolean;
   /** Maximum number of attendees (0 = unlimited). */
   capacity: number;
   /** Ids of speakers (from the speaker directory) assigned to this event. */
@@ -45,6 +61,10 @@ export interface AppEvent {
   officerRoles?: Record<string, string>;
   /** Optional custom image URL for the event cover. */
   imageUrl?: string;
+  /** Link to external event page (e.g. registration form). */
+  externalUrl?: string;
+  /** Club / organization hosting the event. */
+  club?: string;
   /** Automatically assigned timestamp. */
   createdAt?: string;
 }

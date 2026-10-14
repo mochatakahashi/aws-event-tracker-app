@@ -12,6 +12,7 @@ import Alert from '@mui/material/Alert';
 import CircularProgress from '@mui/material/CircularProgress';
 import Autocomplete from '@mui/material/Autocomplete';
 import Divider from '@mui/material/Divider';
+import Chip from '@mui/material/Chip';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { getEvent, createEvent, updateEvent } from '../services/eventService';
 import {
@@ -20,35 +21,41 @@ import {
   lookupLinkedInProfile,
 } from '../services/speakerService';
 import {
-  EVENT_CATEGORIES,
+  EVENT_MODALITIES,
   EVENT_STATUSES,
-  type EventCategory,
+  EVENT_TAGS,
+  type EventModality,
   type EventStatus,
+  type EventTag,
 } from '../types/event';
 import type { Speaker } from '../types/speaker';
-import { capitalize } from '../utils/eventDisplay';
+import { capitalize, tagColor, tagLabel } from '../utils/eventDisplay';
 
 interface FormState {
   title: string;
   description: string;
-  category: EventCategory;
+  modality: EventModality;
   status: EventStatus;
+  tags: EventTag[];
   startAt: string; // datetime-local value
   endAt: string; // datetime-local value
   venue: string;
   capacity: string; // kept as string for the input
+  participants: string;
   speakerIds: string[];
 }
 
 const EMPTY_FORM: FormState = {
   title: '',
   description: '',
-  category: 'conference',
+  modality: 'onsite',
   status: 'upcoming',
+  tags: [],
   startAt: '',
   endAt: '',
   venue: '',
   capacity: '0',
+  participants: '0',
   speakerIds: [],
 };
 
@@ -113,12 +120,14 @@ export default function EventFormPage() {
         setForm({
           title: event.title,
           description: event.description,
-          category: event.category,
+          modality: event.modality,
           status: event.status,
+          tags: [...event.tags],
           startAt: isoToLocalInput(event.startAt),
           endAt: isoToLocalInput(event.endAt),
           venue: event.venue,
           capacity: String(event.capacity),
+          participants: String(event.participants),
           speakerIds: [...event.speakerIds],
         });
       })
@@ -184,12 +193,14 @@ export default function EventFormPage() {
     const payload = {
       title: form.title.trim(),
       description: form.description.trim(),
-      category: form.category,
+      modality: form.modality,
       status: form.status,
+      tags: form.tags,
       startAt: localInputToIso(form.startAt),
       endAt: localInputToIso(form.endAt),
       venue: form.venue.trim(),
       capacity: Number(form.capacity),
+      participants: Number(form.participants),
       speakerIds: form.speakerIds,
     };
 
@@ -279,16 +290,16 @@ export default function EventFormPage() {
           <Grid size={{ xs: 12, sm: 4 }}>
             <TextField
               select
-              label="Category"
-              value={form.category}
+              label="Modality"
+              value={form.modality}
               onChange={(e) =>
-                update('category', e.target.value as EventCategory)
+                update('modality', e.target.value as EventModality)
               }
               fullWidth
             >
-              {EVENT_CATEGORIES.map((c) => (
-                <MenuItem key={c} value={c}>
-                  {capitalize(c)}
+              {EVENT_MODALITIES.map((m) => (
+                <MenuItem key={m} value={m}>
+                  {capitalize(m)}
                 </MenuItem>
               ))}
             </TextField>
@@ -321,7 +332,52 @@ export default function EventFormPage() {
             />
           </Grid>
 
-          <Grid size={{ xs: 12, sm: 6 }}>
+          {/* Tags (multi-select) */}
+          <Grid size={12}>
+            <Autocomplete
+              multiple
+              options={EVENT_TAGS}
+              getOptionLabel={(t) => tagLabel(t)}
+              value={form.tags}
+              onChange={(_e, value) => update('tags', value)}
+              renderTags={(value, getTagProps) =>
+                value.map((tag, index) => (
+                  <Chip
+                    {...getTagProps({ index })}
+                    key={tag}
+                    label={tagLabel(tag)}
+                    size="small"
+                    sx={{
+                      backgroundColor: tagColor(tag) + '18',
+                      color: tagColor(tag),
+                      fontWeight: 600,
+                      border: `1px solid ${tagColor(tag)}40`,
+                    }}
+                  />
+                ))
+              }
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Event Tags"
+                  placeholder="Select tags…"
+                />
+              )}
+            />
+          </Grid>
+
+          <Grid size={{ xs: 12, sm: 4 }}>
+            <TextField
+              label="Participants"
+              type="number"
+              value={form.participants}
+              onChange={(e) => update('participants', e.target.value)}
+              fullWidth
+              inputProps={{ min: 0 }}
+            />
+          </Grid>
+
+          <Grid size={{ xs: 12, sm: 4 }}>
             <TextField
               label="Starts"
               type="datetime-local"
@@ -334,7 +390,7 @@ export default function EventFormPage() {
               InputLabelProps={{ shrink: true }}
             />
           </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
+          <Grid size={{ xs: 12, sm: 4 }}>
             <TextField
               label="Ends"
               type="datetime-local"
@@ -357,7 +413,7 @@ export default function EventFormPage() {
               helperText={errors.venue}
               fullWidth
               required
-              placeholder='e.g. "Main Hall" or "Online"'
+              placeholder='e.g. "Asia Pacific College" or "Online"'
             />
           </Grid>
 

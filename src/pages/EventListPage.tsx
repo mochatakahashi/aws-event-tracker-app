@@ -17,13 +17,13 @@ import Alert from '@mui/material/Alert';
 import { getEvents } from '../services/eventService';
 import { getRegistrationsByEvent } from '../services/registrationService';
 import {
-  EVENT_CATEGORIES,
+  EVENT_MODALITIES,
   EVENT_STATUSES,
   type AppEvent,
-  type EventCategory,
+  type EventModality,
   type EventStatus,
 } from '../types/event';
-import { CategoryChip, StatusChip } from '../components/EventChips';
+import { ModalityChip, StatusChip, TagChip } from '../components/EventChips';
 import { capitalize, formatDateTime } from '../utils/eventDisplay';
 
 interface EventWithCount extends AppEvent {
@@ -44,7 +44,7 @@ export default function EventListPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [search, setSearch] = useState('');
-  const [category, setCategory] = useState<EventCategory | 'all'>('all');
+  const [modality, setModality] = useState<EventModality | 'all'>('all');
   const [status, setStatus] = useState<EventStatus | 'all'>('all');
 
   useEffect(() => {
@@ -75,7 +75,7 @@ export default function EventListPage() {
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     return events.filter((e) => {
-      if (category !== 'all' && e.category !== category) return false;
+      if (modality !== 'all' && e.modality !== modality) return false;
       if (status !== 'all' && e.status !== status) return false;
       if (term) {
         const haystack = [e.title, e.description, e.venue]
@@ -85,7 +85,7 @@ export default function EventListPage() {
       }
       return true;
     });
-  }, [events, search, category, status]);
+  }, [events, search, modality, status]);
 
   return (
     <Box>
@@ -93,7 +93,7 @@ export default function EventListPage() {
         Browse Events
       </Typography>
       <Typography color="text.secondary" sx={{ mb: 3 }}>
-        Discover conferences, workshops, meetups, and webinars.
+        Discover onsite, hybrid, and virtual events from AWS SBG-APC.
       </Typography>
 
       <Paper sx={{ p: 2, mb: 3 }}>
@@ -112,16 +112,16 @@ export default function EventListPage() {
           />
           <TextField
             select
-            label="Category"
-            value={category}
-            onChange={(e) => setCategory(e.target.value as EventCategory | 'all')}
+            label="Modality"
+            value={modality}
+            onChange={(e) => setModality(e.target.value as EventModality | 'all')}
             size="small"
             sx={{ minWidth: 160 }}
           >
-            <MenuItem value="all">All categories</MenuItem>
-            {EVENT_CATEGORIES.map((c) => (
-              <MenuItem key={c} value={c}>
-                {capitalize(c)}
+            <MenuItem value="all">All modalities</MenuItem>
+            {EVENT_MODALITIES.map((m) => (
+              <MenuItem key={m} value={m}>
+                {capitalize(m)}
               </MenuItem>
             ))}
           </TextField>
@@ -159,8 +159,9 @@ export default function EventListPage() {
             <TableHead>
               <TableRow>
                 <TableCell>Event</TableCell>
-                <TableCell>Category</TableCell>
+                <TableCell>Modality</TableCell>
                 <TableCell>Status</TableCell>
+                <TableCell>Type</TableCell>
                 <TableCell>When</TableCell>
                 <TableCell>Venue</TableCell>
                 <TableCell>Availability</TableCell>
@@ -169,7 +170,7 @@ export default function EventListPage() {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6}>
+                  <TableCell colSpan={7}>
                     <Typography
                       color="text.secondary"
                       sx={{ textAlign: 'center', py: 4 }}
@@ -188,10 +189,17 @@ export default function EventListPage() {
                   >
                     <TableCell>{event.title}</TableCell>
                     <TableCell>
-                      <CategoryChip category={event.category} />
+                      <ModalityChip modality={event.modality} />
                     </TableCell>
                     <TableCell>
                       <StatusChip status={event.status} />
+                    </TableCell>
+                    <TableCell>
+                      <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', gap: 0.5 }}>
+                        {event.tags.map((tag) => (
+                          <TagChip key={tag} tag={tag} />
+                        ))}
+                      </Stack>
                     </TableCell>
                     <TableCell>{formatDateTime(event.startAt)}</TableCell>
                     <TableCell>{event.venue}</TableCell>

@@ -89,6 +89,38 @@ export default function EventStampCard({
   const progressPercent = totalStampSlots > 0 ? (approvedCount / totalStampSlots) * 100 : 0;
   const isComplete = totalStampSlots > 0 && approvedCount === totalStampSlots;
 
+  if (displaySessions.length === 0) {
+    return (
+      <Card
+        variant="outlined"
+        sx={{
+          mb: 3,
+          p: 3,
+          borderRadius: '15px',
+          textAlign: 'center',
+          borderColor: alpha(brand.primary, 0.15),
+          bgcolor: alpha(brand.primary, 0.02),
+        }}
+      >
+        <WorkspacePremiumRoundedIcon sx={{ fontSize: 40, color: alpha(brand.primary, 0.4), mb: 1 }} />
+        <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5 }}>
+          No Stamp Passport for this Event
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 440, mx: 'auto', mb: 2 }}>
+          Activity stamps and the session passport are exclusive to hands-on workshops in <strong>Tech Barangay: AWS x WordPress x Notion</strong>.
+        </Typography>
+        <Button
+          size="small"
+          variant="outlined"
+          onClick={() => navigate('/select-event')}
+          sx={{ borderRadius: 2 }}
+        >
+          Switch to Tech Barangay
+        </Button>
+      </Card>
+    );
+  }
+
   async function handleQuickRequestStamp(sessionId: string, e: React.MouseEvent) {
     e.stopPropagation();
     if (!user?.personId) return;

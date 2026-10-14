@@ -57,7 +57,7 @@ export default function AchievementsPage() {
   // Completed events (past events the user has stamps for)
   const attendedEvents = useMemo(() => {
     const completedEventIds = new Set(
-      allEvents.filter((e) => e.status === 'completed').map((e) => e.id),
+      allEvents.filter((e) => e.status === 'accomplished').map((e) => e.id),
     );
     // For now, show completed events as "attended" (in a real app we'd check registration)
     return allEvents.filter((e) => completedEventIds.has(e.id));
@@ -296,7 +296,7 @@ export default function AchievementsPage() {
                           })}
                         </Typography>
                         <Chip
-                          label={event.category}
+                          label={event.tags?.[0] ?? event.modality}
                           size="small"
                           sx={{
                             height: 20,

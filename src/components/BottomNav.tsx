@@ -7,7 +7,6 @@ import EventIcon from '@mui/icons-material/CalendarMonth';
 import ConnectIcon from '@mui/icons-material/PeopleAlt';
 import AchievementsIcon from '@mui/icons-material/EmojiEventsRounded';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
-import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import { brand } from '../theme/theme';
 
 import { useAuth } from '../context/AuthContext';

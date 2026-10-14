@@ -12,7 +12,7 @@ import { seedEvents } from './seedData';
  * same signatures.
  */
 
-let events: AppEvent[] = seedEvents.map((e) => ({ ...e, speakerIds: [...e.speakerIds] }));
+let events: AppEvent[] = seedEvents.map((e) => ({ ...e, speakerIds: [...e.speakerIds], tags: [...e.tags] }));
 
 const LATENCY = 150;
 
@@ -25,7 +25,7 @@ function generateId(): string {
 }
 
 function clone(event: AppEvent): AppEvent {
-  return { ...event, speakerIds: [...event.speakerIds] };
+  return { ...event, speakerIds: [...event.speakerIds], tags: [...event.tags] };
 }
 
 /** Return all events, soonest start first. */
@@ -48,6 +48,7 @@ export async function createEvent(input: NewEventInput): Promise<AppEvent> {
     ...input,
     id: generateId(),
     speakerIds: [...(input.speakerIds ?? [])],
+    tags: [...(input.tags ?? [])],
   };
   events = [created, ...events];
   return delay(clone(created));
@@ -64,6 +65,7 @@ export async function updateEvent(
   }
   const updated: AppEvent = { ...events[index], ...changes, id };
   if (changes.speakerIds) updated.speakerIds = [...changes.speakerIds];
+  if (changes.tags) updated.tags = [...changes.tags];
   events[index] = updated;
   return delay(clone(updated));
 }
@@ -101,5 +103,5 @@ export async function unassignSpeaker(
 
 /** Reset the store to the original seed data (tests / dev only). */
 export function __resetEvents(): void {
-  events = seedEvents.map((e) => ({ ...e, speakerIds: [...e.speakerIds] }));
+  events = seedEvents.map((e) => ({ ...e, speakerIds: [...e.speakerIds], tags: [...e.tags] }));
 }

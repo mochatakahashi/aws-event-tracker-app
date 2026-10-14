@@ -11,16 +11,20 @@ import {
 } from './eventService';
 import { seedEvents } from './seedData';
 
-const NEW_EVENT = {
+import type { NewEventInput } from '../types/event';
+
+const NEW_EVENT: NewEventInput = {
   title: 'Test Meetup',
   description: 'A meetup created in a test.',
-  category: 'meetup' as const,
-  status: 'upcoming' as const,
+  modality: 'onsite',
+  status: 'upcoming',
+  tags: ['technical'],
+  participants: 0,
   startAt: '2026-12-01T18:00:00.000Z',
   endAt: '2026-12-01T20:00:00.000Z',
   venue: 'Test Venue',
   capacity: 50,
-  speakerIds: [] as string[],
+  speakerIds: [],
 };
 
 describe('eventService', () => {
@@ -40,7 +44,7 @@ describe('eventService', () => {
 
   it('gets an event by id', async () => {
     const event = await getEvent('evt-1');
-    expect(event?.title).toBe('CloudConf 2026');
+    expect(event?.title).toBe('Tech Barangay: AWS x WordPress x Notion');
   });
 
   it('returns null for an unknown id', async () => {
@@ -56,13 +60,13 @@ describe('eventService', () => {
   });
 
   it('updates an event', async () => {
-    const updated = await updateEvent('evt-1', { status: 'completed' });
-    expect(updated.status).toBe('completed');
-    expect((await getEvent('evt-1'))?.status).toBe('completed');
+    const updated = await updateEvent('evt-1', { status: 'accomplished' });
+    expect(updated.status).toBe('accomplished');
+    expect((await getEvent('evt-1'))?.status).toBe('accomplished');
   });
 
   it('rejects updating an unknown event', async () => {
-    await expect(updateEvent('nope', { status: 'completed' })).rejects.toThrow(
+    await expect(updateEvent('nope', { status: 'accomplished' })).rejects.toThrow(
       /not found/i,
     );
   });

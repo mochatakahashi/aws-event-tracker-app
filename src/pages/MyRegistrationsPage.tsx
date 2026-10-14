@@ -14,7 +14,7 @@ import {
 } from '../services/registrationService';
 import type { AppEvent } from '../types/event';
 import type { Registration } from '../types/attendee';
-import { CategoryChip, StatusChip, RsvpChip } from '../components/EventChips';
+import { ModalityChip, StatusChip, RsvpChip } from '../components/EventChips';
 import { formatDateRange } from '../utils/eventDisplay';
 import { useAuth } from '../context/AuthContext';
 
@@ -112,7 +112,7 @@ export default function MyRegistrationsPage() {
                   onClick={() => navigate(`/events/${event.id}`)}
                 >
                   <Stack direction="row" spacing={1} sx={{ mb: 0.5 }}>
-                    <CategoryChip category={event.category} />
+                    <ModalityChip modality={event.modality} />
                     <StatusChip status={event.status} />
                     <RsvpChip rsvp={registration.rsvp} />
                   </Stack>

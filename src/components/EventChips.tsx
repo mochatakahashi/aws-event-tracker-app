@@ -1,19 +1,21 @@
 import Chip from '@mui/material/Chip';
-import type { EventCategory, EventStatus } from '../types/event';
+import type { EventModality, EventStatus, EventTag } from '../types/event';
 import type { RsvpStatus } from '../types/attendee';
 import {
   capitalize,
-  categoryColor,
+  modalityColor,
   statusColor,
+  tagColor,
+  tagLabel,
   rsvpColor,
 } from '../utils/eventDisplay';
 
-export function CategoryChip({ category }: { category: EventCategory }) {
+export function ModalityChip({ modality }: { modality: EventModality }) {
   return (
     <Chip
       size="small"
-      color={categoryColor(category)}
-      label={capitalize(category)}
+      color={modalityColor(modality)}
+      label={capitalize(modality)}
     />
   );
 }
@@ -25,6 +27,23 @@ export function StatusChip({ status }: { status: EventStatus }) {
       color={statusColor(status)}
       label={capitalize(status)}
       variant="outlined"
+    />
+  );
+}
+
+export function TagChip({ tag }: { tag: EventTag }) {
+  return (
+    <Chip
+      size="small"
+      label={tagLabel(tag)}
+      sx={{
+        backgroundColor: tagColor(tag) + '18',
+        color: tagColor(tag),
+        fontWeight: 600,
+        border: `1px solid ${tagColor(tag)}40`,
+        fontSize: '0.7rem',
+        textTransform: 'uppercase',
+      }}
     />
   );
 }
