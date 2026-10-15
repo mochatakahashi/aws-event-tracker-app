@@ -1,11 +1,39 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import {
+  DynamoDBDocumentClient,
   ScanCommand,
   GetCommand,
   PutCommand,
   DeleteCommand,
 } from '@aws-sdk/lib-dynamodb';
-import { ddbDocClient, DYNAMODB_TABLE_NAME } from './lib/aws';
+
+function getDynamoDocClient() {
+  const region = process.env.APP_AWS_REGION || process.env.AWS_REGION || 'ap-southeast-1';
+  const accessKeyId = process.env.APP_AWS_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.APP_AWS_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
+
+  if (!accessKeyId || !secretAccessKey) {
+    throw new Error(
+      'AWS credentials missing. Please add APP_AWS_ACCESS_KEY_ID and APP_AWS_SECRET_ACCESS_KEY in Vercel Project Settings.'
+    );
+  }
+
+  const raw = new DynamoDBClient({
+    region,
+    credentials: {
+      accessKeyId: accessKeyId.trim(),
+      secretAccessKey: secretAccessKey.trim(),
+    },
+  });
+
+  return {
+    client: DynamoDBDocumentClient.from(raw, {
+      marshallOptions: { removeUndefinedValues: true },
+    }),
+    tableName: process.env.DYNAMODB_TABLE_NAME || 'aws_events',
+  };
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -16,25 +44,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).end();
   }
 
-  const hasCredentials =
-    (process.env.APP_AWS_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID) &&
-    (process.env.APP_AWS_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY);
-
-  if (!hasCredentials) {
-    return res.status(503).json({
-      error: 'AWS credentials not configured yet. Please add APP_AWS_ACCESS_KEY_ID in Vercel.',
-      code: 'AWS_NOT_CONFIGURED',
-    });
-  }
-
   try {
+    const { client, tableName } = getDynamoDocClient();
+
     // GET /api/events or GET /api/events?id=...
     if (req.method === 'GET') {
       const { id } = req.query;
       if (id && typeof id === 'string') {
-        const result = await ddbDocClient.send(
+        const result = await client.send(
           new GetCommand({
-            TableName: DYNAMODB_TABLE_NAME,
+            TableName: tableName,
             Key: { id },
           })
         );
@@ -44,15 +63,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json(result.Item);
       }
 
-      const result = await ddbDocClient.send(
+      const result = await client.send(
         new ScanCommand({
-          TableName: DYNAMODB_TABLE_NAME,
+          TableName: tableName,
         })
       );
       return res.status(200).json(result.Items || []);
     }
 
-    // POST /api/events
+    // POST /api/events (Create)
     if (req.method === 'POST') {
       const event = req.body;
       if (!event || !event.title) {
@@ -67,16 +86,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         updatedAt: new Date().toISOString(),
       };
 
-      await ddbDocClient.send(
+      await client.send(
         new PutCommand({
-          TableName: DYNAMODB_TABLE_NAME,
+          TableName: tableName,
           Item: itemToSave,
         })
       );
       return res.status(201).json(itemToSave);
     }
 
-    // PUT /api/events or PUT /api/events?id=...
+    // PUT /api/events (Update)
     if (req.method === 'PUT') {
       const { id } = req.query;
       const eventUpdates = req.body;
@@ -86,9 +105,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ error: 'Event ID is required for update' });
       }
 
-      const existing = await ddbDocClient.send(
+      const existing = await client.send(
         new GetCommand({
-          TableName: DYNAMODB_TABLE_NAME,
+          TableName: tableName,
           Key: { id: eventId },
         })
       );
@@ -100,9 +119,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         updatedAt: new Date().toISOString(),
       };
 
-      await ddbDocClient.send(
+      await client.send(
         new PutCommand({
-          TableName: DYNAMODB_TABLE_NAME,
+          TableName: tableName,
           Item: merged,
         })
       );
@@ -113,12 +132,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'DELETE') {
       const { id } = req.query;
       if (!id || typeof id !== 'string') {
-        return res.status(400).json({ error: 'Event ID is required for deletion' });
+        return res.status(400).json({ error: 'Event ID is required for delete' });
       }
 
-      await ddbDocClient.send(
+      await client.send(
         new DeleteCommand({
-          TableName: DYNAMODB_TABLE_NAME,
+          TableName: tableName,
           Key: { id },
         })
       );
@@ -128,6 +147,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (err: any) {
     console.error('DynamoDB API Error:', err);
-    return res.status(500).json({ error: err.message || 'Internal server error' });
+    return res.status(500).json({
+      error: err.message || 'Internal server error',
+      code: err.name || 'API_ERROR',
+    });
   }
 }
