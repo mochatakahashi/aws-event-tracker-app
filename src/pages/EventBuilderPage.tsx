@@ -37,7 +37,7 @@ export default function EventBuilderPage() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadError, setUploadError] = useState('');
-  const [selectedFileForAdjust, setSelectedFileForAdjust] = useState<File | null>(null);
+  const [adjustSource, setAdjustSource] = useState<File | string | null>(null);
 
   const [formData, setFormData] = useState<Partial<AppEvent>>({
     title: '',
@@ -79,7 +79,7 @@ export default function EventBuilderPage() {
   const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setSelectedFileForAdjust(file);
+    setAdjustSource(file);
     e.target.value = '';
   };
 
@@ -93,7 +93,7 @@ export default function EventBuilderPage() {
         setUploadProgress(percent);
       });
       setFormData((prev) => ({ ...prev, imageUrl: s3Url }));
-      setSelectedFileForAdjust(null);
+      setAdjustSource(null);
     } catch (err: any) {
       setUploadError(err.message || 'Failed to upload adjusted banner to AWS S3');
       throw err;
@@ -263,96 +263,120 @@ export default function EventBuilderPage() {
             onChange={handleChange('description')}
           />
           
-          {/* AWS S3 Banner Upload & Interactive Adjuster */}
-          {selectedFileForAdjust ? (
-            <ImageBannerAdjuster
-              file={selectedFileForAdjust}
-              onCropAndUpload={handleCropAndUpload}
-              onCancel={() => setSelectedFileForAdjust(null)}
-              uploading={uploadingImage}
-              uploadProgress={uploadProgress}
-            />
-          ) : (
-            <Paper
-              variant="outlined"
-              sx={{
-                p: 2.5,
-                borderRadius: 2,
-                bgcolor: 'background.default',
-                borderStyle: 'dashed',
-              }}
-            >
-              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700 }}>
-                Event Banner Image (Amazon S3)
-              </Typography>
-              <Stack spacing={2}>
-                <Stack
-                  direction={{ xs: 'column', sm: 'row' }}
-                  spacing={2}
-                  alignItems={{ xs: 'stretch', sm: 'center' }}
-                >
-                  <Button
-                    component="label"
-                    variant="outlined"
-                    startIcon={<CloudUploadIcon />}
-                    disabled={uploadingImage}
-                    sx={{ textTransform: 'none', fontWeight: 600 }}
-                  >
-                    Upload & Adjust Image for S3
-                    <input
-                      type="file"
-                      hidden
-                      accept="image/*"
-                      onChange={handleImageFileChange}
-                    />
-                  </Button>
-                  <Typography variant="caption" color="text.secondary">
-                    PNG, JPG, WebP. You can pan, zoom, and crop the banner area before uploading.
+          {/* AWS S3 Banner — Interactive Adjuster / Upload */}
+          {
+            /* Priority: active adjusting session (new file or explicit re-adjust) */
+            adjustSource ? (
+              <ImageBannerAdjuster
+                source={adjustSource}
+                onCropAndUpload={handleCropAndUpload}
+                onCancel={() => setAdjustSource(null)}
+                onFileReplace={(f) => setAdjustSource(f)}
+                uploading={uploadingImage}
+                uploadProgress={uploadProgress}
+              />
+            ) : formData.imageUrl ? (
+              /* Image URL exists — show interactive adjuster pre-loaded with the URL */
+              <Box>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                    Event Banner Image (Amazon S3)
                   </Typography>
+                  <Stack direction="row" spacing={1}>
+                    <Button
+                      size="small"
+                      variant="text"
+                      sx={{ textTransform: 'none', fontSize: '0.75rem' }}
+                      onClick={() => {
+                        setFormData(prev => ({ ...prev, imageUrl: '' }));
+                      }}
+                    >
+                      Clear
+                    </Button>
+                  </Stack>
                 </Stack>
-
+                <ImageBannerAdjuster
+                  source={formData.imageUrl}
+                  onCropAndUpload={handleCropAndUpload}
+                  onCancel={() => {}}
+                  onFileReplace={(f) => setAdjustSource(f)}
+                  uploading={uploadingImage}
+                  uploadProgress={uploadProgress}
+                />
                 {uploadError && (
-                  <Alert severity="warning" onClose={() => setUploadError('')}>
+                  <Alert severity="warning" onClose={() => setUploadError('')} sx={{ mt: 1 }}>
                     {uploadError}
                   </Alert>
                 )}
-
+                {/* Allow pasting a different URL */}
                 <TextField
-                  label="Or paste Image URL directly"
+                  label="Or paste a different Image URL"
                   size="small"
                   fullWidth
                   value={formData.imageUrl || ''}
                   onChange={handleChange('imageUrl')}
-                  placeholder="https://your-bucket.s3.region.amazonaws.com/events/banner.jpg"
+                  placeholder="https://your-bucket.s3.amazonaws.com/events/banner.jpg"
+                  sx={{ mt: 1.5 }}
                 />
-
-                {formData.imageUrl && (
-                  <Box
-                    sx={{
-                      mt: 1,
-                      position: 'relative',
-                      width: '100%',
-                      height: 180,
-                      borderRadius: 2,
-                      overflow: 'hidden',
-                      border: '1px solid',
-                      borderColor: 'divider',
-                    }}
+              </Box>
+            ) : (
+              /* Empty state — show upload button + URL paste field */
+              <Paper
+                variant="outlined"
+                sx={{
+                  p: 2.5,
+                  borderRadius: 2,
+                  bgcolor: 'background.default',
+                  borderStyle: 'dashed',
+                }}
+              >
+                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700 }}>
+                  Event Banner Image (Amazon S3)
+                </Typography>
+                <Stack spacing={2}>
+                  <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={2}
+                    alignItems={{ xs: 'stretch', sm: 'center' }}
                   >
-                    <Box
-                      component="img"
-                      src={formData.imageUrl}
-                      alt="Event banner preview"
-                      sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                      onError={(e: any) => {
-                        e.target.style.display = 'none';
-                      }}
-                    />
-                  </Box>
-                )}
-              </Stack>
-            </Paper>
-          )}
+                    <Button
+                      component="label"
+                      variant="outlined"
+                      startIcon={<CloudUploadIcon />}
+                      disabled={uploadingImage}
+                      sx={{ textTransform: 'none', fontWeight: 600 }}
+                    >
+                      Upload Image to Amazon S3
+                      <input
+                        type="file"
+                        hidden
+                        accept="image/*"
+                        onChange={handleImageFileChange}
+                      />
+                    </Button>
+                    <Typography variant="caption" color="text.secondary">
+                      Uploads directly to your AWS S3 bucket. Supported: PNG, JPG, WebP.
+                    </Typography>
+                  </Stack>
+
+                  {uploadError && (
+                    <Alert severity="warning" onClose={() => setUploadError('')}>
+                      {uploadError}
+                    </Alert>
+                  )}
+
+                  <TextField
+                    label="Or paste Image URL directly"
+                    size="small"
+                    fullWidth
+                    value={formData.imageUrl || ''}
+                    onChange={handleChange('imageUrl')}
+                    placeholder="https://your-bucket.s3.region.amazonaws.com/events/banner.jpg"
+                  />
+                </Stack>
+              </Paper>
+            )
+          }
 
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
             <TextField
