@@ -5,6 +5,7 @@ import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
 const initialEvents = [
   {
     id: 'evt-1',
+    entityType: 'event',
     title: 'Cloud Watch: Demo Day x Spider-Man: Brand New Day',
     modality: 'hybrid',
     status: 'upcoming',
@@ -22,6 +23,7 @@ const initialEvents = [
   },
   {
     id: 'evt-2',
+    entityType: 'event',
     title: 'Tech Barangay: AWS x WordPress x Notion',
     modality: 'onsite',
     status: 'upcoming',
@@ -36,6 +38,72 @@ const initialEvents = [
     officerIds: ['per-1'],
     imageUrl: 'https://images.unsplash.com/photo-1515187029135-18ee286d815b?w=1200&auto=format&fit=crop&q=80',
     createdAt: '2026-09-15T00:00:00.000Z',
+  },
+];
+
+const initialSessions = [
+  {
+    id: 'ses-1',
+    entityType: 'session',
+    eventId: 'evt-1',
+    title: 'WordPress Campus Connect',
+    description: 'Introduction to WordPress. (Note: You need to show your work that you finished before approval from the officer)',
+    imageUrl: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=600&q=80',
+    startTime: '2026-11-14T10:00:00+08:00',
+    endTime: '2026-11-14T11:30:00+08:00',
+    room: 'Lab 1',
+    speakerIds: ['spk-2'],
+    type: 'workshop',
+    status: 'not-started',
+    requiresStamp: true,
+  },
+  {
+    id: 'ses-2',
+    entityType: 'session',
+    eventId: 'evt-1',
+    title: 'WordPress on AWS',
+    description: 'Learn how to host your WordPress site on AWS infrastructure. (Note: You need to show your work that you finished before approval from the officer)',
+    startTime: '2026-11-14T12:30:00+08:00',
+    endTime: '2026-11-14T14:00:00+08:00',
+    room: 'Lab 1',
+    speakerIds: ['spk-3'],
+    type: 'workshop',
+    status: 'not-started',
+    requiresStamp: true,
+  },
+  {
+    id: 'ses-3',
+    entityType: 'session',
+    eventId: 'evt-1',
+    title: 'Notion Productivity',
+    description: 'Organize your workflows and projects using Notion templates and features. (Note: You need to show your work that you finished before approval from the officer)',
+    startTime: '2026-11-14T14:00:00+08:00',
+    endTime: '2026-11-14T15:00:00+08:00',
+    room: 'Lab 2',
+    speakerIds: ['spk-1'],
+    type: 'workshop',
+    status: 'not-started',
+    requiresStamp: true,
+  },
+];
+
+const initialStamps = [
+  {
+    id: 'stp-1',
+    entityType: 'stamp',
+    sessionId: 'ses-1',
+    attendeeId: 'per-2',
+    approvedBy: 'per-1',
+    approvedAt: '2026-11-14T11:35:00+08:00',
+    status: 'approved',
+  },
+  {
+    id: 'stp-2',
+    entityType: 'stamp',
+    sessionId: 'ses-2',
+    attendeeId: 'per-2',
+    status: 'pending',
+    requestedAt: '2026-11-14T13:50:00+08:00',
   },
 ];
 
@@ -69,19 +137,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       marshallOptions: { removeUndefinedValues: true },
     });
 
-    for (const evt of initialEvents) {
+    for (const item of [...initialEvents, ...initialSessions, ...initialStamps]) {
       await docClient.send(
         new PutCommand({
           TableName: tableName,
-          Item: evt,
+          Item: item,
         })
       );
     }
 
     return res.status(200).json({
       success: true,
-      message: `Successfully seeded ${initialEvents.length} events into DynamoDB table '${tableName}'!`,
-      events: initialEvents,
+      message: `Successfully seeded events, sessions, and stamps into DynamoDB table '${tableName}'!`,
+      eventsCount: initialEvents.length,
+      sessionsCount: initialSessions.length,
+      stampsCount: initialStamps.length,
     });
   } catch (err: any) {
     return res.status(500).json({
