@@ -7,7 +7,6 @@ import Slider from '@mui/material/Slider';
 import Paper from '@mui/material/Paper';
 import LinearProgress from '@mui/material/LinearProgress';
 import Alert from '@mui/material/Alert';
-import Tooltip from '@mui/material/Tooltip';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
@@ -18,15 +17,13 @@ import OpenWithIcon from '@mui/icons-material/OpenWith';
 import { brand } from '../theme/theme';
 
 interface AvatarImageAdjusterProps {
-  /** Title shown at the top, e.g. "Profile Photo" */
   label?: string;
   /** Accepts a freshly-picked File OR an already-uploaded URL string */
   source: File | string;
-  /** Size of the circular output in pixels (default 400) */
+  /** Output circle diameter in pixels (default 400) */
   outputSize?: number;
   onCropAndUpload: (croppedFile: File) => Promise<void>;
   onCancel: () => void;
-  /** Called when user swaps to a new file from inside the adjuster */
   onFileReplace?: (file: File) => void;
   uploading: boolean;
   uploadProgress: number;
@@ -43,6 +40,7 @@ export default function AvatarImageAdjuster({
   uploadProgress,
 }: AvatarImageAdjusterProps) {
   const [imageSrc, setImageSrc] = useState<string>('');
+  const [fitScale, setFitScale] = useState<number>(1);
   const [zoom, setZoom] = useState<number>(1);
   const [position, setPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState<boolean>(false);
@@ -58,22 +56,31 @@ export default function AvatarImageAdjuster({
   useEffect(() => {
     setImageLoaded(false);
     setZoom(1);
+    setFitScale(1);
     setPosition({ x: 0, y: 0 });
 
     if (typeof source === 'string') {
       setImageSrc(source);
       return;
     }
-
     const url = URL.createObjectURL(source);
     setImageSrc(url);
     return () => URL.revokeObjectURL(url);
   }, [source]);
 
+  // On load: scale image to cover the circular frame (no empty space)
   const handleImageLoad = () => {
-    setImageLoaded(true);
-    setZoom(1);
+    if (containerRef.current && imgRef.current) {
+      const containerSize = containerRef.current.clientWidth; // square
+      const naturalW = imgRef.current.naturalWidth || 1;
+      const naturalH = imgRef.current.naturalHeight || 1;
+      // Cover: ensure image fills the circle (use max so no empty corners)
+      const scale = Math.max(containerSize / naturalW, containerSize / naturalH);
+      setFitScale(scale);
+      setZoom(scale);
+    }
     setPosition({ x: 0, y: 0 });
+    setImageLoaded(true);
   };
 
   const handlePointerDown = (e: React.PointerEvent) => {
@@ -94,7 +101,7 @@ export default function AvatarImageAdjuster({
   };
 
   const handleReset = () => {
-    setZoom(1);
+    setZoom(fitScale);
     setPosition({ x: 0, y: 0 });
   };
 
@@ -105,11 +112,10 @@ export default function AvatarImageAdjuster({
     if (onFileReplace) onFileReplace(file);
   };
 
-  // Export as circular crop
+  // Export as circular-cropped JPEG
   const handleExportCrop = useCallback(async () => {
     if (!imgRef.current || !containerRef.current) return;
     setError('');
-
     try {
       const container = containerRef.current;
       const img = imgRef.current;
@@ -121,18 +127,17 @@ export default function AvatarImageAdjuster({
       const ctx = canvas.getContext('2d');
       if (!ctx) throw new Error('Could not get 2D rendering context');
 
-      // Circular clipping mask
+      // Circular clip
       ctx.beginPath();
       ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
       ctx.closePath();
       ctx.clip();
 
-      const containerSize = container.clientWidth; // square container
+      const containerSize = container.clientWidth;
       const scaleToCanvas = size / containerSize;
 
       const renderedWidth = img.clientWidth * zoom;
       const renderedHeight = img.clientHeight * zoom;
-
       const imgCenterX = containerSize / 2 + position.x;
       const imgCenterY = containerSize / 2 + position.y;
 
@@ -148,7 +153,6 @@ export default function AvatarImageAdjuster({
       const blob = await new Promise<Blob | null>((resolve) =>
         canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.92)
       );
-
       if (!blob) throw new Error('Failed to generate cropped avatar');
 
       const sourceName =
@@ -163,25 +167,16 @@ export default function AvatarImageAdjuster({
     }
   }, [source, zoom, position, outputSize, onCropAndUpload]);
 
-  const previewSize = 260; // px — the circular viewport shown on screen
+  const previewSize = 220;
 
   return (
-    <Paper
-      elevation={2}
-      sx={{
-        p: 2,
-        borderRadius: 3,
-        bgcolor: 'background.paper',
-        border: '2px solid',
-        borderColor: 'primary.main',
-      }}
-    >
+    <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
       <Stack spacing={1.5}>
         {/* Header */}
         <Stack direction="row" justifyContent="space-between" alignItems="center">
           <Box>
             <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-              Adjust {label} 🖼
+              Adjust {label}
             </Typography>
             <Typography variant="caption" color="text.secondary">
               Drag to reposition • Zoom to resize
@@ -199,7 +194,7 @@ export default function AvatarImageAdjuster({
         )}
 
         {/* Circular crop viewport */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
           <Box
             ref={containerRef}
             onPointerDown={handlePointerDown}
@@ -211,22 +206,18 @@ export default function AvatarImageAdjuster({
               height: previewSize,
               borderRadius: '50%',
               overflow: 'hidden',
-              bgcolor: '#1a1a2e',
+              bgcolor: 'grey.200',
               cursor: uploading ? 'default' : !imageLoaded ? 'wait' : isDragging ? 'grabbing' : 'grab',
               userSelect: 'none',
               touchAction: 'none',
-              border: '3px solid',
-              borderColor: 'primary.main',
-              boxShadow: `0 0 0 4px rgba(255,255,255,0.08), 0 8px 32px rgba(0,0,0,0.25)`,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              border: '2px solid',
+              borderColor: 'divider',
             }}
           >
             {!imageLoaded && (
-              <Typography variant="caption" color="text.disabled" sx={{ userSelect: 'none' }}>
-                Loading…
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                <Typography variant="caption" color="text.disabled">Loading…</Typography>
+              </Box>
             )}
 
             {imageSrc && (
@@ -250,44 +241,13 @@ export default function AvatarImageAdjuster({
                 }}
               />
             )}
-
-            {/* Subtle crosshair center guide */}
-            {imageLoaded && (
-              <Box
-                sx={{
-                  position: 'absolute',
-                  inset: 0,
-                  pointerEvents: 'none',
-                  '&::before': {
-                    content: '""',
-                    position: 'absolute',
-                    top: '50%',
-                    left: '10%',
-                    right: '10%',
-                    height: '1px',
-                    bgcolor: 'rgba(255,255,255,0.15)',
-                    transform: 'translateY(-50%)',
-                  },
-                  '&::after': {
-                    content: '""',
-                    position: 'absolute',
-                    left: '50%',
-                    top: '10%',
-                    bottom: '10%',
-                    width: '1px',
-                    bgcolor: 'rgba(255,255,255,0.15)',
-                    transform: 'translateX(-50%)',
-                  },
-                }}
-              />
-            )}
           </Box>
 
           {/* Drag hint */}
-          {imageLoaded && !isDragging && (
+          {imageLoaded && (
             <Stack direction="row" spacing={0.5} alignItems="center" sx={{ opacity: 0.5 }}>
-              <OpenWithIcon sx={{ fontSize: 14 }} />
-              <Typography variant="caption" sx={{ fontSize: '0.68rem' }}>
+              <OpenWithIcon sx={{ fontSize: 13 }} />
+              <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>
                 Drag or use arrow keys to reposition image
               </Typography>
             </Stack>
@@ -295,34 +255,30 @@ export default function AvatarImageAdjuster({
         </Box>
 
         {/* Zoom slider */}
-        <Stack direction="row" spacing={1.5} alignItems="center" sx={{ px: 1 }}>
+        <Stack direction="row" spacing={1.5} alignItems="center">
           <ZoomOutIcon fontSize="small" color="action" />
           <Slider
             value={zoom}
-            min={1}
-            max={3}
-            step={0.05}
+            min={fitScale}
+            max={fitScale * 3}
+            step={fitScale * 0.02}
             onChange={(_e, val) => setZoom(val as number)}
             disabled={uploading || !imageLoaded}
             valueLabelDisplay="auto"
-            valueLabelFormat={(val) => `${val.toFixed(1)}×`}
+            valueLabelFormat={(val) => `${(val / fitScale).toFixed(1)}×`}
             sx={{ flex: 1 }}
           />
           <ZoomInIcon fontSize="small" color="action" />
-          <Tooltip title="Reset position & zoom">
-            <span>
-              <Button
-                size="small"
-                variant="text"
-                startIcon={<RestartAltIcon />}
-                onClick={handleReset}
-                disabled={uploading || !imageLoaded}
-                sx={{ whiteSpace: 'nowrap', minWidth: 0, px: 1 }}
-              >
-                Reset
-              </Button>
-            </span>
-          </Tooltip>
+          <Button
+            size="small"
+            variant="text"
+            startIcon={<RestartAltIcon />}
+            onClick={handleReset}
+            disabled={uploading || !imageLoaded}
+            sx={{ whiteSpace: 'nowrap' }}
+          >
+            Reset
+          </Button>
         </Stack>
 
         {/* Upload progress */}
@@ -331,16 +287,12 @@ export default function AvatarImageAdjuster({
             <Typography variant="caption" sx={{ fontWeight: 600, mb: 0.5, display: 'block' }}>
               Uploading to Amazon S3 ({uploadProgress}%)…
             </Typography>
-            <LinearProgress
-              variant="determinate"
-              value={uploadProgress}
-              sx={{ borderRadius: 1, height: 5 }}
-            />
+            <LinearProgress variant="determinate" value={uploadProgress} sx={{ borderRadius: 1, height: 5 }} />
           </Box>
         )}
 
         {/* Actions */}
-        <Stack direction="row" spacing={1} justifyContent="space-between" alignItems="center">
+        <Stack direction="row" spacing={1} alignItems="center">
           {onFileReplace && (
             <>
               <Button
@@ -353,16 +305,9 @@ export default function AvatarImageAdjuster({
               >
                 Change Photo
               </Button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                hidden
-                accept="image/*"
-                onChange={handleReplaceFile}
-              />
+              <input ref={fileInputRef} type="file" hidden accept="image/*" onChange={handleReplaceFile} />
             </>
           )}
-
           <Stack direction="row" spacing={1} sx={{ ml: 'auto' }}>
             <Button variant="outlined" size="small" onClick={onCancel} disabled={uploading}>
               Cancel
