@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -15,15 +15,30 @@ import Paper from '@mui/material/Paper';
 import Divider from '@mui/material/Divider';
 import Chip from '@mui/material/Chip';
 import Autocomplete from '@mui/material/Autocomplete';
+import Avatar from '@mui/material/Avatar';
+import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import AddIcon from '@mui/icons-material/Add';
+import DeleteIcon from '@mui/icons-material/Delete';
+import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
+import PersonIcon from '@mui/icons-material/Person';
 import ImageBannerAdjuster from '../components/ImageBannerAdjuster';
+import AvatarImageAdjuster from '../components/AvatarImageAdjuster';
 import { getEvent, createEvent, updateEvent, deleteEvent } from '../services/eventService';
 import { uploadImageToS3 } from '../services/storageService';
 import { useAuth } from '../context/AuthContext';
 import { brand } from '../theme/theme';
 import { EVENT_TAGS, type AppEvent } from '../types/event';
 import { tagColor, tagLabel } from '../utils/eventDisplay';
+
+interface SpeakerDraft {
+  name: string;
+  headline: string;
+  bio: string;
+  avatarUrl: string;
+}
 
 export default function EventBuilderPage() {
   const { id } = useParams<{ id: string }>();
@@ -38,6 +53,14 @@ export default function EventBuilderPage() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadError, setUploadError] = useState('');
   const [adjustSource, setAdjustSource] = useState<File | string | null>(null);
+
+  // Speaker management with avatar upload
+  const [speakers, setSpeakers] = useState<SpeakerDraft[]>([]);
+  const [adjustingSpeakerIdx, setAdjustingSpeakerIdx] = useState<number | null>(null);
+  const [adjustingSpeakerSource, setAdjustingSpeakerSource] = useState<File | string | null>(null);
+  const [uploadingSpeakerAvatar, setUploadingSpeakerAvatar] = useState(false);
+  const [speakerUploadProgress, setSpeakerUploadProgress] = useState(0);
+  const speakerFileRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const [formData, setFormData] = useState<Partial<AppEvent>>({
     title: '',
@@ -100,6 +123,39 @@ export default function EventBuilderPage() {
     } finally {
       setUploadingImage(false);
     }
+  };
+
+  // Speaker avatar upload
+  const handleSpeakerAvatarUpload = async (croppedFile: File) => {
+    if (adjustingSpeakerIdx === null) return;
+    setUploadingSpeakerAvatar(true);
+    setSpeakerUploadProgress(0);
+    try {
+      const s3Url = await uploadImageToS3(croppedFile, (pct) => setSpeakerUploadProgress(pct));
+      setSpeakers(prev => prev.map((sp, i) =>
+        i === adjustingSpeakerIdx ? { ...sp, avatarUrl: s3Url } : sp
+      ));
+      setAdjustingSpeakerIdx(null);
+      setAdjustingSpeakerSource(null);
+    } catch (err: any) {
+      alert(err.message || 'Failed to upload speaker photo');
+    } finally {
+      setUploadingSpeakerAvatar(false);
+    }
+  };
+
+  const addSpeaker = () => setSpeakers(prev => [...prev, { name: '', headline: '', bio: '', avatarUrl: '' }]);
+
+  const removeSpeaker = (idx: number) => {
+    setSpeakers(prev => prev.filter((_, i) => i !== idx));
+    if (adjustingSpeakerIdx === idx) {
+      setAdjustingSpeakerIdx(null);
+      setAdjustingSpeakerSource(null);
+    }
+  };
+
+  const updateSpeaker = (idx: number, field: keyof SpeakerDraft, value: string) => {
+    setSpeakers(prev => prev.map((sp, i) => i === idx ? { ...sp, [field]: value } : sp));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -407,6 +463,153 @@ export default function EventBuilderPage() {
             }}
             placeholder="per-1, per-2"
           />
+
+          <Divider sx={{ my: 2 }} />
+
+          {/* Speakers Section */}
+          <Box>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                Speakers
+              </Typography>
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<AddIcon />}
+                onClick={addSpeaker}
+                sx={{ textTransform: 'none' }}
+              >
+                Add Speaker
+              </Button>
+            </Stack>
+
+            {speakers.length === 0 && (
+              <Typography variant="caption" color="text.secondary">
+                No speakers added yet. Click "Add Speaker" to add one.
+              </Typography>
+            )}
+
+            <Stack spacing={2}>
+              {speakers.map((sp, idx) => (
+                <Paper
+                  key={idx}
+                  variant="outlined"
+                  sx={{ p: 2, borderRadius: 2, position: 'relative' }}
+                >
+                  {/* Speaker avatar adjuster */}
+                  {adjustingSpeakerIdx === idx && adjustingSpeakerSource ? (
+                    <Box sx={{ mb: 2 }}>
+                      <AvatarImageAdjuster
+                        label={`${sp.name || 'Speaker'} Photo`}
+                        source={adjustingSpeakerSource}
+                        onCropAndUpload={handleSpeakerAvatarUpload}
+                        onCancel={() => { setAdjustingSpeakerIdx(null); setAdjustingSpeakerSource(null); }}
+                        onFileReplace={(f) => setAdjustingSpeakerSource(f)}
+                        uploading={uploadingSpeakerAvatar}
+                        uploadProgress={speakerUploadProgress}
+                      />
+                    </Box>
+                  ) : (
+                    <Stack direction="row" spacing={2} alignItems="flex-start" sx={{ mb: 2 }}>
+                      {/* Avatar with upload overlay */}
+                      <Box sx={{ position: 'relative', flexShrink: 0 }}>
+                        <Avatar
+                          src={sp.avatarUrl || undefined}
+                          sx={{ width: 64, height: 64, border: '2px solid', borderColor: 'divider' }}
+                        >
+                          <PersonIcon />
+                        </Avatar>
+                        <Tooltip title="Upload speaker photo">
+                          <IconButton
+                            size="small"
+                            onClick={() => speakerFileRefs.current[idx]?.click()}
+                            sx={{
+                              position: 'absolute',
+                              bottom: -4,
+                              right: -4,
+                              bgcolor: 'background.paper',
+                              border: '2px solid',
+                              borderColor: 'divider',
+                              width: 26,
+                              height: 26,
+                              '&:hover': { bgcolor: 'action.hover' },
+                            }}
+                          >
+                            <PhotoCameraIcon sx={{ fontSize: 14 }} />
+                          </IconButton>
+                        </Tooltip>
+                        <input
+                          ref={(el) => { speakerFileRefs.current[idx] = el; }}
+                          type="file"
+                          hidden
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            e.target.value = '';
+                            setAdjustingSpeakerIdx(idx);
+                            setAdjustingSpeakerSource(file);
+                          }}
+                        />
+                        {sp.avatarUrl && (
+                          <Tooltip title="Re-adjust photo">
+                            <Typography
+                              variant="caption"
+                              onClick={() => { setAdjustingSpeakerIdx(idx); setAdjustingSpeakerSource(sp.avatarUrl); }}
+                              sx={{ display: 'block', textAlign: 'center', mt: 0.5, cursor: 'pointer', color: 'primary.main', fontSize: '0.65rem' }}
+                            >
+                              Adjust
+                            </Typography>
+                          </Tooltip>
+                        )}
+                      </Box>
+
+                      <Stack spacing={1.5} flex={1}>
+                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+                          <TextField
+                            label="Speaker Name"
+                            size="small"
+                            fullWidth
+                            value={sp.name}
+                            onChange={(e) => updateSpeaker(idx, 'name', e.target.value)}
+                            required
+                          />
+                          <TextField
+                            label="Title / Role"
+                            size="small"
+                            fullWidth
+                            value={sp.headline}
+                            onChange={(e) => updateSpeaker(idx, 'headline', e.target.value)}
+                          />
+                        </Stack>
+                        <TextField
+                          label="Short Bio"
+                          size="small"
+                          fullWidth
+                          multiline
+                          rows={2}
+                          value={sp.bio}
+                          onChange={(e) => updateSpeaker(idx, 'bio', e.target.value)}
+                        />
+                      </Stack>
+                    </Stack>
+                  )}
+
+                  {/* Remove speaker */}
+                  <Tooltip title="Remove speaker">
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={() => removeSpeaker(idx)}
+                      sx={{ position: 'absolute', top: 8, right: 8 }}
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </Paper>
+              ))}
+            </Stack>
+          </Box>
 
           <Divider sx={{ my: 2 }} />
 
