@@ -4,14 +4,12 @@ import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
 import Slider from '@mui/material/Slider';
-import Paper from '@mui/material/Paper';
 import LinearProgress from '@mui/material/LinearProgress';
 import Alert from '@mui/material/Alert';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
-import CloseIcon from '@mui/icons-material/Close';
 import ImageIcon from '@mui/icons-material/Image';
 import { brand } from '../theme/theme';
 
@@ -20,7 +18,7 @@ interface ImageBannerAdjusterProps {
   source: File | string;
   onCropAndUpload: (croppedFile: File) => Promise<void>;
   onCancel: () => void;
-  /** Called when user picks a new replacement file via "Change Image" */
+  /** Called when user picks a replacement file via "Change Image" */
   onFileReplace?: (file: File) => void;
   uploading: boolean;
   uploadProgress: number;
@@ -35,6 +33,12 @@ export default function ImageBannerAdjuster({
   uploadProgress,
 }: ImageBannerAdjusterProps) {
   const [imageSrc, setImageSrc] = useState<string>('');
+  // Base (1×) display size of the image: the largest size that fits entirely
+  // inside the 16:9 frame while preserving aspect ratio ("contain").
+  const [baseSize, setBaseSize] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
+  // Zoom needed for the image to fully cover the frame (used to size the slider range)
+  const [coverZoom, setCoverZoom] = useState<number>(1);
+  // Zoom is a pure multiplier on top of baseSize — 1 means "fit to frame"
   const [zoom, setZoom] = useState<number>(1);
   const [position, setPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState<boolean>(false);
@@ -50,25 +54,55 @@ export default function ImageBannerAdjuster({
   useEffect(() => {
     setImageLoaded(false);
     setZoom(1);
+    setBaseSize({ w: 0, h: 0 });
+    setCoverZoom(1);
     setPosition({ x: 0, y: 0 });
 
     if (typeof source === 'string') {
       setImageSrc(source);
       return;
     }
-
     const url = URL.createObjectURL(source);
     setImageSrc(url);
     return () => URL.revokeObjectURL(url);
   }, [source]);
 
+  // Compute the "fit to frame" (contain) size for the current container + image
+  const computeFit = useCallback(() => {
+    const container = containerRef.current;
+    const img = imgRef.current;
+    if (!container || !img || !img.naturalWidth || !img.naturalHeight) return;
+    const containerW = container.clientWidth;
+    const containerH = container.clientHeight;
+    if (!containerW || !containerH) return;
+    const naturalW = img.naturalWidth;
+    const naturalH = img.naturalHeight;
+    const scale = Math.min(containerW / naturalW, containerH / naturalH);
+    const w = naturalW * scale;
+    const h = naturalH * scale;
+    setBaseSize({ w, h });
+    setCoverZoom(Math.max(containerW / w, containerH / h));
+  }, []);
+
+  // On load: start fully visible, centered, at exactly 1×
   const handleImageLoad = () => {
-    setImageLoaded(true);
+    computeFit();
     setZoom(1);
     setPosition({ x: 0, y: 0 });
+    setImageLoaded(true);
   };
 
-  // Drag handling
+  // Keep the fit size accurate if the frame is resized (layout changes, window resize)
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => computeFit());
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, [computeFit]);
+
+  const maxZoom = Math.max(3, Math.ceil(coverZoom * 10) / 10);
+
   const handlePointerDown = (e: React.PointerEvent) => {
     if (uploading || !imageLoaded) return;
     setIsDragging(true);
@@ -78,21 +112,15 @@ export default function ImageBannerAdjuster({
 
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!isDragging || uploading) return;
-    setPosition({
-      x: e.clientX - dragStart.x,
-      y: e.clientY - dragStart.y,
-    });
+    setPosition({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
     setIsDragging(false);
-    try {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    } catch {
-      // ignore
-    }
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
   };
 
+  // Reset to "fit to frame" view
   const handleReset = () => {
     setZoom(1);
     setPosition({ x: 0, y: 0 });
@@ -102,24 +130,16 @@ export default function ImageBannerAdjuster({
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = '';
-    if (onFileReplace) {
-      onFileReplace(file);
-    }
+    if (onFileReplace) onFileReplace(file);
   };
 
-  // Export cropped 16:9 banner as a File and upload to S3
+  // Export cropped 16:9 banner at 1280×720
   const handleExportCrop = useCallback(async () => {
     if (!imgRef.current || !containerRef.current) return;
     setError('');
-
     try {
       const container = containerRef.current;
       const img = imgRef.current;
-
-      const containerWidth = container.clientWidth;
-      const containerHeight = container.clientHeight;
-
-      // Output at a crisp 1280×720 (16:9) resolution
       const targetWidth = 1280;
       const targetHeight = 720;
 
@@ -132,11 +152,13 @@ export default function ImageBannerAdjuster({
       ctx.fillStyle = '#0f172a';
       ctx.fillRect(0, 0, targetWidth, targetHeight);
 
+      const containerWidth = container.clientWidth;
+      const containerHeight = container.clientHeight;
       const scaleToCanvas = targetWidth / containerWidth;
 
-      const renderedWidth = img.clientWidth * zoom;
-      const renderedHeight = img.clientHeight * zoom;
-
+      const renderedWidth = baseSize.w * zoom;
+      const renderedHeight = baseSize.h * zoom;
+      if (!renderedWidth || !renderedHeight) throw new Error('Image is not ready yet');
       const imgCenterX = containerWidth / 2 + position.x;
       const imgCenterY = containerHeight / 2 + position.y;
 
@@ -152,7 +174,6 @@ export default function ImageBannerAdjuster({
       const blob = await new Promise<Blob | null>((resolve) =>
         canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.92)
       );
-
       if (!blob) throw new Error('Failed to generate cropped image');
 
       const sourceName =
@@ -165,50 +186,17 @@ export default function ImageBannerAdjuster({
     } catch (err: any) {
       setError(err.message || 'Failed to crop and process image');
     }
-  }, [source, zoom, position, onCropAndUpload]);
-
-  const isExistingUrl = typeof source === 'string';
+  }, [source, zoom, position, baseSize, onCropAndUpload]);
 
   return (
-    <Paper
-      elevation={3}
-      sx={{
-        p: 2.5,
-        borderRadius: 3,
-        bgcolor: 'background.paper',
-        border: '2px solid',
-        borderColor: 'primary.main',
-      }}
-    >
-      <Stack spacing={2}>
-        {/* Header */}
-        <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-          <Box>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-              {isExistingUrl ? 'Adjust Banner Focus Area 📐' : 'Adjust & Upload Event Banner 📐'}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Drag to reposition • Zoom in/out • Grid lines help with composition (16:9 format)
-            </Typography>
-          </Box>
-          <Button
-            size="small"
-            color="inherit"
-            startIcon={<CloseIcon />}
-            onClick={onCancel}
-            disabled={uploading}
-          >
-            Cancel
-          </Button>
-        </Stack>
-
+      <Stack spacing={1.5}>
         {error && (
           <Alert severity="error" onClose={() => setError('')}>
             {error}
           </Alert>
         )}
 
-        {/* 16:9 Cropping Viewport */}
+        {/* 16:9 Viewport */}
         <Box
           ref={containerRef}
           onPointerDown={handlePointerDown}
@@ -221,28 +209,13 @@ export default function ImageBannerAdjuster({
             overflow: 'hidden',
             borderRadius: 2,
             bgcolor: '#0f172a',
-            cursor: uploading
-              ? 'default'
-              : !imageLoaded
-              ? 'wait'
-              : isDragging
-              ? 'grabbing'
-              : 'grab',
+            cursor: uploading ? 'default' : !imageLoaded ? 'wait' : isDragging ? 'grabbing' : 'grab',
             userSelect: 'none',
             touchAction: 'none',
-            border: '2px solid',
+            border: '1px solid',
             borderColor: 'divider',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
           }}
         >
-          {!imageLoaded && (
-            <Typography variant="caption" color="text.disabled">
-              Loading image…
-            </Typography>
-          )}
-
           {imageSrc && (
             <Box
               component="img"
@@ -254,26 +227,28 @@ export default function ImageBannerAdjuster({
               draggable={false}
               sx={{
                 position: 'absolute',
+                top: '50%',
+                left: '50%',
+                width: baseSize.w ? `${baseSize.w}px` : 'auto',
+                height: baseSize.h ? `${baseSize.h}px` : 'auto',
                 maxWidth: 'none',
                 maxHeight: 'none',
                 transformOrigin: 'center center',
-                transform: `translate(${position.x}px, ${position.y}px) scale(${zoom})`,
+                transform: `translate(-50%, -50%) translate(${position.x}px, ${position.y}px) scale(${zoom})`,
                 transition: isDragging ? 'none' : 'transform 0.05s ease-out',
                 pointerEvents: 'none',
-                opacity: imageLoaded ? 1 : 0,
+                opacity: imageLoaded && baseSize.w ? 1 : 0,
               }}
             />
           )}
 
-          {/* Rule-of-thirds grid overlay */}
+          {/* Rule-of-thirds grid */}
           {imageLoaded && (
             <Box
               sx={{
                 position: 'absolute',
                 inset: 0,
                 pointerEvents: 'none',
-                border: '2px dashed rgba(255, 255, 255, 0.4)',
-                boxShadow: 'inset 0 0 20px rgba(0,0,0,0.5)',
                 '&::before': {
                   content: '""',
                   position: 'absolute',
@@ -281,8 +256,8 @@ export default function ImageBannerAdjuster({
                   bottom: '33.33%',
                   left: 0,
                   right: 0,
-                  borderTop: '1px dashed rgba(255, 255, 255, 0.2)',
-                  borderBottom: '1px dashed rgba(255, 255, 255, 0.2)',
+                  borderTop: '1px dashed rgba(255,255,255,0.2)',
+                  borderBottom: '1px dashed rgba(255,255,255,0.2)',
                 },
                 '&::after': {
                   content: '""',
@@ -291,60 +266,64 @@ export default function ImageBannerAdjuster({
                   right: '33.33%',
                   top: 0,
                   bottom: 0,
-                  borderLeft: '1px dashed rgba(255, 255, 255, 0.2)',
-                  borderRight: '1px dashed rgba(255, 255, 255, 0.2)',
+                  borderLeft: '1px dashed rgba(255,255,255,0.2)',
+                  borderRight: '1px dashed rgba(255,255,255,0.2)',
                 },
               }}
             />
           )}
 
-          {/* Badges */}
-          <Box
-            sx={{
-              position: 'absolute',
-              bottom: 8,
-              right: 8,
-              bgcolor: 'rgba(0,0,0,0.75)',
-              color: '#fff',
-              px: 1,
-              py: 0.5,
-              borderRadius: 1,
-              fontSize: '0.7rem',
-              fontWeight: 700,
-              pointerEvents: 'none',
-            }}
-          >
-            16:9 — 1280×720
-          </Box>
-
-          {imageLoaded && (
+          {/* Hint badge */}
+          {imageLoaded && !isDragging && (
             <Box
               sx={{
                 position: 'absolute',
                 top: 8,
                 left: 8,
-                bgcolor: 'rgba(0,0,0,0.75)',
-                color: 'rgba(255,255,255,0.85)',
+                bgcolor: 'rgba(0,0,0,0.55)',
+                color: '#fff',
                 px: 1,
-                py: 0.5,
+                py: 0.4,
                 borderRadius: 1,
                 fontSize: '0.7rem',
                 pointerEvents: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5,
               }}
             >
-              🖱 Drag to reposition
+              ✥ Drag to reposition
             </Box>
           )}
+
+          {/* Format badge */}
+          <Box
+            sx={{
+              position: 'absolute',
+              bottom: 8,
+              right: 8,
+              bgcolor: 'rgba(0,0,0,0.55)',
+              color: '#fff',
+              px: 1,
+              py: 0.4,
+              borderRadius: 1,
+              fontSize: '0.7rem',
+              fontWeight: 600,
+              pointerEvents: 'none',
+            }}
+          >
+            16:9 — 1280×720
+          </Box>
         </Box>
 
         {/* Zoom + Reset */}
-        <Stack direction="row" spacing={2} alignItems="center">
+        <Stack direction="row" spacing={1.5} alignItems="center">
           <ZoomOutIcon fontSize="small" color="action" />
           <Slider
             value={zoom}
             min={1}
-            max={3}
-            step={0.05}
+            max={maxZoom}
+            step={0.01}
             onChange={(_e, val) => setZoom(val as number)}
             disabled={uploading || !imageLoaded}
             valueLabelDisplay="auto"
@@ -366,26 +345,21 @@ export default function ImageBannerAdjuster({
 
         {/* Upload progress */}
         {uploading && (
-          <Box sx={{ width: '100%' }}>
+          <Box>
             <Typography variant="caption" sx={{ fontWeight: 600, mb: 0.5, display: 'block' }}>
-              Cropping and uploading to Amazon S3 ({uploadProgress}%)…
+              Uploading to Amazon S3 ({uploadProgress}%)…
             </Typography>
-            <LinearProgress
-              variant="determinate"
-              value={uploadProgress}
-              sx={{ borderRadius: 1, height: 6 }}
-            />
+            <LinearProgress variant="determinate" value={uploadProgress} sx={{ borderRadius: 1, height: 5 }} />
           </Box>
         )}
 
-        {/* Action Buttons */}
-        <Stack direction="row" spacing={1.5} justifyContent="space-between" alignItems="center">
-          {/* Left: change image */}
+        {/* Actions */}
+        <Stack direction="row" spacing={1.5} alignItems="center">
           {onFileReplace && (
             <>
               <Button
-                variant="text"
                 size="small"
+                variant="text"
                 startIcon={<ImageIcon />}
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading}
@@ -393,17 +367,9 @@ export default function ImageBannerAdjuster({
               >
                 Change Image
               </Button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                hidden
-                accept="image/*"
-                onChange={handleReplaceFileChange}
-              />
+              <input ref={fileInputRef} type="file" hidden accept="image/*" onChange={handleReplaceFileChange} />
             </>
           )}
-
-          {/* Right: cancel + crop & upload */}
           <Stack direction="row" spacing={1.5} sx={{ ml: 'auto' }}>
             <Button variant="outlined" onClick={onCancel} disabled={uploading}>
               Cancel
@@ -415,11 +381,10 @@ export default function ImageBannerAdjuster({
               disabled={uploading || !imageLoaded}
               sx={{ background: brand.gradient, fontWeight: 700 }}
             >
-              {uploading ? 'Uploading to S3…' : 'Crop & Upload to S3'}
+              {uploading ? 'Uploading to S3…' : 'Upload to S3'}
             </Button>
           </Stack>
         </Stack>
       </Stack>
-    </Paper>
   );
 }

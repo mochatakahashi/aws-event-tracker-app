@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.1] - 2026-10-16
+
+### Fixed
+- **Event Banner Adjuster (`ImageBannerAdjuster.tsx`) – over-zoomed uploads**: Newly uploaded banner images no longer open heavily zoomed in or off-center.
+  - The image is now scaled to fit entirely inside the 16:9 frame (contain) and centered by default.
+  - Zoom is now a true multiplier that starts at exactly **1×** (fit to frame); the slider ranges from 1× to 3× (or higher when needed to fill the frame).
+  - **Reset** returns to 1× and centered.
+  - The fit is recalculated when the frame is resized (`ResizeObserver`).
+  - The exported 1280×720 banner now uses the same sizing and centering as the on-screen preview, so the upload matches what the user sees.
+
+### Changed
+- **Minimal banner adjuster UI**: Removed the outlined card wrapper and header (title, instructions line, and duplicate top Cancel button); the adjuster now sits inline in the Event Builder form.
+- Renamed the **"Crop & Upload to S3"** button to **"Upload to S3"**, and the progress text to "Uploading to Amazon S3".
+
+---
+
 ## [0.3.0] - 2026-10-08
 
 ### Added
