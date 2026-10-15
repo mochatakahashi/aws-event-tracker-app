@@ -10,12 +10,16 @@ import Select from '@mui/material/Select';
 import InputLabel from '@mui/material/InputLabel';
 import FormControl from '@mui/material/FormControl';
 import CircularProgress from '@mui/material/CircularProgress';
+import LinearProgress from '@mui/material/LinearProgress';
+import Alert from '@mui/material/Alert';
 import Paper from '@mui/material/Paper';
 import Divider from '@mui/material/Divider';
 import Chip from '@mui/material/Chip';
 import Autocomplete from '@mui/material/Autocomplete';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import { getEvent, createEvent, updateEvent, deleteEvent } from '../services/eventService';
+import { uploadImageToS3 } from '../services/storageService';
 import { useAuth } from '../context/AuthContext';
 import { brand } from '../theme/theme';
 import { EVENT_TAGS, type AppEvent } from '../types/event';
@@ -30,6 +34,9 @@ export default function EventBuilderPage() {
   const [loading, setLoading] = useState(isEditing);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadError, setUploadError] = useState('');
 
   const [formData, setFormData] = useState<Partial<AppEvent>>({
     title: '',
@@ -66,6 +73,28 @@ export default function EventBuilderPage() {
 
   const handleChange = (field: keyof AppEvent) => (e: any) => {
     setFormData(prev => ({ ...prev, [field]: e.target.value }));
+  };
+
+  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingImage(true);
+    setUploadProgress(0);
+    setUploadError('');
+
+    try {
+      const s3Url = await uploadImageToS3(file, (percent) => {
+        setUploadProgress(percent);
+      });
+      setFormData((prev) => ({ ...prev, imageUrl: s3Url }));
+    } catch (err: any) {
+      setUploadError(err.message || 'Failed to upload image to AWS S3');
+    } finally {
+      setUploadingImage(false);
+      // reset file input
+      e.target.value = '';
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -229,13 +258,98 @@ export default function EventBuilderPage() {
             onChange={handleChange('description')}
           />
           
-          <TextField
-            label="Image URL (Optional)"
-            fullWidth
-            value={formData.imageUrl || ''}
-            onChange={handleChange('imageUrl')}
-            placeholder="https://example.com/image.jpg"
-          />
+          {/* AWS S3 Banner Upload */}
+          <Paper
+            variant="outlined"
+            sx={{
+              p: 2.5,
+              borderRadius: 2,
+              bgcolor: 'background.default',
+              borderStyle: 'dashed',
+            }}
+          >
+            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700 }}>
+              Event Banner Image (Amazon S3)
+            </Typography>
+            <Stack spacing={2}>
+              <Stack
+                direction={{ xs: 'column', sm: 'row' }}
+                spacing={2}
+                alignItems={{ xs: 'stretch', sm: 'center' }}
+              >
+                <Button
+                  component="label"
+                  variant="outlined"
+                  startIcon={<CloudUploadIcon />}
+                  disabled={uploadingImage}
+                  sx={{ textTransform: 'none', fontWeight: 600 }}
+                >
+                  {uploadingImage
+                    ? `Uploading to S3 (${uploadProgress}%)…`
+                    : 'Upload Image to Amazon S3'}
+                  <input
+                    type="file"
+                    hidden
+                    accept="image/*"
+                    onChange={handleImageFileChange}
+                  />
+                </Button>
+                <Typography variant="caption" color="text.secondary">
+                  Uploads directly to your AWS S3 bucket. Supported: PNG, JPG, WebP.
+                </Typography>
+              </Stack>
+
+              {uploadingImage && (
+                <Box sx={{ width: '100%' }}>
+                  <LinearProgress
+                    variant="determinate"
+                    value={uploadProgress}
+                    sx={{ borderRadius: 1, height: 6 }}
+                  />
+                </Box>
+              )}
+
+              {uploadError && (
+                <Alert severity="warning" onClose={() => setUploadError('')}>
+                  {uploadError}
+                </Alert>
+              )}
+
+              <TextField
+                label="Or paste Image URL directly"
+                size="small"
+                fullWidth
+                value={formData.imageUrl || ''}
+                onChange={handleChange('imageUrl')}
+                placeholder="https://your-bucket.s3.region.amazonaws.com/events/banner.jpg"
+              />
+
+              {formData.imageUrl && (
+                <Box
+                  sx={{
+                    mt: 1,
+                    position: 'relative',
+                    width: '100%',
+                    height: 180,
+                    borderRadius: 2,
+                    overflow: 'hidden',
+                    border: '1px solid',
+                    borderColor: 'divider',
+                  }}
+                >
+                  <Box
+                    component="img"
+                    src={formData.imageUrl}
+                    alt="Event banner preview"
+                    sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    onError={(e: any) => {
+                      e.target.style.display = 'none';
+                    }}
+                  />
+                </Box>
+              )}
+            </Stack>
+          </Paper>
 
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
             <TextField
