@@ -9,7 +9,7 @@ import Alert from '@mui/material/Alert';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
-import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import SaveIcon from '@mui/icons-material/Save';
 import ImageIcon from '@mui/icons-material/Image';
 import { brand } from '../theme/theme';
 
@@ -347,7 +347,7 @@ export default function ImageBannerAdjuster({
         {uploading && (
           <Box>
             <Typography variant="caption" sx={{ fontWeight: 600, mb: 0.5, display: 'block' }}>
-              Uploading to Amazon S3 ({uploadProgress}%)…
+              Saving banner ({uploadProgress}%)…
             </Typography>
             <LinearProgress variant="determinate" value={uploadProgress} sx={{ borderRadius: 1, height: 5 }} />
           </Box>
@@ -376,12 +376,12 @@ export default function ImageBannerAdjuster({
             </Button>
             <Button
               variant="contained"
-              startIcon={<CloudUploadIcon />}
+              startIcon={<SaveIcon />}
               onClick={handleExportCrop}
               disabled={uploading || !imageLoaded}
               sx={{ background: brand.gradient, fontWeight: 700 }}
             >
-              {uploading ? 'Uploading to S3…' : 'Upload to S3'}
+              {uploading ? 'Saving…' : 'Save'}
             </Button>
           </Stack>
         </Stack>

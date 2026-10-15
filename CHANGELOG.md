@@ -16,10 +16,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Reset** returns to 1× and centered.
   - The fit is recalculated when the frame is resized (`ResizeObserver`).
   - The exported 1280×720 banner now uses the same sizing and centering as the on-screen preview, so the upload matches what the user sees.
+- **Event banner not updating on the Dashboard**: The selected event is cached in `localStorage`, so the Dashboard kept showing the old banner after an edit.
+  - `EventBuilderPage` now updates the cached selected event after **Save Event** when the edited event is the active one.
+  - `EventContext` refreshes the cached selected event from the event service on startup.
+- **Removing a banner now persists**: The form sends `imageUrl: ''` instead of `undefined`, so the update no longer keeps the old image.
 
 ### Changed
 - **Minimal banner adjuster UI**: Removed the outlined card wrapper and header (title, instructions line, and duplicate top Cancel button); the adjuster now sits inline in the Event Builder form.
-- Renamed the **"Crop & Upload to S3"** button to **"Upload to S3"**, and the progress text to "Uploading to Amazon S3".
+- **Banner flow is now Upload → adjust → Save**: The adjuster button is **"Save"** (with "Saving banner (…%)" progress) instead of "Crop & Upload to S3", and the empty-state button reads **"Upload Image"**.
+- **Saved banner preview**: After saving, the Event Builder shows the updated banner as a 16:9 picture with **Change Image**, **Adjust**, and **Remove** actions, instead of reopening the adjuster with another upload button.
 
 ---
 

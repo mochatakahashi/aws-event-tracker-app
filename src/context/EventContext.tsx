@@ -46,6 +46,20 @@ export function EventProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // The selected event is cached in localStorage, so it can be stale (e.g. an
+  // old banner image). Refresh it from the event service once on startup.
+  useEffect(() => {
+    const storedId = readStoredEvent()?.id;
+    if (!storedId) return;
+    getEvent(storedId)
+      .then((fresh) => {
+        if (fresh) selectEvent(fresh);
+      })
+      .catch(() => {
+        /* keep the cached copy if the refresh fails */
+      });
+  }, [selectEvent]);
+
   useEffect(() => {
     if (!selectedEvent) {
       if (user?.personId) {

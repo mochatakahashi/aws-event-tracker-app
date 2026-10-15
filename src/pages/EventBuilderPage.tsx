@@ -29,6 +29,7 @@ import AvatarImageAdjuster from '../components/AvatarImageAdjuster';
 import { getEvent, createEvent, updateEvent, deleteEvent } from '../services/eventService';
 import { uploadImageToS3 } from '../services/storageService';
 import { useAuth } from '../context/AuthContext';
+import { useEvent } from '../context/EventContext';
 import { brand } from '../theme/theme';
 import { EVENT_TAGS, type AppEvent } from '../types/event';
 import { tagColor, tagLabel } from '../utils/eventDisplay';
@@ -44,6 +45,7 @@ export default function EventBuilderPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { selectedEvent, selectEvent } = useEvent();
   
   const isEditing = Boolean(id);
   const [loading, setLoading] = useState(isEditing);
@@ -176,7 +178,8 @@ export default function EventBuilderPage() {
         participants: Number(formData.participants) || 0,
         speakerIds: formData.speakerIds || [],
         officerIds: formData.officerIds || [],
-        imageUrl: formData.imageUrl || undefined,
+        // Send '' (not undefined) so removing the banner is persisted too
+        imageUrl: formData.imageUrl || '',
       };
       
       let savedEvent;
@@ -185,6 +188,11 @@ export default function EventBuilderPage() {
       } else {
         eventToSave.createdAt = new Date().toISOString();
         savedEvent = await createEvent(eventToSave);
+      }
+
+      // Keep the cached active event (used by the Dashboard banner) in sync
+      if (selectedEvent && selectedEvent.id === savedEvent.id) {
+        selectEvent(savedEvent);
       }
       
       navigate(`/events/${savedEvent.id}`);
@@ -323,57 +331,74 @@ export default function EventBuilderPage() {
           {
             /* Priority: active adjusting session (new file or explicit re-adjust) */
             adjustSource ? (
-              <ImageBannerAdjuster
-                source={adjustSource}
-                onCropAndUpload={handleCropAndUpload}
-                onCancel={() => setAdjustSource(null)}
-                onFileReplace={(f) => setAdjustSource(f)}
-                uploading={uploadingImage}
-                uploadProgress={uploadProgress}
-              />
-            ) : formData.imageUrl ? (
-              /* Image URL exists — show interactive adjuster pre-loaded with the URL */
+              /* Adjusting a newly picked file (or re-adjusting the saved banner) */
               <Box>
-                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                    Event Banner Image (Amazon S3)
-                  </Typography>
-                  <Stack direction="row" spacing={1}>
-                    <Button
-                      size="small"
-                      variant="text"
-                      sx={{ textTransform: 'none', fontSize: '0.75rem' }}
-                      onClick={() => {
-                        setFormData(prev => ({ ...prev, imageUrl: '' }));
-                      }}
-                    >
-                      Clear
-                    </Button>
-                  </Stack>
-                </Stack>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                  Event Banner
+                </Typography>
                 <ImageBannerAdjuster
-                  source={formData.imageUrl}
+                  source={adjustSource}
                   onCropAndUpload={handleCropAndUpload}
-                  onCancel={() => {}}
+                  onCancel={() => setAdjustSource(null)}
                   onFileReplace={(f) => setAdjustSource(f)}
                   uploading={uploadingImage}
                   uploadProgress={uploadProgress}
                 />
+              </Box>
+            ) : formData.imageUrl ? (
+              /* Saved banner — show the current picture */
+              <Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                  Event Banner
+                </Typography>
+                <Box
+                  component="img"
+                  key={formData.imageUrl}
+                  src={formData.imageUrl}
+                  alt="Event banner"
+                  sx={{
+                    display: 'block',
+                    width: '100%',
+                    aspectRatio: '16 / 9',
+                    objectFit: 'cover',
+                    borderRadius: 2,
+                    bgcolor: '#0f172a',
+                    border: '1px solid',
+                    borderColor: 'divider',
+                  }}
+                />
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
+                  <Button
+                    component="label"
+                    size="small"
+                    startIcon={<PhotoCameraIcon />}
+                    disabled={uploadingImage}
+                    sx={{ textTransform: 'none' }}
+                  >
+                    Change Image
+                    <input type="file" hidden accept="image/*" onChange={handleImageFileChange} />
+                  </Button>
+                  <Button
+                    size="small"
+                    onClick={() => setAdjustSource(formData.imageUrl || null)}
+                    sx={{ textTransform: 'none' }}
+                  >
+                    Adjust
+                  </Button>
+                  <Button
+                    size="small"
+                    color="error"
+                    onClick={() => setFormData((prev) => ({ ...prev, imageUrl: '' }))}
+                    sx={{ textTransform: 'none', ml: 'auto !important' }}
+                  >
+                    Remove
+                  </Button>
+                </Stack>
                 {uploadError && (
                   <Alert severity="warning" onClose={() => setUploadError('')} sx={{ mt: 1 }}>
                     {uploadError}
                   </Alert>
                 )}
-                {/* Allow pasting a different URL */}
-                <TextField
-                  label="Or paste a different Image URL"
-                  size="small"
-                  fullWidth
-                  value={formData.imageUrl || ''}
-                  onChange={handleChange('imageUrl')}
-                  placeholder="https://your-bucket.s3.amazonaws.com/events/banner.jpg"
-                  sx={{ mt: 1.5 }}
-                />
               </Box>
             ) : (
               /* Empty state — show upload button + URL paste field */
@@ -402,7 +427,7 @@ export default function EventBuilderPage() {
                       disabled={uploadingImage}
                       sx={{ textTransform: 'none', fontWeight: 600 }}
                     >
-                      Upload Image to Amazon S3
+                      Upload Image
                       <input
                         type="file"
                         hidden
