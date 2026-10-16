@@ -20,6 +20,7 @@ import HourglassTopRoundedIcon from '@mui/icons-material/HourglassTopRounded';
 import { alpha } from '@mui/material/styles';
 import { brand } from '../theme/theme';
 import { signUp } from '../services/authService';
+import { notify } from '../services/notifyService';
 import type { AccountType, Committee, OfficerPosition } from '../types/auth';
 import {
   COMMITTEES,
@@ -79,7 +80,9 @@ export default function SignUpPage() {
     }
     setSubmitting(true);
     try {
-      await signUp(data);
+      const created = await signUp(data);
+      // Let the admin know someone is waiting (email; ignored if it fails)
+      void notify({ type: 'signup-pending', personId: created.personId }).catch(() => undefined);
       setDone(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Sign up failed.');

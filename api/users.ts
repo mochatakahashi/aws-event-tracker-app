@@ -119,7 +119,7 @@ async function scanUsers(client: DynamoDBDocumentClient, tableName: string): Pro
       personId: 'per-1',
       entityType: 'user',
       username: ADMIN_USERNAME,
-      email: process.env.ADMIN_EMAIL || undefined,
+      email: process.env.ADMIN_EMAIL || 'aws.apcofficial@gmail.com',
       name: 'AWS SBG-APC Admin',
       firstName: 'AWS SBG-APC',
       lastName: 'Admin',

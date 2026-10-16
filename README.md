@@ -41,7 +41,7 @@
 
 ## 🔐 Admin Account
 
-There are no demo accounts. The app has one built-in admin, **`awsapc.admin`**:
+There are no demo accounts. The app has one built-in admin, **`awsapc.admin`** (email `aws.apcofficial@gmail.com`; you can sign in with either):
 
 - **Deployed (Vercel):** set `ADMIN_PASSWORD` in Vercel → Settings → Environment Variables before the first sign-in. The account is created with that password the first time the database has no accounts. Change it any time on **Profile → Change password**.
 - **Local (`npm run dev`):** create a `.env.local` file (not committed) with `VITE_LOCAL_ADMIN_PASSWORD=your-password`, then restart `npm run dev`.
@@ -50,7 +50,7 @@ Everyone else signs up and waits for the admin to approve them.
 
 ## ✉️ Email Notifications (Amazon SES)
 
-Emails are sent for: account approved / declined (with the reason), officer assigned to an event, new task, and every day at 8:00 AM (Manila) — event tomorrow, "see you today", and task due tomorrow. Officers get them on both their APC email and personal email.
+Emails are sent for: account approved / declined (with the reason), officer assigned to an event, new task, and every day at 8:00 AM (Manila) — event tomorrow, "see you today", and task due tomorrow. Officers get them on both their APC email and personal email. The admin inbox (`aws.apcofficial@gmail.com`) gets an email for every new sign-up waiting for approval, and a report if any reminder email fails or the daily job breaks.
 
 Set these in Vercel → Settings → Environment Variables:
 
@@ -60,6 +60,7 @@ Set these in Vercel → Settings → Environment Variables:
 | `SES_REGION` | `ap-southeast-1` | Optional; defaults to `APP_AWS_REGION` |
 | `APP_URL` | `https://your-app.vercel.app` | Optional; used for links in emails |
 | `CRON_SECRET` | any long random string | Protects the daily reminder job (`vercel.json` → `crons`) |
+| `ADMIN_NOTIFY_EMAIL` | `aws.apcofficial@gmail.com` | Optional; admin alerts (new sign-ups waiting, failed emails). This is the default |
 
 The AWS access key also needs the `ses:SendEmail` permission. While SES is in sandbox mode it can only email verified addresses — request production access in the SES console.
 

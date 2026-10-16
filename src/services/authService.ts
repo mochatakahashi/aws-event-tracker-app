@@ -43,6 +43,7 @@ function localSeedUsers(): LocalUser[] {
       name: 'AWS SBG-APC Admin',
       firstName: 'AWS SBG-APC',
       lastName: 'Admin',
+      email: 'aws.apcofficial@gmail.com',
       role: 'admin',
       personId: 'per-1',
       status: 'approved',

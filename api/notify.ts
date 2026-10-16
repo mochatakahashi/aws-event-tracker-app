@@ -10,6 +10,7 @@ import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2';
  * POST /api/notify { type: 'event-assigned', eventId, personIds }  → officers assigned to an event
  * POST /api/notify { type: 'task-assigned', taskId }               → officers given a task
  * POST /api/notify { type: 'run-reminders', actorId }              → admin runs today's reminders now
+ * POST /api/notify { type: 'signup-pending', personId }            → tells the admin a sign-up is waiting
  * GET  /api/notify  (Vercel Cron, daily 8:00 AM Manila)             → reminders:
  *        - event tomorrow → registered attendees + assigned officers
  *        - event today    → "See you today!"
@@ -20,10 +21,13 @@ import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2';
  *   SES_REGION      SES region (defaults to APP_AWS_REGION / ap-southeast-1)
  *   APP_URL         public app URL for links (defaults to this deployment's host)
  *   CRON_SECRET     protects the daily cron call (Vercel sends it automatically)
+ *   ADMIN_NOTIFY_EMAIL  where admin alerts go (new sign-ups, failed emails);
+ *                       defaults to aws.apcofficial@gmail.com
  * The AWS access key also needs the `ses:SendEmail` permission.
  */
 
 const TZ = 'Asia/Manila';
+const ADMIN_NOTIFY_EMAIL = process.env.ADMIN_NOTIFY_EMAIL || 'aws.apcofficial@gmail.com';
 
 function awsConfig() {
   const accessKeyId = process.env.APP_AWS_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
@@ -222,6 +226,16 @@ async function runReminders(client: DynamoDBDocumentClient, tableName: string, a
   const today = manilaDay(new Date());
   const tomorrow = manilaDay(new Date(Date.now() + 24 * 3600 * 1000));
   let sent = 0;
+  const failures: string[] = [];
+  /** Send one email; a failure is recorded instead of stopping the whole run. */
+  const trySend = async (mail: Mail) => {
+    try {
+      return await sendMail(mail, appUrl);
+    } catch (err: any) {
+      failures.push(`${mail.to.join(', ')} — "${mail.subject}": ${err?.message || err}`);
+      return false;
+    }
+  };
 
   for (const ev of events) {
     if (ev.status === 'cancelled' || !ev.startAt) continue;
@@ -238,11 +252,11 @@ async function runReminders(client: DynamoDBDocumentClient, tableName: string, a
       .filter((id) => !officerIds.includes(id));
     for (const id of officerIds) {
       const u = users.get(id);
-      if (u && (await sendMail(eventReminderMail(u, ev, kind, true), appUrl))) sent++;
+      if (u && (await trySend(eventReminderMail(u, ev, kind, true)))) sent++;
     }
     for (const id of attendeeIds) {
       const u = users.get(id);
-      if (u && (await sendMail(eventReminderMail(u, ev, kind, false), appUrl))) sent++;
+      if (u && (await trySend(eventReminderMail(u, ev, kind, false)))) sent++;
     }
     await client.send(
       new PutCommand({
@@ -258,13 +272,29 @@ async function runReminders(client: DynamoDBDocumentClient, tableName: string, a
     const ev = events.find((e) => e.id === task.eventId);
     for (const id of task.assigneeIds || []) {
       const u = users.get(id);
-      if (u && (await sendMail(taskMail(u, task, ev, 'due'), appUrl))) sent++;
+      if (u && (await trySend(taskMail(u, task, ev, 'due')))) sent++;
     }
     await client.send(
       new PutCommand({ TableName: tableName, Item: { ...task, dueReminderSentAt: new Date().toISOString() } })
     );
   }
+  if (failures.length > 0) {
+    await reportToAdmin(
+      `${failures.length} reminder email(s) could not be sent`,
+      ['These reminder emails failed during the daily run:', ...failures.slice(0, 30)],
+      appUrl,
+    );
+  }
   return sent;
+}
+
+/** Email the admin inbox about something that needs attention. Never throws. */
+async function reportToAdmin(subject: string, lines: string[], appUrl: string, button?: Mail['button']) {
+  try {
+    await sendMail({ to: [ADMIN_NOTIFY_EMAIL], subject: `[AWS SBG-APC] ${subject}`, heading: subject, lines, button }, appUrl);
+  } catch (err) {
+    console.error('Could not email the admin:', err);
+  }
 }
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
@@ -291,7 +321,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(401).json({ error: 'Unauthorized' });
       }
       if (notConfigured) return res.status(200).json({ sent: 0, skipped: 'SES_FROM_EMAIL is not set' });
-      return res.status(200).json({ sent: await runReminders(client, tableName, appUrl) });
+      try {
+        return res.status(200).json({ sent: await runReminders(client, tableName, appUrl) });
+      } catch (err: any) {
+        await reportToAdmin('The daily reminder job failed', [`Error: ${err?.message || err}`, 'Check the Vercel logs for /api/notify.'], appUrl);
+        throw err;
+      }
     }
 
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -328,6 +363,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           const u = await get(id);
           if (u?.entityType === 'user' && (await sendMail(taskMail(u, task, ev, 'assigned'), appUrl))) sent++;
         }
+        break;
+      }
+      case 'signup-pending': {
+        const u = await get(body.personId);
+        if (u?.entityType !== 'user' || u.status !== 'pending') return res.status(404).json({ error: 'No pending sign-up' });
+        const type =
+          u.requestedRole === 'officer'
+            ? `Officer${u.officerPosition ? ` (${titleCase(String(u.officerPosition).replace(/-/g, ' '))}${u.committee ? ` — ${titleCase(u.committee)}` : ''})` : ''}`
+            : u.memberType === 'outside'
+              ? 'Outside attendee'
+              : 'APC student';
+        await reportToAdmin(
+          `New sign-up waiting for approval: ${u.name}`,
+          [
+            `Type: ${type}`,
+            `Email: ${u.email}${u.personalEmail ? ` (personal: ${u.personalEmail})` : ''}`,
+            u.memberType === 'outside' ? `Organization: ${u.organization || '—'}` : `Student ID: ${u.studentId || '—'}`,
+          ],
+          appUrl,
+          { label: 'Review sign-ups', path: '/#/admin' },
+        );
+        sent = 1;
         break;
       }
       case 'run-reminders': {

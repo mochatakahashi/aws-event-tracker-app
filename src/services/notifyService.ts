@@ -9,7 +9,8 @@ export type Notification =
   | { type: 'account-reviewed'; personId: string }
   | { type: 'event-assigned'; eventId: string; personIds: string[] }
   | { type: 'task-assigned'; taskId: string }
-  | { type: 'run-reminders'; actorId: string };
+  | { type: 'run-reminders'; actorId: string }
+  | { type: 'signup-pending'; personId: string };
 
 export interface NotifyResult {
   sent: number;
