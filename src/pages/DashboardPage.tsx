@@ -18,6 +18,7 @@ import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Chip from '@mui/material/Chip';
 import Button from '@mui/material/Button';
+import QrCode2RoundedIcon from '@mui/icons-material/QrCode2Rounded';
 import Stack from '@mui/material/Stack';
 import type { Session, Stamp } from '../types/session';
 
@@ -98,6 +99,27 @@ export default function DashboardPage() {
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
         Here's your overview for {selectedEvent.title}
       </Typography>
+      <Card
+        variant="outlined"
+        sx={{ mb: 3, borderRadius: '16px', borderColor: alpha(brand.primary, 0.25), background: alpha(brand.primary, 0.03) }}
+      >
+        <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', '&:last-child': { pb: 2 } }}>
+          <Box sx={{ p: 1.25, borderRadius: 2, bgcolor: alpha(brand.primary, 0.1), color: brand.primary, display: 'flex' }}>
+            <QrCode2RoundedIcon />
+          </Box>
+          <Box sx={{ flex: 1, minWidth: 180 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+              Your event pass
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Show the QR code at the registration booth to check in and unlock your certificate.
+            </Typography>
+          </Box>
+          <Button variant="contained" startIcon={<QrCode2RoundedIcon />} onClick={() => navigate(`/pass?event=${selectedEvent.id}`)}>
+            Show pass
+          </Button>
+        </CardContent>
+      </Card>
       <>
           {sessions.length > 0 ? (
             <>

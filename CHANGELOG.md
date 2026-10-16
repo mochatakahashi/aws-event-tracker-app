@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.0] - 2026-10-16
+
+### Added
+- **🔔 In-app notification center + bell badge**: the Notifications page now shows real notifications stored in DynamoDB (`/api/notifications`) instead of sample data — stamp approved / declined, account approved / declined, assigned to an event, new task, checked in, and new sign-ups (sent to every admin). Unread count on the phone top-bar bell and the laptop sidebar; tap to open the related page; *Mark all as read*; remove. Registered events that are live or start within 24 h are pinned on top.
+- **🎟️ Attendee digital event pass (`/pass`)** with a personal QR code per registered event, linked from the Dashboard, the event page ("Show my event pass"), the sidebar and the profile menu. The pass refreshes and turns green after check-in.
+- **📷 Officer check-in scanner (`/officer/scan`)** for officers and admins: camera QR scanning (back camera on phones), attendee details and stamp passport, **one-tap Check in**, "already checked in by …" on repeat scans, warning when a pass is for a different event, live "checked in" count, and a name / email / student ID search when the camera can't be used. Opened from the Officer Dashboard and an Admin Dashboard card. Scanning a pass with a phone's normal camera app also opens it.
+- **🏅 Certificate of participation**: issued automatically at check-in (`pdf-lib`), stored in S3 under `certificates/<eventId>/<certificateId>.pdf`, downloaded through a short-lived signed link from the pass or event page. If S3 isn't configured or the upload fails, check-in still succeeds and the PDF is generated on download / retried on the next scan.
+- **📅 Add to Calendar** on the event page, the registration panel and the pass: Google Calendar link (Manila time zone) or `.ics` file (Apple Calendar / Outlook) with venue, session schedule, event link and a 1-hour reminder.
+
+### Changed
+- Admin check-in toggle on Attendees & Achievements uses the same check-in flow, so certificates are issued there too.
+- `README`: documents the Gmail SMTP option and the App Password rule (must be created on the `GMAIL_USER` account).
+
+---
+
 ## [0.5.3] - 2026-10-16
 
 ### Fixed

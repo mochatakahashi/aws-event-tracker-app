@@ -76,18 +76,21 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 
 ---
 
-## 🔮 Upcoming Milestones & Next Steps
-
-### 🚧 Version 0.6.0 — In-App Notifications & Calendar
-- [ ] **In-app notification bell** with the same messages as the emails (Notifications page is still sample content).
-- [ ] **Calendar invite (.ics)** attached to event emails.
-- [ ] **SES on a custom domain** for better email deliverability.
+### ✅ Version 0.6.0 — Notification Center, QR Check-in, Calendar & Certificates
+- [x] **In-app notification center + bell badge** (stamps, account review, event assignment, tasks, check-in, new sign-ups for admins).
+- [x] **Attendee digital event pass** with a personal QR code.
+- [x] **Officer camera scanner** that opens the attendee's stamp passport and checks them in with one tap (plus name search fallback).
+- [x] **Add to Calendar** — Google Calendar link and `.ics` download.
+- [x] **Certificate of participation** — PDF issued at check-in and stored in S3.
 
 ---
 
-### 🚧 Version 0.6.5 — Officer In-Person QR Scanner & Verification
-- [ ] **Officer In-Person QR Camera Scanner**: Enable officers to scan attendee QR codes (from `NetworkingCard` / attendee passes) via device camera to instantly pull up their stamp passport and approve stamps on the spot.
-- [ ] **Attendee Event Pass / Ticket QR**: Dedicated digital event check-in badge containing attendee ID and registered event token.
+## 🔮 Upcoming Milestones & Next Steps
+
+### 🚧 Version 0.6.5 — On-site Extras
+- [ ] **Approve stamps from the scanner** (officer picks the session and approves on the spot).
+- [ ] **`.ics` attached to event emails** and a custom email domain for deliverability.
+- [ ] **Certificate verification page** (look up a certificate ID).
 - [ ] **NFC Badge Tap Integration**: Web NFC API support for physical event badge check-ins.
 - [ ] **Offline Stamp Storage (Service Worker / PWA)**: Enable offline stamp caching so attendees can request stamps even with low venue connectivity.
 
@@ -102,7 +105,7 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 
 ### 🚀 Version 1.0.0 — Leaderboard, Gamification & Certificates
 - [ ] **Builder Leaderboard & Badges**: Gamified leaderboard ranking attendees by stamp count and workshop activity completions.
-- [ ] **Automated Certificate of Attendance**: Automatic PDF certificate generation upon completing 100% of event stamps.
+- [ ] **Certificate of Completion**: a second certificate for attendees who complete 100% of event stamps.
 - [ ] **Multi-Event Analytics**: Officer/Admin reporting dashboard showing attendance retention and workshop completion rates.
 
 ---
@@ -126,13 +129,16 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 | Email Notifications (SES) & Daily Reminders | v0.5.0 | ✅ Completed | High |
 | Officer Archive by School Year | v0.5.0 | ✅ Completed | Medium |
 | Phone & Laptop Layouts | v0.5.1 | ✅ Completed | High |
-| In-App Notification Bell | v0.6.0 | 🚀 **Next Up** | High |
-| Officer Camera QR Scanner | v0.6.5 | ⏳ Planned | High |
+| In-App Notification Bell | v0.6.0 | ✅ Completed | High |
+| Attendee QR Pass & Officer Camera Scanner | v0.6.0 | ✅ Completed | High |
+| Add to Calendar (.ics / Google) | v0.6.0 | ✅ Completed | Medium |
+| Certificate of Participation (PDF → S3) | v0.6.0 | ✅ Completed | Medium |
+| Stamp Approval from Scanner | v0.6.5 | 🚀 **Next Up** | Medium |
 | Offline PWA Support | v0.6.5 | ⏳ Planned | Medium |
 | Real-Time Stamp Notifications | v0.7.0 | ⏳ Planned | High |
 | AWS Cognito Authentication | v0.7.0 | ⏳ Planned | High |
 | Gamified Leaderboard | v1.0.0 | ⏳ Planned | Medium |
-| Automated PDF Certificates | v1.0.0 | ⏳ Planned | Low |
+| Certificate of Completion (100% stamps) | v1.0.0 | ⏳ Planned | Low |
 
 ---
 

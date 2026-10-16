@@ -44,10 +44,15 @@ import {
 } from '../services/registrationService';
 import { compareOfficers, officerTitle } from '../utils/people';
 import { notifyQuietly } from '../services/notifyService';
+import { notifyInApp } from '../services/notificationService';
 import type { AppEvent } from '../types/event';
 import type { Speaker } from '../types/speaker';
 import type { Registration, RsvpStatus, Person } from '../types/attendee';
 import { ModalityChip, StatusChip, TagChip } from '../components/EventChips';
+import AddToCalendarButton from '../components/AddToCalendarButton';
+import CertificateButton from '../components/CertificateButton';
+import QrCode2RoundedIcon from '@mui/icons-material/QrCode2Rounded';
+import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import { formatDateRange } from '../utils/eventDisplay';
 import { useAuth } from '../context/AuthContext';
 import { brand } from '../theme/theme';
@@ -149,7 +154,14 @@ export default function EventDetailPage() {
       const updatedOfficerIds = [...(event.officerIds || []), newOfficerId.trim()];
       const updatedRoles = { ...(event.officerRoles || {}), [newOfficerId.trim()]: newOfficerRole.trim() || 'Officer' };
       await updateEvent(id, { ...event, officerIds: updatedOfficerIds, officerRoles: updatedRoles });
-      // Email the officer that they're on this event
+      // Email + in-app notice that they're on this event
+      void notifyInApp({
+        personIds: [newOfficerId.trim()],
+        kind: 'event-assigned',
+        title: `You're assigned to ${event.title}`,
+        message: `Role: ${(newOfficerRole.trim() || 'Officer').replace(/\b\w/g, (c) => c.toUpperCase())}. ${formatDateRange(event.startAt, event.endAt)} at ${event.venue}.`,
+        link: `/events/${id}`,
+      });
       setAssignNote(await notifyQuietly({ type: 'event-assigned', eventId: id, personIds: [newOfficerId.trim()] }));
       await load();
       setNewOfficerId('');
@@ -360,6 +372,11 @@ export default function EventDetailPage() {
               </Stack>
 
               {/* Host / Organizer Row moved below */}
+              {event.status !== 'cancelled' && (
+                <Box>
+                  <AddToCalendarButton event={event} size="small" />
+                </Box>
+              )}
             </Stack>
 
             <Divider sx={{ my: 3 }} />
@@ -651,6 +668,28 @@ export default function EventDetailPage() {
 
             {myReg ? (
               <>
+                {myReg.checkedIn && (
+                  <Alert icon={<CheckCircleRoundedIcon fontSize="inherit" />} severity="success" sx={{ mb: 2, borderRadius: '12px' }}>
+                    You're checked in. Enjoy the event!
+                  </Alert>
+                )}
+                <Stack spacing={1} sx={{ mb: 2.5 }}>
+                  <Button
+                    fullWidth
+                    variant="contained"
+                    startIcon={<QrCode2RoundedIcon />}
+                    onClick={() => navigate(`/pass?event=${event.id}`)}
+                    sx={{ borderRadius: '12px', fontWeight: 700 }}
+                  >
+                    Show my event pass
+                  </Button>
+                  {!closed && <AddToCalendarButton event={event} fullWidth />}
+                </Stack>
+                {(myReg.checkedIn || event.status === 'accomplished') && personId && (
+                  <Box sx={{ mb: 2.5 }}>
+                    <CertificateButton registration={myReg} personId={personId} />
+                  </Box>
+                )}
                 <Typography color="text.secondary" variant="caption" sx={{ mb: 1, display: 'block' }}>
                   YOUR RSVP STATUS
                 </Typography>

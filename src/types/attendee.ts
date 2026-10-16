@@ -43,6 +43,16 @@ export interface Registration {
   checkedIn: boolean;
   /** ISO 8601 timestamp of when the registration was created. */
   registeredAt: string;
+  /** When and by whom (person id) the attendee was checked in. */
+  checkedInAt?: string;
+  checkedInBy?: string;
+  /** Certificate of participation, issued at check-in. */
+  certificateId?: string;
+  certificateIssuedAt?: string;
+  /** S3 key of the stored PDF (missing until uploaded). */
+  certificateKey?: string;
+  /** Why the last upload failed; retried on the next check-in scan or download. */
+  certificateError?: string;
 }
 
 export type NewRegistrationInput = Omit<Registration, 'id' | 'registeredAt'> & {

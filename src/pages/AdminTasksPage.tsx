@@ -24,6 +24,7 @@ import { getUsers } from '../services/authService';
 import { getEvents } from '../services/eventService';
 import { createTask, deleteTask, getTasks, updateTask } from '../services/taskService';
 import { notifyQuietly } from '../services/notifyService';
+import { notifyInApp } from '../services/notificationService';
 import { brand } from '../theme/theme';
 import type { User } from '../types/auth';
 import type { AppEvent } from '../types/event';
@@ -97,6 +98,16 @@ export default function AdminTasksPage() {
         createdBy: user.personId,
       });
       setTasks((prev) => [task, ...prev]);
+      const forEvent = events.find((e) => e.id === task.eventId);
+      void notifyInApp({
+        personIds: task.assigneeIds,
+        kind: 'task-assigned',
+        title: `New task: ${task.title}`,
+        message: [forEvent ? `For ${forEvent.title}.` : '', task.dueAt ? `Due ${new Date(task.dueAt).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}.` : '']
+          .filter(Boolean)
+          .join(' ') || 'Open your Officer Dashboard to see the details.',
+        link: '/officer',
+      });
       const emailNote = await notifyQuietly({ type: 'task-assigned', taskId: task.id });
       setSaved(`Task assigned to ${assignees.map((a) => a.name).join(', ')}.${emailNote ? ` ${emailNote}` : ''}`);
       setTitle('');

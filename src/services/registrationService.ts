@@ -154,9 +154,83 @@ export function setRsvp(registrationId: string, rsvp: RsvpStatus): Promise<Regis
   return updateRegistration(registrationId, () => ({ rsvp }));
 }
 
+/** One registration by id, or null. */
+export async function getRegistration(registrationId: string): Promise<Registration | null> {
+  if (await isRemoteAvailable(API)) {
+    try {
+      return await apiJson<Registration>(`${API}?id=${encodeURIComponent(registrationId)}`);
+    } catch {
+      return null;
+    }
+  }
+  return delay(local.load().find((r) => r.id === registrationId) ?? null);
+}
+
+export interface CheckInResult {
+  registration: Registration;
+  alreadyCheckedIn: boolean;
+}
+
+function localCertificateId(): string {
+  return `CERT-${new Date().getFullYear()}-${Math.random().toString(36).slice(2, 10).toUpperCase()}`;
+}
+
+/**
+ * Check an attendee in (officers / admins). The server also issues the
+ * certificate of participation and stores the PDF in S3.
+ */
+export async function checkIn(registrationId: string, actorId: string): Promise<CheckInResult> {
+  if (await isRemoteAvailable(API)) {
+    return apiJson<CheckInResult>(`${API}?action=checkin`, {
+      method: 'POST',
+      body: JSON.stringify({ id: registrationId, actorId }),
+    });
+  }
+  const regs = local.load();
+  const reg = regs.find((r) => r.id === registrationId);
+  if (!reg) throw new Error('This pass was not found. The registration may have been cancelled.');
+  if (reg.checkedIn) return delay({ registration: { ...reg }, alreadyCheckedIn: true });
+  const now = new Date().toISOString();
+  Object.assign(reg, {
+    checkedIn: true,
+    checkedInAt: now,
+    checkedInBy: actorId,
+    rsvp: reg.rsvp === 'declined' ? 'going' : reg.rsvp,
+    certificateId: reg.certificateId || localCertificateId(),
+    certificateIssuedAt: reg.certificateIssuedAt || now,
+  });
+  local.save(regs);
+  return delay({ registration: { ...reg }, alreadyCheckedIn: false });
+}
+
+/** Undo a check-in (admins). */
+export async function undoCheckIn(registrationId: string, actorId: string): Promise<Registration> {
+  if (await isRemoteAvailable(API)) {
+    const res = await apiJson<{ registration: Registration }>(`${API}?action=checkout`, {
+      method: 'POST',
+      body: JSON.stringify({ id: registrationId, actorId }),
+    });
+    return res.registration;
+  }
+  return updateRegistration(registrationId, () => ({ checkedIn: false, checkedInAt: undefined, checkedInBy: undefined }));
+}
+
 /** Toggle check-in for a registration (admin-facing); rejects if unknown. */
-export function toggleCheckIn(registrationId: string): Promise<Registration> {
-  return updateRegistration(registrationId, (reg) => ({ checkedIn: !reg.checkedIn }));
+export async function toggleCheckIn(registrationId: string, actorId = 'per-1'): Promise<Registration> {
+  const current = await getRegistration(registrationId);
+  if (!current) throw new Error(`Registration not found: ${registrationId}`);
+  return current.checkedIn
+    ? undoCheckIn(registrationId, actorId)
+    : (await checkIn(registrationId, actorId)).registration;
+}
+
+/**
+ * Link that opens the certificate PDF (deployed app only). Returns null when
+ * running without the API (local development).
+ */
+export async function certificateLink(registrationId: string, personId: string): Promise<string | null> {
+  if (!(await isRemoteAvailable(API))) return null;
+  return `${API}?action=certificate&id=${encodeURIComponent(registrationId)}&personId=${encodeURIComponent(personId)}`;
 }
 
 /** Count of registrations for an event. */

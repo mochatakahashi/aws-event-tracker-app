@@ -136,7 +136,7 @@ export default function AdminAttendeesPage() {
 
   async function handleToggleCheckIn(reg: Registration) {
     try {
-      const updated = await toggleCheckIn(reg.id);
+      const updated = await toggleCheckIn(reg.id, user?.personId);
       setRegistrations((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not update check-in.');

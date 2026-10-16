@@ -11,6 +11,7 @@ import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import HowToRegIcon from '@mui/icons-material/HowToReg';
 import MilitaryTechIcon from '@mui/icons-material/MilitaryTech';
 import AssignmentIcon from '@mui/icons-material/Assignment';
+import QrCodeScannerRoundedIcon from '@mui/icons-material/QrCodeScannerRounded';
 import { alpha } from '@mui/material/styles';
 import { brand } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
@@ -90,6 +91,12 @@ export default function AdminHome() {
       icon: <AssignmentIcon sx={{ fontSize: 28 }} />,
       badge: openTasks,
       badgeLabel: 'open',
+    },
+    {
+      title: 'Check-in Scanner',
+      description: 'Scan QR passes at the door; certificates are issued on check-in',
+      to: '/officer/scan',
+      icon: <QrCodeScannerRoundedIcon sx={{ fontSize: 28 }} />,
     },
   ];
 

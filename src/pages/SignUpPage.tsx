@@ -21,6 +21,7 @@ import { alpha } from '@mui/material/styles';
 import { brand } from '../theme/theme';
 import { signUp } from '../services/authService';
 import { notify } from '../services/notifyService';
+import { notifyInApp } from '../services/notificationService';
 import type { AccountType, Committee, OfficerPosition } from '../types/auth';
 import {
   COMMITTEES,
@@ -83,6 +84,13 @@ export default function SignUpPage() {
       const created = await signUp(data);
       // Let the admin know someone is waiting (email; ignored if it fails)
       void notify({ type: 'signup-pending', personId: created.personId }).catch(() => undefined);
+      void notifyInApp({
+        toRole: 'admin',
+        kind: 'signup-pending',
+        title: `New sign-up: ${created.name}`,
+        message: `${created.email || created.username} is waiting for approval.`,
+        link: '/admin',
+      });
       setDone(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Sign up failed.');

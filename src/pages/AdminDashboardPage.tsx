@@ -21,6 +21,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import { alpha } from '@mui/material/styles';
 import { approveUser, deleteUser, getUsers, rejectUser, updateUser } from '../services/authService';
 import { notifyQuietly } from '../services/notifyService';
+import { notifyInApp } from '../services/notificationService';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
@@ -107,6 +108,25 @@ export default function AdminDashboardPage() {
       const updated = await action();
       replaceUser(updated);
       if (emailAfter) {
+        void notifyInApp(
+          updated.status === 'rejected'
+            ? {
+                personIds: [personId],
+                kind: 'account-declined',
+                title: 'Your sign-up was declined',
+                message: updated.rejectionReason ? `Reason: ${updated.rejectionReason}` : 'Please check your details and sign up again.',
+              }
+            : {
+                personIds: [personId],
+                kind: 'account-approved',
+                title: 'Welcome! Your account is approved',
+                message:
+                  updated.role === 'officer'
+                    ? 'You can now use your Officer Dashboard.'
+                    : 'You can now register for events and collect stamps.',
+                link: updated.role === 'officer' ? '/officer' : '/events',
+              },
+        );
         const status = await notifyQuietly({ type: 'account-reviewed', personId });
         if (status) setInfo(`${updated.name}: ${status}`);
       }

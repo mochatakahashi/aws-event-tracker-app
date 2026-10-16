@@ -118,6 +118,9 @@ graph TD
 - **`notifyService.ts` → `/api/notify`**: Email notifications through Amazon SES (account approved/declined, event assignment, new task) and a daily Vercel Cron job (8:00 AM Manila) for event and task reminders.
 - **`registrationService.ts` / `taskService.ts` / `speakerService.ts`**: Registrations and check-in, officer tasks, and the speaker directory through `/api/registrations`, `/api/tasks` and `/api/speakers`, with `localStorage` fallback (`apiClient.ts`).
 - **`seedData.ts`**: Initial events/sessions used by the local fallback.
+- **`notificationService.ts` → `/api/notifications`**: In-app inbox (`entityType = 'notification'`: `personId`, `kind`, `title`, `message`, `link`, `read`). Created by the page that performed the action (stamp review, account review, assignment, task, check-in, sign-up → every admin via `toRole: 'admin'`). The bell badge (`useUnreadNotifications`) refreshes on changes, window focus and every 30 s.
+- **Check-in & certificates (`/api/registrations?action=checkin|checkout|certificate`)**: the QR pass encodes `…/#/officer/scan?pass=<registrationId>`. Check-in requires an approved officer/admin `actorId`, sets `checkedIn/checkedInAt/checkedInBy`, and issues a certificate (`pdf-lib` → `s3://$AWS_S3_BUCKET_NAME/certificates/<eventId>/<certificateId>.pdf`). An upload failure never blocks check-in; it is retried on the next scan or download. Downloads redirect to a 10-minute signed S3 link, or the PDF is generated on the fly when no bucket is set.
+- **`utils/calendar.ts`**: RFC 5545 `.ics` builder (UTC times, escaping, line folding, 1-hour alarm) and Google Calendar `TEMPLATE` links with `ctz=Asia/Manila`.
 
 ### 4. Notifications (Amazon SES)
 | Trigger | Recipients | Sent by |

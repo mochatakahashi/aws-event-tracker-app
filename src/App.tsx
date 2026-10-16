@@ -29,6 +29,8 @@ import AdminOfficersPage from './pages/AdminOfficersPage';
 import AdminTasksPage from './pages/AdminTasksPage';
 import EventBuilderPage from './pages/EventBuilderPage';
 import NotFoundPage from './pages/NotFoundPage';
+import EventPassPage from './pages/EventPassPage';
+import OfficerScanPage from './pages/OfficerScanPage';
 
 function App() {
   return (
@@ -70,6 +72,8 @@ function App() {
                 <Route path="/connect" element={<ConnectPage />} />
                 <Route path="/notifications" element={<NotificationsPage />} />
                 <Route path="/officer" element={<OfficerDashboardPage />} />
+                <Route path="/officer/scan" element={<OfficerScanPage />} />
+                <Route path="/pass" element={<EventPassPage />} />
                 <Route path="/admin" element={<AdminDashboardPage />} />
                 <Route path="/admin/attendees" element={<AdminAttendeesPage />} />
                 <Route path="/admin/officers" element={<AdminOfficersPage />} />

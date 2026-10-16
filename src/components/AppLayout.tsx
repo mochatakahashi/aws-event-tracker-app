@@ -33,6 +33,8 @@ import { useEvent } from '../context/EventContext';
 import { brand } from '../theme/theme';
 import BottomNav from './BottomNav';
 import EventOrganizerLogo from './EventOrganizerLogo';
+import { useUnreadNotifications } from '../hooks/useUnreadNotifications';
+import QrCode2RoundedIcon from '@mui/icons-material/QrCode2Rounded';
 
 const DRAWER_WIDTH = 260;
 
@@ -55,6 +57,8 @@ export default function AppLayout() {
   const { selectedEvent } = useEvent();
   const navigate = useNavigate();
   const location = useLocation();
+  const unread = useUnreadNotifications(user?.personId);
+  const unreadLabel = unread > 0 ? `${unread} unread notification${unread === 1 ? '' : 's'}` : 'notifications';
 
   // Profile menu anchor
   const [profileAnchor, setProfileAnchor] = useState<null | HTMLElement>(null);
@@ -130,13 +134,30 @@ export default function AppLayout() {
             to={item.to}
             selected={isActive(item.to)}
           >
-            <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
+            <ListItemIcon sx={{ minWidth: 40 }}>
+              {item.to === '/notifications' ? (
+                <Badge badgeContent={unread} color="error" max={99}>
+                  {item.icon}
+                </Badge>
+              ) : (
+                item.icon
+              )}
+            </ListItemIcon>
             <ListItemText
               primary={item.label}
               primaryTypographyProps={{ fontWeight: isActive(item.to) ? 600 : 400, fontSize: '0.9rem' }}
             />
           </ListItemButton>
         ))}
+        {user?.role !== 'admin' && (
+          <ListItemButton component={RouterLink} to="/pass" selected={isActive('/pass')}>
+            <ListItemIcon sx={{ minWidth: 40 }}><QrCode2RoundedIcon /></ListItemIcon>
+            <ListItemText
+              primary="My Event Pass"
+              primaryTypographyProps={{ fontWeight: isActive('/pass') ? 600 : 400, fontSize: '0.9rem' }}
+            />
+          </ListItemButton>
+        )}
         {(user?.role === 'officer' || (user?.personId && selectedEvent?.officerIds?.includes(user.personId))) && (
           <ListItemButton
             component={RouterLink}
@@ -215,9 +236,9 @@ export default function AppLayout() {
             color="inherit"
             onClick={() => navigate('/notifications')}
             sx={{ mr: 0.5 }}
-            aria-label="notifications"
+            aria-label={unreadLabel}
           >
-            <Badge badgeContent={2} color="error" variant="dot">
+            <Badge badgeContent={unread} color="error" max={99}>
               <NotificationsNoneRoundedIcon />
             </Badge>
           </IconButton>
@@ -268,6 +289,12 @@ export default function AppLayout() {
               <ListItemIcon><PersonRoundedIcon fontSize="small" /></ListItemIcon>
               <ListItemText primary="My Profile" />
             </MenuItem>
+            {user?.role !== 'admin' && (
+              <MenuItem onClick={() => { setProfileAnchor(null); navigate('/pass'); }} sx={{ py: 1.2 }}>
+                <ListItemIcon><QrCode2RoundedIcon fontSize="small" /></ListItemIcon>
+                <ListItemText primary="My Event Pass" />
+              </MenuItem>
+            )}
             <MenuItem
               onClick={() => setProfileAnchor(null)}
               sx={{ py: 1.2 }}

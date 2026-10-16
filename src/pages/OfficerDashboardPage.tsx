@@ -11,11 +11,13 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import { getStamps, getSessions, approveStamp, declineStamp } from '../services/sessionService';
 import { getPeople } from '../services/registrationService';
+import { notifyInApp } from '../services/notificationService';
 import { getTasksForOfficer, updateTask } from '../services/taskService';
 import { getEvents } from '../services/eventService';
 import Chip from '@mui/material/Chip';
 import Alert from '@mui/material/Alert';
 import AssignmentIcon from '@mui/icons-material/Assignment';
+import QrCodeScannerRoundedIcon from '@mui/icons-material/QrCodeScannerRounded';
 import { alpha } from '@mui/material/styles';
 import { brand } from '../theme/theme';
 import { TASK_STATUS_LABELS, type OfficerTask, type TaskStatus } from '../types/task';
@@ -65,8 +67,19 @@ export default function OfficerDashboardPage() {
   async function handleApprove(stampId: string) {
     if (!user?.personId) return;
     try {
+      const stamp = pendingStamps.find(s => s.id === stampId);
       await approveStamp(stampId, user.personId);
       setPendingStamps(prev => prev.filter(s => s.id !== stampId));
+      if (stamp) {
+        const session = sessions.find(s => s.id === stamp.sessionId);
+        void notifyInApp({
+          personIds: [stamp.attendeeId],
+          kind: 'stamp-approved',
+          title: 'Stamp collected! ⭐',
+          message: `Your stamp for "${session?.title || 'a session'}" was approved by ${user.name}.`,
+          link: '/achievements',
+        });
+      }
     } catch (e) {
       console.error(e);
     }
@@ -84,8 +97,19 @@ export default function OfficerDashboardPage() {
 
   async function handleDecline(stampId: string) {
     try {
+      const stamp = pendingStamps.find(s => s.id === stampId);
       await declineStamp(stampId);
       setPendingStamps(prev => prev.filter(s => s.id !== stampId));
+      if (stamp) {
+        const session = sessions.find(s => s.id === stamp.sessionId);
+        void notifyInApp({
+          personIds: [stamp.attendeeId],
+          kind: 'stamp-declined',
+          title: 'Stamp request not approved',
+          message: `Your stamp request for "${session?.title || 'a session'}" was declined. Finish the activity and request it again, or ask an officer at the booth.`,
+          link: '/achievements',
+        });
+      }
     } catch (e) {
       console.error(e);
     }
@@ -103,6 +127,26 @@ export default function OfficerDashboardPage() {
           {officerTitle(user)}
         </Typography>
       )}
+
+      <Card
+        variant="outlined"
+        sx={{ mb: 3, borderRadius: '16px', borderColor: alpha(brand.primary, 0.25), background: alpha(brand.primary, 0.03) }}
+      >
+        <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', '&:last-child': { pb: 2 } }}>
+          <Box sx={{ p: 1.25, borderRadius: 2, bgcolor: alpha(brand.primary, 0.1), color: brand.primary, display: 'flex' }}>
+            <QrCodeScannerRoundedIcon />
+          </Box>
+          <Box sx={{ flex: 1, minWidth: 200 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>On-site check-in</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Scan an attendee’s QR pass at the door or booth to check them in.
+            </Typography>
+          </Box>
+          <Button variant="contained" startIcon={<QrCodeScannerRoundedIcon />} onClick={() => navigate('/officer/scan')}>
+            Open scanner
+          </Button>
+        </CardContent>
+      </Card>
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
