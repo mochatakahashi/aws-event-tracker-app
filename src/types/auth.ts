@@ -20,6 +20,15 @@ export type OfficerPosition =
 
 export type Committee = 'secretariat' | 'operations' | 'marketing' | 'technicals' | 'relations';
 
+/** One school-year term as an officer, kept when a batch is archived. */
+export interface OfficerTerm {
+  /** e.g. "2025–2026" */
+  schoolYear: string;
+  officerPosition?: OfficerPosition | null;
+  committee?: Committee | null;
+  archivedAt: string;
+}
+
 /** Social links that a user can add to their profile. */
 export interface SocialLinks {
   linkedIn?: string;
@@ -30,7 +39,7 @@ export interface SocialLinks {
 
 /** Authenticated user (no sensitive fields). */
 export interface User {
-  /** Login name. New accounts use their email; demo accounts keep a short username. */
+  /** Login name: the email for new accounts, `awsapc.admin` for the built-in admin. */
   username: string;
   /** Display name, "First M. Last". */
   name: string;
@@ -51,9 +60,13 @@ export interface User {
   memberType?: MemberType;
   /** School / company / organization for outside attendees. */
   organization?: string;
-  officerPosition?: OfficerPosition;
+  officerPosition?: OfficerPosition | null;
   /** Committee for directors, assistant directors and associates. */
-  committee?: Committee;
+  committee?: Committee | null;
+  /** Past officer terms (archived batches). */
+  officerHistory?: OfficerTerm[];
+  /** Optional reason given by the admin when declining a sign-up. */
+  rejectionReason?: string | null;
   /** Approval status of the account. Missing means approved (older records). */
   status?: AccountStatus;
   /** Role requested during sign up, granted when an admin approves the account. */
@@ -93,4 +106,4 @@ export type ProfileChanges = Partial<
 
 /** Fields only an admin can change. */
 export type AdminUserChanges = ProfileChanges &
-  Partial<Pick<User, 'role' | 'status' | 'requestedRole'>>;
+  Partial<Pick<User, 'role' | 'status' | 'requestedRole' | 'officerHistory' | 'rejectionReason'>>;

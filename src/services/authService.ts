@@ -25,100 +25,33 @@ interface LocalUser extends User {
 
 const API = '/api/users';
 
-/** Demo accounts. The same accounts are created in DynamoDB on first use. */
-export const DEMO_USERS: LocalUser[] = [
-  {
-    username: 'admin',
-    password: 'admin123',
-    name: 'Admin User',
-    firstName: 'Admin',
-    lastName: 'User',
-    email: 'admin@awssbg-apc.com',
-    role: 'admin',
-    personId: 'per-1',
-    status: 'approved',
-    memberType: 'apc',
-  },
-  {
-    username: 'rj',
-    password: 'rj123',
-    name: 'Rodmina Jhoy Ibe',
-    firstName: 'Rodmina Jhoy',
-    lastName: 'Ibe',
-    email: 'rodmina@apc.edu.ph',
-    role: 'officer',
-    personId: 'per-2',
-    studentId: 'APC-2024-001',
-    status: 'approved',
-    memberType: 'apc',
-  },
-  {
-    username: 'sofia',
-    password: 'sofia123',
-    name: 'Sofia Rossi',
-    firstName: 'Sofia',
-    lastName: 'Rossi',
-    email: 'sofia@apc.edu.ph',
-    role: 'attendee',
-    personId: 'per-3',
-    studentId: 'APC-2024-042',
-    status: 'approved',
-    memberType: 'apc',
-  },
-  {
-    username: 'kenji',
-    password: 'kenji123',
-    name: 'Kenji Tanaka',
-    firstName: 'Kenji',
-    lastName: 'Tanaka',
-    email: 'kenji@apc.edu.ph',
-    role: 'attendee',
-    personId: 'per-4',
-    studentId: 'APC-2024-088',
-    status: 'approved',
-    memberType: 'apc',
-  },
-  {
-    username: 'grace',
-    password: 'grace123',
-    name: 'Grace Adeyemi',
-    firstName: 'Grace',
-    lastName: 'Adeyemi',
-    email: 'grace@apc.edu.ph',
-    role: 'attendee',
-    personId: 'per-5',
-    studentId: 'APC-2024-105',
-    status: 'approved',
-    memberType: 'apc',
-  },
-  {
-    username: 'john.doe@student.apc.edu.ph',
-    password: 'password123',
-    name: 'John D. Doe',
-    firstName: 'John',
-    middleInitial: 'D',
-    lastName: 'Doe',
-    email: 'john.doe@student.apc.edu.ph',
-    role: 'attendee',
-    personId: 'per-6',
-    studentId: 'APC-2024-999',
-    status: 'pending',
-    requestedRole: 'officer',
-    memberType: 'apc',
-    officerPosition: 'associate',
-    committee: 'marketing',
-  },
-];
+/** Username of the built-in admin account. */
+export const ADMIN_USERNAME = 'awsapc.admin';
 
-export const DEMO_CREDENTIALS = {
-  admin: { username: 'admin', password: 'admin123' },
-  officer: { username: 'rj', password: 'rj123' },
-  attendee: { username: 'sofia', password: 'sofia123' },
-};
+/**
+ * Local development only: the admin account for `npm run dev`, with the
+ * password from VITE_LOCAL_ADMIN_PASSWORD in `.env.local` (not committed).
+ * The deployed app creates its admin from ADMIN_PASSWORD on the server.
+ */
+function localSeedUsers(): LocalUser[] {
+  const password = import.meta.env?.VITE_LOCAL_ADMIN_PASSWORD as string | undefined;
+  if (!password) return [];
+  return [
+    {
+      username: ADMIN_USERNAME,
+      password,
+      name: 'AWS SBG-APC Admin',
+      firstName: 'AWS SBG-APC',
+      lastName: 'Admin',
+      role: 'admin',
+      personId: 'per-1',
+      status: 'approved',
+      memberType: 'apc',
+    },
+  ];
+}
 
-const local = localCollection<LocalUser>('aws-event-tracker.users.v1', () =>
-  DEMO_USERS.map((u) => ({ ...u })),
-);
+const local = localCollection<LocalUser>('aws-event-tracker.users.v2', localSeedUsers);
 
 function strip(u: LocalUser): User {
   const { password: _pw, ...user } = u;
@@ -137,7 +70,11 @@ function statusError(u: User): Error | null {
     return new Error('Your account is waiting for admin approval. Please try again once it is approved.');
   }
   if (u.status === 'rejected') {
-    return new Error('Your sign-up was declined by an admin. Please contact the AWS SBG-APC officers.');
+    return new Error(
+      u.rejectionReason
+        ? `Your sign-up was declined: ${u.rejectionReason}. You can sign up again with the correct details.`
+        : 'Your sign-up was declined by an admin. Please contact the AWS SBG-APC officers.',
+    );
   }
   return null;
 }
@@ -251,7 +188,7 @@ export async function updateUser(
   const idx = users.findIndex((u) => u.personId === personId);
   if (idx === -1) throw new Error('User not found');
   const actor = users.find((u) => u.personId === actorId);
-  const adminOnly = 'role' in changes || 'status' in changes || 'requestedRole' in changes;
+  const adminOnly = ['role', 'status', 'requestedRole', 'officerHistory', 'rejectionReason'].some((k) => k in changes);
   if (adminOnly && actor?.role !== 'admin') throw new Error('Only an admin can change roles or approve accounts.');
   if (!adminOnly && actorId !== personId && actor?.role !== 'admin') {
     throw new Error('You can only edit your own profile.');
@@ -285,9 +222,59 @@ export async function approveUser(personId: string, actorId: string): Promise<Us
   );
 }
 
-/** Decline a pending account. The person can sign up again with the same email. */
-export function rejectUser(personId: string, actorId: string): Promise<User> {
-  return updateUser(personId, { status: 'rejected', requestedRole: null }, actorId);
+/**
+ * Decline a pending account, with an optional reason (e.g. "Missing name").
+ * The person can sign up again with the same email.
+ */
+export function rejectUser(personId: string, actorId: string, reason?: string): Promise<User> {
+  return updateUser(
+    personId,
+    { status: 'rejected', requestedRole: null, rejectionReason: reason?.trim() || null },
+    actorId,
+  );
+}
+
+/**
+ * Archive an officer at the end of a school year: they become an alumni
+ * attendee (can still sign in and join events) and their term is kept in
+ * `officerHistory`.
+ */
+export async function archiveOfficer(personId: string, schoolYear: string, actorId: string): Promise<User> {
+  const user = (await getUsers()).find((u) => u.personId === personId);
+  if (!user) throw new Error('User not found');
+  const term = {
+    schoolYear,
+    officerPosition: user.officerPosition ?? null,
+    committee: user.committee ?? null,
+    archivedAt: new Date().toISOString(),
+  };
+  return updateUser(
+    personId,
+    {
+      role: 'attendee',
+      officerPosition: null,
+      committee: null,
+      officerHistory: [...(user.officerHistory || []), term],
+    },
+    actorId,
+  );
+}
+
+/** Permanently delete an account (admin). Their past stamps stay, shown as "Unknown". */
+export async function deleteUser(personId: string, actorId: string): Promise<void> {
+  if (personId === actorId) throw new Error("You can't delete your own account.");
+  if (await isRemoteAvailable(API)) {
+    await apiJson(`${API}?id=${encodeURIComponent(personId)}&actorId=${encodeURIComponent(actorId)}`, {
+      method: 'DELETE',
+    });
+    return;
+  }
+  const users = local.load();
+  if (users.find((u) => u.personId === actorId)?.role !== 'admin') {
+    throw new Error('Only an admin can delete accounts.');
+  }
+  local.save(users.filter((u) => u.personId !== personId));
+  await delay(null);
 }
 
 /** Change an account's role (admin). Kept for older callers that use the username. */
@@ -325,7 +312,7 @@ export async function changePassword(
   await delay(null);
 }
 
-/** Reset local accounts to the demo set (tests / dev only). */
+/** Reset local accounts (tests / dev only). */
 export function __resetUsers(): void {
   local.reset();
 }

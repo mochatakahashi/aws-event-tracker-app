@@ -43,6 +43,7 @@ import {
   getPeople,
 } from '../services/registrationService';
 import { compareOfficers, officerTitle } from '../utils/people';
+import { notifyQuietly } from '../services/notifyService';
 import type { AppEvent } from '../types/event';
 import type { Speaker } from '../types/speaker';
 import type { Registration, RsvpStatus, Person } from '../types/attendee';
@@ -139,6 +140,8 @@ export default function EventDetailPage() {
     }
   }
 
+  const [assignNote, setAssignNote] = useState<string | null>(null);
+
   async function handleAddOfficer() {
     if (!id || !event || !newOfficerId.trim()) return;
     setWorking(true);
@@ -146,6 +149,8 @@ export default function EventDetailPage() {
       const updatedOfficerIds = [...(event.officerIds || []), newOfficerId.trim()];
       const updatedRoles = { ...(event.officerRoles || {}), [newOfficerId.trim()]: newOfficerRole.trim() || 'Officer' };
       await updateEvent(id, { ...event, officerIds: updatedOfficerIds, officerRoles: updatedRoles });
+      // Email the officer that they're on this event
+      setAssignNote(await notifyQuietly({ type: 'event-assigned', eventId: id, personIds: [newOfficerId.trim()] }));
       await load();
       setNewOfficerId('');
       setNewOfficerRole('');
@@ -585,6 +590,11 @@ export default function EventDetailPage() {
                   Add
                 </Button>
               </Stack>
+              {assignNote && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                  {assignNote}
+                </Typography>
+              )}
             </Box>
             )}
 

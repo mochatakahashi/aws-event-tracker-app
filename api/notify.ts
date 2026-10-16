@@ -1,0 +1,349 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2';
+
+/**
+ * Email notifications through Amazon SES.
+ *
+ * POST /api/notify { type: 'account-reviewed', personId }          → approved / declined (with reason)
+ * POST /api/notify { type: 'event-assigned', eventId, personIds }  → officers assigned to an event
+ * POST /api/notify { type: 'task-assigned', taskId }               → officers given a task
+ * POST /api/notify { type: 'run-reminders', actorId }              → admin runs today's reminders now
+ * GET  /api/notify  (Vercel Cron, daily 8:00 AM Manila)             → reminders:
+ *        - event tomorrow → registered attendees + assigned officers
+ *        - event today    → "See you today!"
+ *        - task due tomorrow → its officers
+ *
+ * Environment variables (Vercel → Settings → Environment Variables):
+ *   SES_FROM_EMAIL  verified SES sender, e.g. "AWS SBG-APC <aws.apcofficial@gmail.com>"
+ *   SES_REGION      SES region (defaults to APP_AWS_REGION / ap-southeast-1)
+ *   APP_URL         public app URL for links (defaults to this deployment's host)
+ *   CRON_SECRET     protects the daily cron call (Vercel sends it automatically)
+ * The AWS access key also needs the `ses:SendEmail` permission.
+ */
+
+const TZ = 'Asia/Manila';
+
+function awsConfig() {
+  const accessKeyId = process.env.APP_AWS_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.APP_AWS_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
+  if (!accessKeyId || !secretAccessKey) {
+    throw new Error(
+      'AWS credentials missing. Please set APP_AWS_ACCESS_KEY_ID and APP_AWS_SECRET_ACCESS_KEY in Vercel Project Settings.'
+    );
+  }
+  return { accessKeyId: accessKeyId.trim(), secretAccessKey: secretAccessKey.trim() };
+}
+
+function getDynamoDocClient() {
+  const region = process.env.APP_AWS_REGION || process.env.AWS_REGION || 'ap-southeast-1';
+  const raw = new DynamoDBClient({ region, credentials: awsConfig() });
+  return {
+    client: DynamoDBDocumentClient.from(raw, { marshallOptions: { removeUndefinedValues: true } }),
+    tableName: process.env.DYNAMODB_TABLE_NAME || 'aws_events',
+  };
+}
+
+// ─── Email ────────────────────────────────────────────────────────────────────
+
+interface Mail {
+  to: string[];
+  subject: string;
+  heading: string;
+  lines: string[];
+  button?: { label: string; path: string };
+}
+
+const esc = (s: unknown) =>
+  String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+
+function renderHtml(mail: Mail, appUrl: string): string {
+  const button = mail.button
+    ? `<p style="margin:24px 0"><a href="${esc(appUrl + mail.button.path)}" style="background:#7B2D8E;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600;display:inline-block">${esc(mail.button.label)}</a></p>`
+    : '';
+  return `<!doctype html><html><body style="margin:0;background:#F8F4FC;font-family:Segoe UI,Arial,sans-serif;color:#1A0A2E">
+<div style="max-width:560px;margin:0 auto;padding:24px">
+<div style="background:linear-gradient(135deg,#7B2D8E,#A855C8);color:#fff;border-radius:12px 12px 0 0;padding:16px 24px;font-weight:700">AWS SBG-APC Event Tracker</div>
+<div style="background:#fff;border-radius:0 0 12px 12px;padding:24px;border:1px solid #E8D5F5;border-top:0">
+<h2 style="margin:0 0 12px;font-size:20px">${esc(mail.heading)}</h2>
+${mail.lines.map((l) => `<p style="margin:0 0 10px;line-height:1.5">${esc(l)}</p>`).join('')}
+${button}
+<p style="margin:24px 0 0;font-size:12px;color:#6B5B7B">AWS Student Builder Group – Asia Pacific College</p>
+</div></div></body></html>`;
+}
+
+async function sendMail(mail: Mail, appUrl: string): Promise<boolean> {
+  const from = process.env.SES_FROM_EMAIL;
+  const to = [...new Set(mail.to.filter(Boolean).map((e) => e.trim().toLowerCase()))];
+  if (!from || to.length === 0) return false;
+  const ses = new SESv2Client({
+    region: process.env.SES_REGION || process.env.APP_AWS_REGION || process.env.AWS_REGION || 'ap-southeast-1',
+    credentials: awsConfig(),
+  });
+  const text = [mail.heading, '', ...mail.lines, mail.button ? `\n${mail.button.label}: ${appUrl}${mail.button.path}` : '']
+    .join('\n');
+  await ses.send(
+    new SendEmailCommand({
+      FromEmailAddress: from,
+      Destination: { ToAddresses: to },
+      Content: {
+        Simple: {
+          Subject: { Data: mail.subject, Charset: 'UTF-8' },
+          Body: { Html: { Data: renderHtml(mail, appUrl), Charset: 'UTF-8' }, Text: { Data: text, Charset: 'UTF-8' } },
+        },
+      },
+    })
+  );
+  return true;
+}
+
+// ─── Data helpers ─────────────────────────────────────────────────────────────
+
+async function scanAll(client: DynamoDBDocumentClient, tableName: string): Promise<any[]> {
+  const items: any[] = [];
+  let ExclusiveStartKey: Record<string, any> | undefined;
+  do {
+    const page = await client.send(new ScanCommand({ TableName: tableName, ExclusiveStartKey }));
+    items.push(...(page.Items || []));
+    ExclusiveStartKey = page.LastEvaluatedKey;
+  } while (ExclusiveStartKey);
+  return items;
+}
+
+const isEvent = (i: any) => i.entityType === 'event' || (!i.entityType && String(i.id || '').startsWith('evt-'));
+const addresses = (u: any) => [u?.email, u?.personalEmail].filter(Boolean) as string[];
+const firstName = (u: any) => u?.firstName || String(u?.name || '').split(' ')[0] || 'there';
+const titleCase = (s: string) => s.replace(/\b\w/g, (c) => c.toUpperCase());
+
+/** YYYY-MM-DD in Manila time. */
+function manilaDay(d: Date | string): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(
+    new Date(d)
+  );
+}
+
+function whenText(startAt: string, endAt?: string): string {
+  const day = new Date(startAt).toLocaleDateString('en-PH', { timeZone: TZ, weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  const t = (x: string) => new Date(x).toLocaleTimeString('en-PH', { timeZone: TZ, hour: 'numeric', minute: '2-digit' });
+  return endAt ? `${day}, ${t(startAt)} – ${t(endAt)}` : `${day}, ${t(startAt)}`;
+}
+
+// ─── Messages ─────────────────────────────────────────────────────────────────
+
+function accountMail(u: any): Mail | null {
+  if (u.status === 'approved') {
+    return {
+      to: addresses(u),
+      subject: 'Your AWS SBG-APC account is approved',
+      heading: `Welcome, ${firstName(u)}!`,
+      lines: [
+        u.role === 'officer'
+          ? 'Your officer account has been approved. You can now sign in and see your Officer Dashboard.'
+          : 'Your account has been approved. You can now sign in to join events and collect stamps.',
+      ],
+      button: { label: 'Sign in', path: '/#/login' },
+    };
+  }
+  if (u.status === 'rejected') {
+    return {
+      to: addresses(u),
+      subject: 'Your AWS SBG-APC sign-up needs another look',
+      heading: `Hi ${firstName(u)},`,
+      lines: [
+        'Your sign-up was not approved.',
+        u.rejectionReason ? `Reason: ${u.rejectionReason}` : 'Please check your details.',
+        'You can sign up again with the same email and the corrected details.',
+      ],
+      button: { label: 'Sign up again', path: '/#/signup' },
+    };
+  }
+  return null;
+}
+
+function eventAssignedMail(u: any, ev: any): Mail {
+  const role = titleCase(ev.officerRoles?.[u.id] || 'Officer');
+  return {
+    to: addresses(u),
+    subject: `You're assigned to ${ev.title}`,
+    heading: `Hi ${firstName(u)}, you're on the team!`,
+    lines: [
+      `You've been assigned to ${ev.title} as ${role}.`,
+      `When: ${whenText(ev.startAt, ev.endAt)}`,
+      `Where: ${ev.venue || 'TBA'}`,
+      "We'll send you a reminder the day before.",
+    ],
+    button: { label: 'View event', path: `/#/events/${ev.id}` },
+  };
+}
+
+function taskMail(u: any, task: any, ev: any, kind: 'assigned' | 'due'): Mail {
+  const lines = [
+    kind === 'assigned' ? `You have a new task: ${task.title}` : `Reminder: "${task.title}" is due tomorrow.`,
+  ];
+  if (task.description) lines.push(task.description);
+  if (ev) lines.push(`Event: ${ev.title}`);
+  if (task.dueAt) lines.push(`Due: ${whenText(task.dueAt)}`);
+  return {
+    to: addresses(u),
+    subject: kind === 'assigned' ? `New task: ${task.title}` : `Due tomorrow: ${task.title}`,
+    heading: `Hi ${firstName(u)},`,
+    lines,
+    button: { label: 'Open my tasks', path: '/#/officer' },
+  };
+}
+
+function eventReminderMail(u: any, ev: any, kind: 'tomorrow' | 'today', isOfficer: boolean): Mail {
+  const role = isOfficer ? titleCase(ev.officerRoles?.[u.id] || 'Officer') : '';
+  const lines =
+    kind === 'tomorrow'
+      ? [`${ev.title} is tomorrow!`, `When: ${whenText(ev.startAt, ev.endAt)}`, `Where: ${ev.venue || 'TBA'}`]
+      : [`See you today at ${ev.title}!`, `When: ${whenText(ev.startAt, ev.endAt)}`, `Where: ${ev.venue || 'TBA'}`];
+  if (isOfficer) lines.push(`You're on duty as ${role}.`);
+  else if (kind === 'today') lines.push('Bring your phone to collect your session stamps.');
+  return {
+    to: addresses(u),
+    subject: kind === 'tomorrow' ? `Reminder: ${ev.title} is tomorrow` : `See you today at ${ev.title}!`,
+    heading: kind === 'tomorrow' ? `Hi ${firstName(u)}, see you tomorrow!` : `Hi ${firstName(u)}, see you today!`,
+    lines,
+    button: { label: 'Open the event', path: `/#/events/${ev.id}` },
+  };
+}
+
+// ─── Reminders (cron) ─────────────────────────────────────────────────────────
+
+async function runReminders(client: DynamoDBDocumentClient, tableName: string, appUrl: string) {
+  const items = await scanAll(client, tableName);
+  const users = new Map(items.filter((i) => i.entityType === 'user').map((u) => [u.id, u]));
+  const events = items.filter(isEvent);
+  const regs = items.filter((i) => i.entityType === 'registration');
+  const tasks = items.filter((i) => i.entityType === 'task');
+
+  const today = manilaDay(new Date());
+  const tomorrow = manilaDay(new Date(Date.now() + 24 * 3600 * 1000));
+  let sent = 0;
+
+  for (const ev of events) {
+    if (ev.status === 'cancelled' || !ev.startAt) continue;
+    const day = manilaDay(ev.startAt);
+    const kind = day === tomorrow ? 'tomorrow' : day === today ? 'today' : null;
+    if (!kind) continue;
+    const flag = kind === 'tomorrow' ? 'dayBefore' : 'dayOf';
+    if (ev.remindersSent?.[flag]) continue;
+
+    const officerIds: string[] = ev.officerIds || [];
+    const attendeeIds = regs
+      .filter((r) => r.eventId === ev.id && r.rsvp !== 'declined')
+      .map((r) => r.personId)
+      .filter((id) => !officerIds.includes(id));
+    for (const id of officerIds) {
+      const u = users.get(id);
+      if (u && (await sendMail(eventReminderMail(u, ev, kind, true), appUrl))) sent++;
+    }
+    for (const id of attendeeIds) {
+      const u = users.get(id);
+      if (u && (await sendMail(eventReminderMail(u, ev, kind, false), appUrl))) sent++;
+    }
+    await client.send(
+      new PutCommand({
+        TableName: tableName,
+        Item: { ...ev, remindersSent: { ...(ev.remindersSent || {}), [flag]: new Date().toISOString() } },
+      })
+    );
+  }
+
+  for (const task of tasks) {
+    if (task.status === 'done' || !task.dueAt || task.dueReminderSentAt) continue;
+    if (manilaDay(task.dueAt) !== tomorrow) continue;
+    const ev = events.find((e) => e.id === task.eventId);
+    for (const id of task.assigneeIds || []) {
+      const u = users.get(id);
+      if (u && (await sendMail(taskMail(u, task, ev, 'due'), appUrl))) sent++;
+    }
+    await client.send(
+      new PutCommand({ TableName: tableName, Item: { ...task, dueReminderSentAt: new Date().toISOString() } })
+    );
+  }
+  return sent;
+}
+
+// ─── Handler ──────────────────────────────────────────────────────────────────
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') return res.status(200).end();
+
+  const host = (req.headers?.['x-forwarded-host'] || req.headers?.host || '') as string;
+  const appUrl = (process.env.APP_URL || (host ? `https://${host}` : '')).replace(/\/$/, '');
+  const notConfigured = !process.env.SES_FROM_EMAIL;
+
+  try {
+    const { client, tableName } = getDynamoDocClient();
+    const get = async (id: string) =>
+      id ? (await client.send(new GetCommand({ TableName: tableName, Key: { id } }))).Item : undefined;
+
+    // Daily cron
+    if (req.method === 'GET') {
+      const secret = process.env.CRON_SECRET;
+      if (!secret || req.headers?.authorization !== `Bearer ${secret}`) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+      if (notConfigured) return res.status(200).json({ sent: 0, skipped: 'SES_FROM_EMAIL is not set' });
+      return res.status(200).json({ sent: await runReminders(client, tableName, appUrl) });
+    }
+
+    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+    const body = req.body || {};
+    if (notConfigured) {
+      return res.status(200).json({ sent: 0, skipped: 'Email is not set up yet (SES_FROM_EMAIL is missing in Vercel).' });
+    }
+
+    let sent = 0;
+    switch (body.type) {
+      case 'account-reviewed': {
+        const u = await get(body.personId);
+        if (u?.entityType !== 'user') return res.status(404).json({ error: 'User not found' });
+        const mail = accountMail(u);
+        if (mail && (await sendMail(mail, appUrl))) sent++;
+        break;
+      }
+      case 'event-assigned': {
+        const ev = await get(body.eventId);
+        if (!ev || !isEvent(ev)) return res.status(404).json({ error: 'Event not found' });
+        for (const id of (body.personIds || []) as string[]) {
+          if (!(ev.officerIds || []).includes(id)) continue;
+          const u = await get(id);
+          if (u?.entityType === 'user' && (await sendMail(eventAssignedMail(u, ev), appUrl))) sent++;
+        }
+        break;
+      }
+      case 'task-assigned': {
+        const task = await get(body.taskId);
+        if (task?.entityType !== 'task') return res.status(404).json({ error: 'Task not found' });
+        const ev = task.eventId ? await get(task.eventId) : undefined;
+        for (const id of task.assigneeIds || []) {
+          const u = await get(id);
+          if (u?.entityType === 'user' && (await sendMail(taskMail(u, task, ev, 'assigned'), appUrl))) sent++;
+        }
+        break;
+      }
+      case 'run-reminders': {
+        const actor = await get(body.actorId);
+        if (actor?.entityType !== 'user' || actor.role !== 'admin') {
+          return res.status(403).json({ error: 'Only an admin can run reminders.' });
+        }
+        sent = await runReminders(client, tableName, appUrl);
+        break;
+      }
+      default:
+        return res.status(400).json({ error: 'Unknown notification type' });
+    }
+    return res.status(200).json({ sent });
+  } catch (err: any) {
+    console.error('Notify API Error:', err);
+    return res.status(500).json({ error: err.message || 'Could not send the email', code: err.name || 'API_ERROR' });
+  }
+}

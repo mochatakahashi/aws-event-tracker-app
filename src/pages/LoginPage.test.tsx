@@ -35,12 +35,12 @@ describe('LoginPage', () => {
     const user = userEvent.setup();
     renderWithProviders(<LoginPage />);
 
-    await user.type(screen.getByLabelText(/email/i), 'admin');
-    await user.type(screen.getByLabelText(/password/i), 'admin123');
+    await user.type(screen.getByLabelText(/email/i), 'awsapc.admin');
+    await user.type(screen.getByLabelText(/password/i), 'test-admin-password');
     await user.click(screen.getByRole('button', { name: /sign in/i }));
 
     await waitFor(() => {
-      expect(localStorage.getItem('aws-event-tracker.user')).toContain('admin');
+      expect(localStorage.getItem('aws-event-tracker.user')).toContain('awsapc.admin');
     });
   });
 });

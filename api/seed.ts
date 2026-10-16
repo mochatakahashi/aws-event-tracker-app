@@ -87,25 +87,7 @@ const initialSessions = [
   },
 ];
 
-const initialStamps = [
-  {
-    id: 'stp-1',
-    entityType: 'stamp',
-    sessionId: 'ses-1',
-    attendeeId: 'per-2',
-    approvedBy: 'per-1',
-    approvedAt: '2026-11-14T11:35:00+08:00',
-    status: 'approved',
-  },
-  {
-    id: 'stp-2',
-    entityType: 'stamp',
-    sessionId: 'ses-2',
-    attendeeId: 'per-2',
-    status: 'pending',
-    requestedAt: '2026-11-14T13:50:00+08:00',
-  },
-];
+
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -137,7 +119,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       marshallOptions: { removeUndefinedValues: true },
     });
 
-    for (const item of [...initialEvents, ...initialSessions, ...initialStamps]) {
+    for (const item of [...initialEvents, ...initialSessions]) {
       await docClient.send(
         new PutCommand({
           TableName: tableName,
@@ -148,10 +130,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.status(200).json({
       success: true,
-      message: `Successfully seeded events, sessions, and stamps into DynamoDB table '${tableName}'!`,
+      message: `Successfully seeded events and sessions into DynamoDB table '${tableName}'!`,
       eventsCount: initialEvents.length,
       sessionsCount: initialSessions.length,
-      stampsCount: initialStamps.length,
     });
   } catch (err: any) {
     return res.status(500).json({

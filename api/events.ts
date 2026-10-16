@@ -132,6 +132,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         entityType: 'event',
         updatedAt: new Date().toISOString(),
       };
+      // Moving the event re-arms its reminder emails
+      if (existing.Item?.startAt && eventUpdates?.startAt && existing.Item.startAt !== eventUpdates.startAt) {
+        delete (merged as any).remindersSent;
+      }
 
       await client.send(
         new PutCommand({

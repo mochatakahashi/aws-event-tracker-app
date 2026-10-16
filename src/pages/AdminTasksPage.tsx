@@ -23,6 +23,7 @@ import { useAuth } from '../context/AuthContext';
 import { getUsers } from '../services/authService';
 import { getEvents } from '../services/eventService';
 import { createTask, deleteTask, getTasks, updateTask } from '../services/taskService';
+import { notifyQuietly } from '../services/notifyService';
 import { brand } from '../theme/theme';
 import type { User } from '../types/auth';
 import type { AppEvent } from '../types/event';
@@ -96,7 +97,8 @@ export default function AdminTasksPage() {
         createdBy: user.personId,
       });
       setTasks((prev) => [task, ...prev]);
-      setSaved(`Task assigned to ${assignees.map((a) => a.name).join(', ')}.`);
+      const emailNote = await notifyQuietly({ type: 'task-assigned', taskId: task.id });
+      setSaved(`Task assigned to ${assignees.map((a) => a.name).join(', ')}.${emailNote ? ` ${emailNote}` : ''}`);
       setTitle('');
       setDescription('');
       setEventId('');

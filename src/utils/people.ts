@@ -54,7 +54,7 @@ export function positionNeedsCommittee(position?: OfficerPosition | null): boole
 }
 
 /** "Director — Marketing", "VP Internal", or "Officer" when no position is set. */
-export function officerTitle(person: { officerPosition?: OfficerPosition; committee?: Committee }): string {
+export function officerTitle(person: { officerPosition?: OfficerPosition | null; committee?: Committee | null }): string {
   if (!person.officerPosition) return 'Officer';
   const position = POSITION_LABELS[person.officerPosition];
   if (positionNeedsCommittee(person.officerPosition) && person.committee) {
@@ -68,17 +68,23 @@ export function officerTitle(person: { officerPosition?: OfficerPosition; commit
  * Directors, Assistant Directors, Associates (each by committee order), then
  * officers without a position.
  */
-export function officerRank(person: { officerPosition?: OfficerPosition; committee?: Committee }): number {
+export function officerRank(person: { officerPosition?: OfficerPosition | null; committee?: Committee | null }): number {
   const pos = person.officerPosition ? OFFICER_POSITIONS.indexOf(person.officerPosition) : OFFICER_POSITIONS.length;
   const com = person.committee ? COMMITTEES.indexOf(person.committee) : COMMITTEES.length;
   return pos * 10 + com;
 }
 
-export function compareOfficers<T extends { officerPosition?: OfficerPosition; committee?: Committee; name: string }>(
+export function compareOfficers<T extends { officerPosition?: OfficerPosition | null; committee?: Committee | null; name: string }>(
   a: T,
   b: T,
 ): number {
   return officerRank(a) - officerRank(b) || a.name.localeCompare(b.name);
+}
+
+/** "2025–2026" for a school year that starts in June. */
+export function currentSchoolYear(now = new Date()): string {
+  const start = now.getMonth() >= 5 ? now.getFullYear() : now.getFullYear() - 1;
+  return `${start}–${start + 1}`;
 }
 
 /** "Juan D. Dela Cruz" (middle initial optional). */

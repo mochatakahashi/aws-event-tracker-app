@@ -15,5 +15,7 @@ export default defineConfig({
     // headroom so they don't flake under load on constrained machines. Files
     // still run in isolation so module-level mock stores start fresh per file.
     testTimeout: 15000,
+    // Local admin account used by the tests (local fallback mode only).
+    env: { VITE_LOCAL_ADMIN_PASSWORD: 'test-admin-password' },
   },
 });

@@ -6,17 +6,20 @@ import {
   ScanCommand,
   GetCommand,
   PutCommand,
+  DeleteCommand,
 } from '@aws-sdk/lib-dynamodb';
 
 /**
  * Accounts API (single-table DynamoDB, entityType = 'user', id = person id).
  *
  * GET  /api/users                 → all accounts (no password hashes)
+ *   The first admin ("awsapc.admin") is created from ADMIN_PASSWORD when there are no accounts.
  * GET  /api/users?id=per-1        → one account
  * POST /api/users?action=signup   → create a pending account
  * POST /api/users?action=login    → sign in (approved accounts only)
  * POST /api/users?action=password → change password
  * PUT  /api/users?id=per-1        → { changes, actorId } profile / admin changes
+ * DELETE /api/users?id=per-1&actorId=per-9 → delete an account (admin only)
  */
 
 function getDynamoDocClient() {
@@ -68,7 +71,7 @@ function verifyPassword(password: string, stored: string | undefined): boolean {
 const POSITIONS = ['president', 'vp-internal', 'vp-external', 'director', 'assistant-director', 'associate'];
 const COMMITTEES = ['secretariat', 'operations', 'marketing', 'technicals', 'relations'];
 const PROFILE_FIELDS = ['avatarUrl', 'bio', 'socials', 'personalEmail', 'officerPosition', 'committee'];
-const ADMIN_FIELDS = ['role', 'status', 'requestedRole'];
+const ADMIN_FIELDS = ['role', 'status', 'requestedRole', 'officerHistory', 'rejectionReason'];
 
 const isApcEmail = (email: string) => /^[^\s@]+@(student\.)?apc\.edu\.ph$/i.test(email);
 const isEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -87,14 +90,12 @@ function formatName(first: string, mi: string | undefined, last: string) {
   return [first.trim(), mi ? `${mi}.` : '', last.trim()].filter(Boolean).join(' ');
 }
 
-/** Demo accounts created the first time the users table is empty. */
-const DEMO_USERS = [
-  { personId: 'per-1', username: 'admin', password: 'admin123', name: 'Admin User', firstName: 'Admin', lastName: 'User', email: 'admin@awssbg-apc.com', role: 'admin', status: 'approved', memberType: 'apc' },
-  { personId: 'per-2', username: 'rj', password: 'rj123', name: 'Rodmina Jhoy Ibe', firstName: 'Rodmina Jhoy', lastName: 'Ibe', email: 'rodmina@apc.edu.ph', role: 'officer', status: 'approved', memberType: 'apc', studentId: 'APC-2024-001' },
-  { personId: 'per-3', username: 'sofia', password: 'sofia123', name: 'Sofia Rossi', firstName: 'Sofia', lastName: 'Rossi', email: 'sofia@apc.edu.ph', role: 'attendee', status: 'approved', memberType: 'apc', studentId: 'APC-2024-042' },
-  { personId: 'per-4', username: 'kenji', password: 'kenji123', name: 'Kenji Tanaka', firstName: 'Kenji', lastName: 'Tanaka', email: 'kenji@apc.edu.ph', role: 'attendee', status: 'approved', memberType: 'apc', studentId: 'APC-2024-088' },
-  { personId: 'per-5', username: 'grace', password: 'grace123', name: 'Grace Adeyemi', firstName: 'Grace', lastName: 'Adeyemi', email: 'grace@apc.edu.ph', role: 'attendee', status: 'approved', memberType: 'apc', studentId: 'APC-2024-105' },
-];
+/**
+ * The first admin account. It is created the first time the users table is
+ * empty, with the password from the ADMIN_PASSWORD environment variable
+ * (never stored in the code). Change it later on the Profile page.
+ */
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'awsapc.admin';
 
 async function scanUsers(client: DynamoDBDocumentClient, tableName: string): Promise<any[]> {
   const items: any[] = [];
@@ -112,14 +113,24 @@ async function scanUsers(client: DynamoDBDocumentClient, tableName: string): Pro
     ExclusiveStartKey = page.LastEvaluatedKey;
   } while (ExclusiveStartKey);
 
-  if (items.length === 0) {
-    const now = new Date().toISOString();
-    for (const demo of DEMO_USERS) {
-      const { password, ...rest } = demo;
-      const item = { ...rest, id: demo.personId, entityType: 'user', passwordHash: hashPassword(password), createdAt: now };
-      await client.send(new PutCommand({ TableName: tableName, Item: item }));
-      items.push(item);
-    }
+  if (items.length === 0 && process.env.ADMIN_PASSWORD) {
+    const item = {
+      id: 'per-1',
+      personId: 'per-1',
+      entityType: 'user',
+      username: ADMIN_USERNAME,
+      email: process.env.ADMIN_EMAIL || undefined,
+      name: 'AWS SBG-APC Admin',
+      firstName: 'AWS SBG-APC',
+      lastName: 'Admin',
+      role: 'admin',
+      status: 'approved',
+      memberType: 'apc',
+      passwordHash: hashPassword(process.env.ADMIN_PASSWORD),
+      createdAt: new Date().toISOString(),
+    };
+    await client.send(new PutCommand({ TableName: tableName, Item: item }));
+    items.push(item);
   }
   return items;
 }
@@ -156,7 +167,7 @@ function validateSignUp(d: any): string | null {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -180,6 +191,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { username, password } = req.body || {};
       if (!username || !password) return res.status(400).json({ error: 'Email and password are required.' });
       const users = await scanUsers(client, tableName);
+      if (users.length === 0) {
+        return res.status(503).json({
+          error: 'No admin account yet. Set ADMIN_PASSWORD in Vercel (Settings → Environment Variables) and redeploy.',
+        });
+      }
       const user = findByLogin(users, String(username));
       if (!user || !verifyPassword(String(password), user.passwordHash)) {
         return res.status(401).json({ error: 'Invalid email or password.' });
@@ -188,7 +204,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(403).json({ error: 'Your account is waiting for admin approval. Please try again once it is approved.' });
       }
       if (user.status === 'rejected') {
-        return res.status(403).json({ error: 'Your sign-up was declined by an admin. Please contact the AWS SBG-APC officers.' });
+        return res.status(403).json({
+          error: user.rejectionReason
+            ? `Your sign-up was declined: ${user.rejectionReason}. You can sign up again with the correct details.`
+            : 'Your sign-up was declined by an admin. Please contact the AWS SBG-APC officers.',
+        });
       }
       return res.status(200).json(sanitize(user));
     }
@@ -283,6 +303,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const merged = { ...target, ...updates, id, entityType: 'user', updatedAt: new Date().toISOString() };
       await client.send(new PutCommand({ TableName: tableName, Item: merged }));
       return res.status(200).json(sanitize(merged));
+    }
+
+    if (req.method === 'DELETE') {
+      const id = typeof req.query.id === 'string' ? req.query.id : '';
+      const actorId = typeof req.query.actorId === 'string' ? req.query.actorId : '';
+      const users = await scanUsers(client, tableName);
+      const actor = users.find((u) => u.id === actorId);
+      if (actor?.role !== 'admin' || (actor.status ?? 'approved') !== 'approved') {
+        return res.status(403).json({ error: 'Only an admin can delete accounts.' });
+      }
+      if (id === actorId) return res.status(400).json({ error: "You can't delete your own account." });
+      if (!users.some((u) => u.id === id)) return res.status(404).json({ error: 'User not found' });
+      await client.send(new DeleteCommand({ TableName: tableName, Key: { id } }));
+      return res.status(200).json({ success: true, id });
     }
 
     return res.status(405).json({ error: 'Method not allowed' });

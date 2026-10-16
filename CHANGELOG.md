@@ -7,10 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.5.0] - 2026-10-16
+
+### Added
+- **Email notifications (Amazon SES, `/api/notify`)**: account approved / declined (with the reason), officer assigned to an event (with their event role), new task, plus a daily 8:00 AM (Manila) Vercel Cron job for "event tomorrow", "see you today" and "task due tomorrow" reminders. Officers receive emails on both their APC and personal email. Admins can also press **Send reminders now** on the Admin Dashboard. Each reminder is sent once; moving an event's date re-arms its reminders.
+- **Decline reason**: when declining a sign-up, the admin can pick a quick reason (missing name, wrong email, not an APC email, wrong student ID, duplicate) or type one. It's optional, shown to the person when they try to sign in, and included in the email.
+- **Archive officers by school-year batch**: archive one officer or **all current officers** at the end of a school year. They become alumni attendees (can still sign in and join events) and their position and committee are kept under **Past batches**.
+- **Delete accounts** (admin only, with an inline confirmation) from Manage Accounts and the Officers page.
+
+### Changed
+- **Removed all demo accounts** and the demo sign-in panel. The only built-in account is the admin **`awsapc.admin`**, whose password comes from the `ADMIN_PASSWORD` environment variable (deployed) or `VITE_LOCAL_ADMIN_PASSWORD` in `.env.local` (local) — no password is stored in the code.
+- `/api/seed` no longer creates sample stamps for demo people.
+
+---
+
 ## [0.4.0] - 2026-10-16
 
 ### Added
-- **Accounts in DynamoDB (`/api/users`)**: Sign up, sign in, profiles and roles are now stored in the database, so every login and device sees the same accounts. Passwords are hashed with scrypt; password hashes are never returned by the API. Demo accounts are created automatically the first time the table has no users.
+- **Accounts in DynamoDB (`/api/users`)**: Sign up, sign in, profiles and roles are now stored in the database, so every login and device sees the same accounts. Passwords are hashed with scrypt; password hashes are never returned by the API. 
 - **Admin approval for every new account**: New sign-ups stay **pending** and cannot sign in until an admin approves them in **Manage Accounts**. Officer sign-ups are approved straight into the officer role; declined people can sign up again with the same email.
 - **New sign-up form**:
   - Account type: **APC Student**, **Outside Attendee**, or **Officer**.
@@ -29,7 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Change password** on the Profile page.
 
 ### Changed
-- Removed **Continue with Google** from Sign In and Sign Up (APC email is the main login). Sign in accepts an email (or a demo username).
+- Removed **Continue with Google** from Sign In and Sign Up (APC email is the main login). Sign in accepts an email.
 - Profile photo, bio and social links are now saved to the account (they were lost on refresh before), and the photo shows in the header and Connect page.
 - Speakers added in the Event Builder (including their photos) are now saved and reloaded when editing an event.
 - Only admins see the **Assign an Officer** form on an event page, and the list only offers officers, in hierarchy order with their title.

@@ -19,7 +19,11 @@ import SearchIcon from '@mui/icons-material/Search';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
 import { alpha } from '@mui/material/styles';
-import { approveUser, getUsers, rejectUser, updateUser } from '../services/authService';
+import { approveUser, deleteUser, getUsers, rejectUser, updateUser } from '../services/authService';
+import { notifyQuietly } from '../services/notifyService';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
 import { getStamps } from '../services/sessionService';
 import { useAuth } from '../context/AuthContext';
 import { brand } from '../theme/theme';
@@ -29,6 +33,15 @@ import { AdminHeader, EmptyNote, StatRow, StatTile, formatDateTime } from '../co
 import { affiliation, memberLabel, officerTitle } from '../utils/people';
 
 type Filter = 'all' | 'admin' | 'officer' | 'attendee' | 'rejected';
+
+/** Quick picks for the optional decline reason. */
+const DECLINE_REASONS = [
+  'Missing or incomplete name',
+  'Wrong email address',
+  'Not an APC email',
+  'Wrong student ID',
+  'Duplicate account',
+];
 
 function initials(name: string) {
   return name
@@ -62,6 +75,11 @@ export default function AdminDashboardPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
+  const [info, setInfo] = useState('');
+  // Inline decline form (no dialogs)
+  const [decliningId, setDecliningId] = useState<string | null>(null);
+  const [declineReason, setDeclineReason] = useState('');
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user?.role !== 'admin') {
@@ -81,15 +99,37 @@ export default function AdminDashboardPage() {
     setUsers((prev) => prev.map((u) => (u.personId === updated.personId ? updated : u)));
   }
 
-  async function run(personId: string, action: () => Promise<User>) {
+  async function run(personId: string, action: () => Promise<User>, emailAfter = false) {
     setBusyId(personId);
     setError('');
+    setInfo('');
     try {
-      replaceUser(await action());
+      const updated = await action();
+      replaceUser(updated);
+      if (emailAfter) {
+        const status = await notifyQuietly({ type: 'account-reviewed', personId });
+        if (status) setInfo(`${updated.name}: ${status}`);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong.');
     } finally {
       setBusyId(null);
+    }
+  }
+
+  async function handleDelete(target: User) {
+    if (!user) return;
+    setBusyId(target.personId);
+    setError('');
+    try {
+      await deleteUser(target.personId, user.personId);
+      setUsers((prev) => prev.filter((u) => u.personId !== target.personId));
+      setInfo(`Deleted ${target.name}'s account.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not delete the account.');
+    } finally {
+      setBusyId(null);
+      setConfirmDeleteId(null);
     }
   }
 
@@ -123,6 +163,11 @@ export default function AdminDashboardPage() {
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
           {error}
+        </Alert>
+      )}
+      {info && (
+        <Alert severity="info" sx={{ mb: 2 }} onClose={() => setInfo('')}>
+          {info}
         </Alert>
       )}
 
@@ -170,13 +215,59 @@ export default function AdminDashboardPage() {
                     <DetailLine label="Signed up" value={u.createdAt ? formatDateTime(u.createdAt) : undefined} />
                   </Box>
                 </Stack>
+                {decliningId === u.personId ? (
+                  <Box sx={{ mt: 1.5, p: 1.5, borderRadius: 2, bgcolor: alpha(brand.error, 0.04), border: '1px solid', borderColor: alpha(brand.error, 0.2) }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                      Reason for declining (optional)
+                    </Typography>
+                    <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mb: 1 }}>
+                      {DECLINE_REASONS.map((r) => (
+                        <Chip
+                          key={r}
+                          size="small"
+                          label={r}
+                          variant={declineReason === r ? 'filled' : 'outlined'}
+                          color={declineReason === r ? 'error' : 'default'}
+                          onClick={() => setDeclineReason(declineReason === r ? '' : r)}
+                        />
+                      ))}
+                    </Stack>
+                    <TextField
+                      size="small"
+                      fullWidth
+                      placeholder="Or type a reason — it's shown to them and emailed"
+                      value={declineReason}
+                      onChange={(e) => setDeclineReason(e.target.value)}
+                      sx={{ bgcolor: 'background.paper' }}
+                    />
+                    <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ mt: 1.25 }}>
+                      <Button onClick={() => setDecliningId(null)}>Cancel</Button>
+                      <Button
+                        variant="contained"
+                        color="error"
+                        disabled={busyId === u.personId}
+                        onClick={() => {
+                          if (!user) return;
+                          const reason = declineReason;
+                          setDecliningId(null);
+                          void run(u.personId, () => rejectUser(u.personId, user.personId, reason), true);
+                        }}
+                      >
+                        Decline sign-up
+                      </Button>
+                    </Stack>
+                  </Box>
+                ) : (
                 <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ mt: 1.5 }}>
                   <Button
                     variant="outlined"
                     color="error"
                     startIcon={<CloseIcon />}
                     disabled={busyId === u.personId}
-                    onClick={() => user && run(u.personId, () => rejectUser(u.personId, user.personId))}
+                    onClick={() => {
+                      setDecliningId(u.personId);
+                      setDeclineReason('');
+                    }}
                   >
                     Decline
                   </Button>
@@ -184,11 +275,12 @@ export default function AdminDashboardPage() {
                     variant="contained"
                     startIcon={<CheckIcon />}
                     disabled={busyId === u.personId}
-                    onClick={() => user && run(u.personId, () => approveUser(u.personId, user.personId))}
+                    onClick={() => user && run(u.personId, () => approveUser(u.personId, user.personId), true)}
                   >
                     {u.requestedRole === 'officer' ? 'Approve as Officer' : 'Approve'}
                   </Button>
                 </Stack>
+                )}
               </CardContent>
             </Card>
           ))}
@@ -255,14 +347,26 @@ export default function AdminDashboardPage() {
                       )}
                       {affiliation(u) !== '—' && <Chip size="small" variant="outlined" label={affiliation(u)} />}
                       {u.role === 'attendee' && <Chip size="small" variant="outlined" label={`${stampCount} stamps`} />}
+                      {!!u.officerHistory?.length && (
+                        <Chip
+                          size="small"
+                          variant="outlined"
+                          label={`Alumni officer ${u.officerHistory.map((t) => t.schoolYear).join(', ')}`}
+                        />
+                      )}
                     </Stack>
+                    {u.status === 'rejected' && (
+                      <Typography variant="caption" color="error" sx={{ display: 'block', mt: 0.5 }}>
+                        Declined{u.rejectionReason ? `: ${u.rejectionReason}` : ''}
+                      </Typography>
+                    )}
                   </Box>
                   {u.status === 'rejected' ? (
                     <Button
                       variant="outlined"
                       size="small"
                       disabled={busyId === u.personId}
-                      onClick={() => user && run(u.personId, () => approveUser(u.personId, user.personId))}
+                      onClick={() => user && run(u.personId, () => approveUser(u.personId, user.personId), true)}
                     >
                       Approve after all
                     </Button>
@@ -286,6 +390,28 @@ export default function AdminDashboardPage() {
                       <MenuItem value="admin">Admin</MenuItem>
                     </TextField>
                   )}
+                  {u.personId !== user?.personId &&
+                    (confirmDeleteId === u.personId ? (
+                      <Stack direction="row" spacing={0.5} alignItems="center">
+                        <Typography variant="caption" color="error">Delete permanently?</Typography>
+                        <Button size="small" onClick={() => setConfirmDeleteId(null)}>Keep</Button>
+                        <Button
+                          size="small"
+                          color="error"
+                          variant="contained"
+                          disabled={busyId === u.personId}
+                          onClick={() => handleDelete(u)}
+                        >
+                          Delete
+                        </Button>
+                      </Stack>
+                    ) : (
+                      <Tooltip title="Delete account">
+                        <IconButton size="small" aria-label={`Delete ${u.name}`} onClick={() => setConfirmDeleteId(u.personId)}>
+                          <DeleteOutlineIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    ))}
                 </CardContent>
               </Card>
             );

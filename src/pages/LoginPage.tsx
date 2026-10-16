@@ -7,12 +7,10 @@ import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import Alert from '@mui/material/Alert';
 import CircularProgress from '@mui/material/CircularProgress';
-import Stack from '@mui/material/Stack';
 import Link from '@mui/material/Link';
 import BoltRoundedIcon from '@mui/icons-material/BoltRounded';
 import { alpha } from '@mui/material/styles';
 import { useAuth } from '../context/AuthContext';
-import { DEMO_CREDENTIALS } from '../services/authService';
 import { brand } from '../theme/theme';
 
 interface LocationState {
@@ -57,12 +55,6 @@ export default function LoginPage() {
     } finally {
       setSubmitting(false);
     }
-  }
-
-  function handleDemoLogin(role: 'admin' | 'officer' | 'attendee') {
-    const creds = DEMO_CREDENTIALS[role];
-    setUsername(creds.username);
-    setPassword(creds.password);
   }
 
   return (
@@ -185,28 +177,12 @@ export default function LoginPage() {
         ← Back to home
       </Link>
 
-      {/* Demo credentials (local development only) */}
-      {import.meta.env.DEV && (
-      <Paper
-        variant="outlined"
-        sx={{ mt: 3, p: 2, width: '100%', maxWidth: 400, backgroundColor: alpha(brand.secondary, 0.3) }}
-      >
-        <Typography variant="caption" sx={{ fontWeight: 600, color: brand.primary, mb: 1, display: 'block' }}>
-          DEMO ACCOUNTS
+      {/* Local development hint (never shown on the deployed app) */}
+      {import.meta.env.DEV && import.meta.env.MODE !== 'test' && !import.meta.env.VITE_LOCAL_ADMIN_PASSWORD && (
+        <Typography variant="caption" color="text.secondary" sx={{ mt: 2, maxWidth: 400, textAlign: 'center' }}>
+          Local dev: to sign in as <strong>awsapc.admin</strong>, add <code>VITE_LOCAL_ADMIN_PASSWORD=…</code> to a{' '}
+          <code>.env.local</code> file and restart <code>npm run dev</code>.
         </Typography>
-        <Stack spacing={0.5}>
-          {(Object.keys(DEMO_CREDENTIALS) as Array<'admin' | 'officer' | 'attendee'>).map((role) => (
-            <Stack key={role} direction="row" alignItems="center" justifyContent="space-between">
-              <Typography variant="caption" sx={{ color: brand.textSecondary }}>
-                {role}: {DEMO_CREDENTIALS[role].username} / {DEMO_CREDENTIALS[role].password}
-              </Typography>
-              <Button size="small" onClick={() => handleDemoLogin(role)} sx={{ fontSize: '0.7rem', minWidth: 'auto' }}>
-                Use
-              </Button>
-            </Stack>
-          ))}
-        </Stack>
-      </Paper>
       )}
     </Box>
   );

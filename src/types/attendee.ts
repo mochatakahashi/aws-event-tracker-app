@@ -25,8 +25,8 @@ export interface Person {
   memberType?: MemberType;
   /** School / company / organization for outside attendees. */
   organization?: string;
-  officerPosition?: OfficerPosition;
-  committee?: Committee;
+  officerPosition?: OfficerPosition | null;
+  committee?: Committee | null;
 }
 
 export type NewPersonInput = Omit<Person, 'id'>;

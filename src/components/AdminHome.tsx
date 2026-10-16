@@ -16,6 +16,10 @@ import { brand } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
 import { getUsers } from '../services/authService';
 import { getTasks } from '../services/taskService';
+import { notifyQuietly } from '../services/notifyService';
+import Button from '@mui/material/Button';
+import Stack from '@mui/material/Stack';
+import MarkEmailReadOutlinedIcon from '@mui/icons-material/MarkEmailReadOutlined';
 
 interface Item {
   title: string;
@@ -32,6 +36,16 @@ export default function AdminHome() {
   const { user } = useAuth();
   const [pending, setPending] = useState(0);
   const [openTasks, setOpenTasks] = useState(0);
+  const [reminderNote, setReminderNote] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+
+  async function sendReminders() {
+    if (!user) return;
+    setSending(true);
+    const note = await notifyQuietly({ type: 'run-reminders', actorId: user.personId });
+    setReminderNote(note ?? 'No reminders were due today.');
+    setSending(false);
+  }
 
   useEffect(() => {
     getUsers()
@@ -125,6 +139,17 @@ export default function AdminHome() {
           </Grid>
         ))}
       </Grid>
+
+      {/* Reminder emails also go out automatically every day at 8:00 AM */}
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ sm: 'center' }} sx={{ mt: 3 }}>
+        <Button variant="outlined" startIcon={<MarkEmailReadOutlinedIcon />} onClick={sendReminders} disabled={sending}>
+          {sending ? 'Sending…' : 'Send reminders now'}
+        </Button>
+        <Typography variant="caption" color="text.secondary">
+          {reminderNote ??
+            'Event reminders (day before and "see you today") and task due reminders are emailed automatically every day at 8:00 AM.'}
+        </Typography>
+      </Stack>
     </Box>
   );
 }
