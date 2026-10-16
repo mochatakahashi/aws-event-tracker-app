@@ -260,7 +260,7 @@ export default function EventBuilderPage() {
   if (loading) return <Box sx={{ p: 6, textAlign: 'center' }}><CircularProgress /></Box>;
 
   return (
-    <Box sx={{ maxWidth: 800, mx: 'auto', py: 4, px: { xs: 2, sm: 3 } }}>
+    <Box sx={{ maxWidth: 960, mx: 'auto', py: { xs: 2, md: 4 }, px: { xs: 0, sm: 2 } }}>
       <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)} sx={{ mb: 2 }}>
         Back
       </Button>

@@ -192,7 +192,7 @@ export default function AdminDashboardPage() {
           <EmptyNote>No sign-ups are waiting. New accounts show up here until you approve them.</EmptyNote>
         </Box>
       ) : (
-        <Stack spacing={1.5} sx={{ mb: 4 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, gap: 1.5, alignItems: 'start', mb: 4 }}>
           {pending.map((u) => (
             <Card key={u.personId} variant="outlined" sx={{ borderColor: alpha(brand.warning, 0.6) }}>
               <CardContent>
@@ -284,7 +284,7 @@ export default function AdminDashboardPage() {
               </CardContent>
             </Card>
           ))}
-        </Stack>
+        </Box>
       )}
 
       {/* All accounts */}
@@ -324,7 +324,7 @@ export default function AdminDashboardPage() {
       {visible.length === 0 ? (
         <EmptyNote>No accounts match.</EmptyNote>
       ) : (
-        <Stack spacing={1.5}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, gap: 1.5, alignItems: 'start' }}>
           {visible.map((u) => {
             const stampCount = stamps.filter((s) => s.attendeeId === u.personId && s.status === 'approved').length;
             return (
@@ -416,7 +416,7 @@ export default function AdminDashboardPage() {
               </Card>
             );
           })}
-        </Stack>
+        </Box>
       )}
     </Box>
   );

@@ -148,7 +148,16 @@ export default function ProfilePage() {
         </Box>
       )}
 
-      <Card variant="outlined" sx={{ borderRadius: 4, mb: 3, overflow: 'hidden' }}>
+      {/* Laptop: profile on the left, password on the right */}
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 2fr) minmax(0, 1fr)' },
+          gap: 3,
+          alignItems: 'start',
+        }}
+      >
+      <Card variant="outlined" sx={{ borderRadius: 4, overflow: 'hidden' }}>
         {/* Banner */}
         <Box
           sx={{
@@ -244,7 +253,7 @@ export default function ProfilePage() {
             ACCOUNT INFORMATION
           </Typography>
 
-          <Stack spacing={2.5}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2.5 }}>
             {infoRows.map((row) => (
               <Stack key={row.label} direction="row" spacing={2} alignItems="center">
                 <Avatar sx={{ bgcolor: alpha(brand.primary, 0.1), color: brand.primary, width: 40, height: 40 }}>
@@ -260,12 +269,12 @@ export default function ProfilePage() {
                 </Box>
               </Stack>
             ))}
-          </Stack>
+          </Box>
         </CardContent>
       </Card>
 
       {/* Change password (inline, no dialog) */}
-      <Card variant="outlined" sx={{ borderRadius: 4, mb: 3 }}>
+      <Card variant="outlined" sx={{ borderRadius: 4 }}>
         <CardContent sx={{ px: 3 }}>
           <Stack direction="row" alignItems="center" justifyContent="space-between">
             <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
@@ -324,6 +333,7 @@ export default function ProfilePage() {
           </Collapse>
         </CardContent>
       </Card>
+      </Box>
     </Box>
   );
 }

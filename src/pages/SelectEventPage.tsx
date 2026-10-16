@@ -88,7 +88,7 @@ export default function SelectEventPage() {
         bgcolor: 'background.default',
         px: { xs: 2, sm: 3 },
         py: { xs: 3, sm: 4 },
-        maxWidth: 600,
+        maxWidth: { xs: 600, md: 1200 },
         mx: 'auto',
       }}
     >
@@ -127,8 +127,8 @@ export default function SelectEventPage() {
         Select Event
       </Typography>
 
-      {/* Event cards */}
-      <Stack spacing={2}>
+      {/* Event cards: 1 column on phones, 2–3 on laptops */}
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr', lg: '1fr 1fr 1fr' }, gap: 2 }}>
         {events.map((event) => {
           const st = statusConfig[event.status] ?? statusConfig.upcoming;
           return (
@@ -136,6 +136,7 @@ export default function SelectEventPage() {
               key={event.id}
               variant="outlined"
               sx={{
+                height: '100%',
                 transition: 'all 0.25s ease',
                 '&:hover': {
                   borderColor: brand.primary,
@@ -143,7 +144,7 @@ export default function SelectEventPage() {
                 },
               }}
             >
-              <CardActionArea onClick={() => handleSelect(event)} sx={{ p: 0 }}>
+              <CardActionArea onClick={() => handleSelect(event)} sx={{ p: 0, height: '100%', alignItems: 'flex-start', display: 'flex' }}>
                 <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
                   <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
                     <Box sx={{ flex: 1, pr: 1 }}>
@@ -211,7 +212,7 @@ export default function SelectEventPage() {
             </Card>
           );
         })}
-      </Stack>
+      </Box>
     </Box>
   );
 }

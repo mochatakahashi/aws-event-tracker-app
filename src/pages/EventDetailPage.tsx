@@ -290,7 +290,8 @@ export default function EventDetailPage() {
 
       {/* Main Grid Content */}
       <Grid container spacing={3}>
-        <Grid size={{ xs: 12, md: 8 }}>
+        {/* Admins have no registration panel, so the details use the full width */}
+        <Grid size={{ xs: 12, md: user?.role === 'admin' ? 12 : 8 }}>
           <Paper sx={{ p: { xs: 2.5, sm: 3.5 }, borderRadius: '15px' }}>
             <Stack direction="row" spacing={1} sx={{ mb: 1.5, flexWrap: 'wrap', gap: 0.5 }}>
               <ModalityChip modality={event.modality} />

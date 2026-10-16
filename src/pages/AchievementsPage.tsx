@@ -251,7 +251,7 @@ export default function AchievementsPage() {
           >
             ATTENDED EVENTS
           </Typography>
-          <Stack spacing={1.5}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, gap: 1.5, alignItems: 'start' }}>
             {attendedEvents.map((event) => (
               <Card
                 key={event.id}
@@ -313,7 +313,7 @@ export default function AchievementsPage() {
                 </CardContent>
               </Card>
             ))}
-          </Stack>
+          </Box>
         </Box>
       )}
     </Box>

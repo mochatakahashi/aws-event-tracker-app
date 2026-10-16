@@ -155,8 +155,17 @@ export default function AdminTasksPage() {
         <StatTile label="Done" value={tasks.filter((t) => t.status === 'done').length} color={brand.success} />
       </StatRow>
 
+      {/* Laptop: form on the left, task list on the right */}
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 5fr) minmax(0, 7fr)' },
+          gap: { xs: 0, lg: 4 },
+          alignItems: 'start',
+        }}
+      >
       {/* New task (inline form) */}
-      <Card variant="outlined" sx={{ mb: 4, borderColor: alpha(brand.primary, 0.3) }}>
+      <Card variant="outlined" sx={{ mb: 4, borderColor: alpha(brand.primary, 0.3), position: { lg: 'sticky' }, top: { lg: 24 } }}>
         <CardContent component="form" onSubmit={handleCreate}>
           <Typography variant="h3" sx={{ mb: 1.5 }}>
             Assign a task
@@ -252,6 +261,7 @@ export default function AdminTasksPage() {
       </Card>
 
       {/* Task list */}
+      <Box>
       <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" useFlexGap spacing={1} sx={{ mb: 1.5 }}>
         <Typography variant="h3">Tasks</Typography>
         <ToggleButtonGroup size="small" exclusive value={filter} onChange={(_e, v: Filter | null) => v && setFilter(v)}>
@@ -264,7 +274,7 @@ export default function AdminTasksPage() {
       {visible.length === 0 ? (
         <EmptyNote>{filter === 'done' ? 'No finished tasks yet.' : 'No open tasks.'}</EmptyNote>
       ) : (
-        <Stack spacing={1.25}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 1.25 }}>
           {visible.map((t) => (
             <Card key={t.id} variant="outlined">
               <CardContent sx={{ py: '14px !important' }}>
@@ -335,8 +345,10 @@ export default function AdminTasksPage() {
               </CardContent>
             </Card>
           ))}
-        </Stack>
+        </Box>
       )}
+      </Box>
+      </Box>
     </Box>
   );
 }

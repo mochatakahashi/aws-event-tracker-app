@@ -142,7 +142,7 @@ export default function AdminHome() {
 
       {/* Reminder emails also go out automatically every day at 8:00 AM */}
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ sm: 'center' }} sx={{ mt: 3 }}>
-        <Button variant="outlined" startIcon={<MarkEmailReadOutlinedIcon />} onClick={sendReminders} disabled={sending}>
+        <Button variant="outlined" startIcon={<MarkEmailReadOutlinedIcon />} onClick={sendReminders} disabled={sending} sx={{ whiteSpace: 'nowrap', flexShrink: 0, alignSelf: { xs: 'stretch', sm: 'center' } }}>
           {sending ? 'Sending…' : 'Send reminders now'}
         </Button>
         <Typography variant="caption" color="text.secondary">

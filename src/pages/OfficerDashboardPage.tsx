@@ -110,6 +110,9 @@ export default function OfficerDashboardPage() {
         </Alert>
       )}
 
+      {/* Laptop: tasks and stamp requests side by side */}
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, gap: { xs: 0, lg: 4 }, alignItems: 'start' }}>
+      <Box>
       {/* Tasks assigned by an admin */}
       <Typography variant="h3" sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
         <AssignmentIcon sx={{ color: brand.primary }} /> My Tasks
@@ -198,6 +201,8 @@ export default function OfficerDashboardPage() {
         </Stack>
       )}
 
+      </Box>
+      <Box>
       <Typography variant="h3" sx={{ mb: 1 }}>
         Stamp requests
       </Typography>
@@ -244,6 +249,8 @@ export default function OfficerDashboardPage() {
           })}
         </Stack>
       )}
+      </Box>
+      </Box>
     </Box>
   );
 }

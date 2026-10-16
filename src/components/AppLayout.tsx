@@ -321,7 +321,7 @@ export default function AppLayout() {
         }}
       >
         {/* Page content */}
-        <Box sx={{ p: { xs: 2, md: 3 }, pb: { xs: 10, md: 3 } }}>
+        <Box sx={{ p: { xs: 2, md: 3, lg: 4 }, pb: { xs: 10, md: 4 }, maxWidth: 1280, mx: 'auto', width: '100%' }}>
           <Outlet />
         </Box>
       </Box>

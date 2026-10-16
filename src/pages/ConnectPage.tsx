@@ -140,6 +140,8 @@ export default function ConnectPage() {
         />
       )}
 
+      {/* Laptop: About and Social links side by side */}
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: { xs: 0, md: 3 }, alignItems: 'start' }}>
       {/* Bio */}
       <Card sx={{ mb: 3 }}>
         <CardContent sx={{ p: 2.5 }}>
@@ -263,6 +265,7 @@ export default function ConnectPage() {
           )}
         </CardContent>
       </Card>
+      </Box>
 
       {/* Quick social links display */}
       {!editing && (socials.linkedIn || socials.github) && (

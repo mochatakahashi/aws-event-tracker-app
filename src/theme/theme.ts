@@ -26,6 +26,11 @@ export const brand = {
 } as const;
 
 const theme = createTheme({
+  // Laptop layout (sidebar instead of bottom bar) starts at 768px so laptops with
+  // display scaling (e.g. 1280px at 150% ≈ 853px) don't get the phone layout.
+  breakpoints: {
+    values: { xs: 0, sm: 600, md: 768, lg: 1100, xl: 1536 },
+  },
   palette: {
     mode: 'light',
     primary: {
