@@ -1,6 +1,6 @@
 # AWS SBG-APC Event Tracker ☁️📱
 
-**AWS SBG-APC Event Tracker** is a high-performance, mobile-first web application designed for the **AWS Student Builder Group – Asia Pacific College**. It serves as an all-in-one companion app for students, speakers, and officers during cloud events, conferences, workshops, and meetups.
+**AWS SBG-APC Event Tracker** is a web application for the **AWS Student Builder Group – Asia Pacific College** that works on phones and laptops. It is the companion app for attendees, officers and admins during cloud events, workshops and meetups: sign-ups with admin approval, event registration and check-in, session stamps, officer tasks, and email notifications.
 
 ---
 
@@ -18,24 +18,35 @@
 - **Inline Networking QR Card (`NetworkingCard`)**: Generate a scannable QR code linking to your LinkedIn/social profiles without dark modal overlays.
 - **My Registrations**: Manage event RSVPs (`going`, `interested`, `declined`) and view upcoming events.
 
+### ✍️ Sign Up & Accounts
+- **Three sign-up types**: APC Student (APC email + student ID), Outside Attendee (any email + school/organization, no student ID) and Officer (APC email, optional personal Gmail, student ID, position and committee).
+- **Name format**: First Name, M.I. (optional), Last Name — shown as "Juan D. Dela Cruz".
+- **Admin approval for everyone**: new accounts are *pending* and can't sign in until an admin approves them. A declined person sees the reason (if given) and can sign up again with the same email.
+- **Email sign-in** (no Google sign-in), **Change password** on the Profile page, and profile photo, bio and social links saved to the account.
+- **Officer hierarchy**: President → VP Internal → VP External → Directors → Assistant Directors → Associates; committees: Secretariat, Operations, Marketing, Technicals, Relations.
+
 ### 🛡️ Officer & Admin Capabilities
-- **Officer Dashboard (`OfficerDashboardPage`)**: Tasks assigned by an admin (Start / Mark done) and the stamp review queue.
-- **Account Approval (`AdminDashboardPage`)**: Every new sign-up waits for an admin to approve or decline it; admins also change roles.
-- **Attendee & Stamp Monitoring (`AdminAttendeesPage`)**: Per-event attendee list with check-in, stamp finishers per session, and Excel downloads for profs.
-- **Officer Achievements (`AdminOfficersPage`)**: Officers in hierarchy order with events volunteered, stamps approved and task progress.
-- **Officer Tasks (`AdminTasksPage`)**: Assign tasks to one or more officers.
-- **Sign-up types**: APC Student (APC email + student ID), Outside Attendee (any email + organization) and Officer (APC email, optional personal email, position and committee).
-- **Multi-Role Support**: Built-in access control for `attendee`, `officer`, and `admin` roles.
+- **Admin Dashboard** (`/home` for admins): Manage Accounts, Edit Events, Attendees & Achievements, Officers, Officer Tasks, and **Send reminders now**.
+- **Manage Accounts (`AdminDashboardPage`)**: approve or decline sign-ups (optional reason with quick picks), change roles, search, and delete accounts.
+- **Attendees & Achievements (`AdminAttendeesPage`)**: per-event attendee list with check-in, stamp finishers per session, people who finished every session, and **Excel (.xlsx) downloads** for profs.
+- **Officers (`AdminOfficersPage`)**: officers in hierarchy order with events volunteered (and their event role), stamps approved and task progress; edit position/committee; **archive** one officer or the whole school-year batch (they become alumni attendees, listed under *Past batches*); delete; Excel download.
+- **Officer Tasks (`AdminTasksPage`)**: assign tasks (optional event and due date) to one or more officers.
+- **Officer Dashboard (`OfficerDashboardPage`)**: the officer's tasks (Start / Mark done / Reopen) and the stamp approval queue.
+- **Assign officers to events** on the event page (admins only), listed in hierarchy order.
+
+### ✉️ Notifications
+- Emails through **Amazon SES** for account approved/declined, event assignment and new tasks, plus a **daily 8:00 AM (Manila)** job for "event tomorrow", "see you today" and "task due tomorrow".
+- The admin inbox (`aws.apcofficial@gmail.com`) is alerted about new sign-ups and failed emails.
 
 ### 🎨 Cloud Media & Interactive Image Adjusters
 - **16:9 Banner Image Adjuster (`ImageBannerAdjuster`)**: Interactive frame cropper with 1×–3× zoom, drag positioning, and direct export/upload of 1280×720 banners.
 - **Circular Avatar Image Adjuster (`AvatarImageAdjuster`)**: Circular mask cropper for attendee profile pictures and event speaker headshots with direct S3 pre-signed upload.
 - **Direct-to-S3 Cloud Pipeline**: Client-side canvas export uploaded directly to Amazon S3 via secure pre-signed URLs (`/api/upload-url`).
 
-### 📱 Mobile-First & Overlay-Free UX
-- **No Overlays**: Replaced screen-obscuring backdrop modals and popups with inline expandable cards and collapse panels.
-- **Sticky Edge-to-Edge Navigation**: Clean 0-radius top app bar with text truncation for seamless mobile viewing.
-- **Fixed Bottom Navigation Bar (`BottomNav`)**: Thumb-friendly navigation bar for mobile viewports (`xs`) giving instant access to Events, Profile/Connect, Schedule Flow, Notifications, and More.
+### 📱💻 Phone & Laptop Layouts, Overlay-Free UX
+- **Phones (< 768px)**: single-column pages, sticky top bar and a thumb-friendly **bottom navigation bar** (`BottomNav`).
+- **Laptops (≥ 768px)**: a permanent **sidebar**, and pages that use the width — two-column Welcome, 2–3 column event picker, side-by-side Profile/Connect/Officer Dashboard sections, two-column admin lists, and the task form beside the task list. Content is centered with a max width of 1280px on large screens.
+- **No Overlays**: inline expandable cards and confirmations instead of screen-obscuring dialogs.
 
 ---
 
@@ -74,6 +85,8 @@ The AWS access key also needs the `ses:SendEmail` permission. While SES is in sa
 - **Routing**: React Router v6
 - **Testing**: Vitest + React Testing Library
 - **State Management**: React Context (`AuthContext`, `EventContext`) + LocalStorage Persistence
+- **Backend**: Vercel Serverless Functions + AWS SDK v3 (Amazon DynamoDB, Amazon S3, Amazon SES), Vercel Cron for daily reminders
+- **Excel export**: `write-excel-file` (loaded only when exporting)
 
 ---
 
@@ -100,6 +113,21 @@ npm run dev
 ```
 
 Open [http://localhost:5173](http://localhost:5173) in your browser and sign in as `awsapc.admin` (see Admin Account above).
+
+> With `npm run dev` the `/api` functions don't run, so data stays in this browser and no emails or S3 uploads happen. Use your Vercel deployment (or `vercel dev`) to test the database, uploads and emails.
+
+### Deploying (Vercel)
+
+Set these in Vercel → Settings → Environment Variables, then redeploy:
+
+| Variable | Purpose |
+| :--- | :--- |
+| `APP_AWS_ACCESS_KEY_ID`, `APP_AWS_SECRET_ACCESS_KEY` | IAM user keys (DynamoDB, S3 and `ses:SendEmail` access) |
+| `APP_AWS_REGION` | AWS region, e.g. `ap-southeast-1` |
+| `DYNAMODB_TABLE_NAME` | Table name (default `aws_events`) |
+| `AWS_S3_BUCKET_NAME` | Bucket for banners and photos |
+| `ADMIN_PASSWORD` | First password for `awsapc.admin` |
+| `SES_FROM_EMAIL`, `CRON_SECRET` (+ optional `SES_REGION`, `APP_URL`, `ADMIN_NOTIFY_EMAIL`) | Email notifications — see above |
 
 ---
 
@@ -133,7 +161,9 @@ aws-event-tracker-app/
 ├── public/                # Static public assets
 ├── src/
 │   ├── components/        # Reusable UI components
-│   │   ├── AppLayout.tsx           # Main layout with sticky header & mobile bottom nav
+│   │   ├── AdminHome.tsx           # Admin dashboard cards + "Send reminders now"
+│   │   ├── AdminUi.tsx             # Shared admin header, stat tiles, date helpers
+│   │   ├── AppLayout.tsx           # Layout: sidebar on laptops, bottom nav on phones
 │   │   ├── AvatarImageAdjuster.tsx # Circular avatar cropper with S3 upload
 │   │   ├── BottomNav.tsx           # Mobile bottom navigation bar
 │   │   ├── EventStampCard.tsx      # Automatic circle stamp passport card
@@ -146,9 +176,9 @@ aws-event-tracker-app/
 │   │   ├── AuthContext.tsx         # Auth state & localStorage persistence
 │   │   └── EventContext.tsx        # Active event selection state
 │   ├── pages/             # Page route views
-│   │   ├── AdminDashboardPage.tsx   # Manage Accounts (approvals, roles)
+│   │   ├── AdminDashboardPage.tsx   # Manage Accounts (approvals, decline reasons, roles, delete)
 │   │   ├── AdminAttendeesPage.tsx   # Attendees, check-in, stamp finishers, Excel
-│   │   ├── AdminOfficersPage.tsx    # Officer achievements & volunteered events
+│   │   ├── AdminOfficersPage.tsx    # Officer achievements, archive batches, past batches
 │   │   ├── AdminTasksPage.tsx       # Assign officer tasks
 │   │   ├── DashboardPage.tsx
 │   │   ├── EventBuilderPage.tsx
@@ -171,17 +201,22 @@ aws-event-tracker-app/
 │   │   ├── sessionService.ts
 │   │   ├── speakerService.ts
 │   │   ├── taskService.ts
+│   │   ├── notifyService.ts        # Triggers email notifications (/api/notify)
 │   │   ├── apiClient.ts            # /api detection + localStorage fallback helpers
 │   │   ├── storageService.ts       # S3 pre-signed upload client
 │   │   └── seedData.ts
 │   ├── theme/             # MUI theme configuration & brand tokens
 │   │   └── theme.ts
-│   └── types/             # Shared TypeScript declarations
-│       ├── attendee.ts
-│       ├── auth.ts
-│       ├── event.ts
-│       ├── session.ts
-│       └── speaker.ts
+│   ├── types/             # Shared TypeScript declarations
+│   │   ├── attendee.ts
+│   │   ├── auth.ts                 # User, sign-up data, officer position/committee
+│   │   ├── event.ts
+│   │   ├── session.ts
+│   │   ├── speaker.ts
+│   │   └── task.ts                 # Officer tasks
+│   └── utils/
+│       ├── people.ts               # Name format, APC email check, officer hierarchy
+│       └── excelExport.ts          # .xlsx downloads
 ├── ARCHITECTURE.md        # Technical architecture documentation
 ├── CHANGELOG.md           # Version release history
 ├── DECISIONS.md           # Architectural Decision Records (ADRs)

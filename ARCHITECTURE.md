@@ -8,14 +8,18 @@ This document describes the architectural layout, data flow, component hierarchi
 
 ```mermaid
 graph TD
-    User["📱 User (Attendee / Officer / Admin)"] --> Layout["AppLayout (Sticky Header & Bottom Nav)"]
+    User["📱💻 User (Attendee / Officer / Admin)"] --> Layout["AppLayout (Sidebar on laptops, Bottom Nav on phones)"]
     
     subgraph Presentation Layer
         Layout --> Dashboard["DashboardPage"]
         Layout --> Flow["EventFlowPage"]
         Layout --> Profile["ProfilePage"]
         Layout --> OfficerDash["OfficerDashboardPage"]
-        Layout --> AdminDash["AdminDashboardPage"]
+        Layout --> AdminHome["AdminHome (admin /home)"]
+        AdminHome --> AdminDash["AdminDashboardPage (Manage Accounts)"]
+        AdminHome --> AdminAtt["AdminAttendeesPage (Attendees & Stamps, Excel)"]
+        AdminHome --> AdminOff["AdminOfficersPage (Officers, Archive)"]
+        AdminHome --> AdminTasks["AdminTasksPage (Officer Tasks)"]
         Layout --> Builder["EventBuilderPage"]
 
         Dashboard --> StampCard["EventStampCard (Circle Stamp Passport)"]
@@ -36,13 +40,18 @@ graph TD
         EventSvc["eventService.ts"]
         SessionSvc["sessionService.ts"]
         StorageSvc["storageService.ts"]
+        RegSvc["registrationService.ts"]
+        TaskSvc["taskService.ts"]
+        NotifySvc["notifyService.ts"]
         LocalStore[("Browser LocalStorage (Fallback)")]
     end
 
     subgraph Serverless API & AWS Cloud
         VercelAPI["Vercel Serverless Functions (/api/*)"]
-        DynamoDB[("Amazon DynamoDB (Events, Sessions, Stamps)")]
+        DynamoDB[("Amazon DynamoDB (single table: users, events, sessions, stamps, registrations, tasks, speakers)")]
         S3Bucket[("Amazon S3 (Banners & Avatars)")]
+        SES[("Amazon SES (Emails)")]
+        Cron["Vercel Cron (daily 8:00 AM Manila)"]
     end
 
     Dashboard -.-> AuthCtx
@@ -57,7 +66,15 @@ graph TD
     StorageSvc --> VercelAPI
     EventSvc -.-> LocalStore
     SessionSvc -.-> LocalStore
-    AuthSvc --> LocalStore
+    AuthSvc --> VercelAPI
+    AuthSvc -.-> LocalStore
+    RegSvc --> VercelAPI
+    TaskSvc --> VercelAPI
+    NotifySvc --> VercelAPI
+    AdminAtt -.-> RegSvc
+    AdminTasks -.-> TaskSvc
+    Cron --> VercelAPI
+    VercelAPI --> SES
 
     VercelAPI --> DynamoDB
     VercelAPI -. Pre-signed URLs .-> S3Bucket
@@ -71,8 +88,10 @@ graph TD
 - **`AppLayout.tsx`**: Main structural layout wrapper implementing:
   - Sticky mobile `AppBar` (`position="sticky"`, `borderRadius: 0`) with title truncation.
   - Inline collapsible menu (`Collapse`) for mobile navigation without backdrop overlays.
-  - Desktop permanent sidebar `Drawer` for `md+` screen sizes.
-  - Fixed mobile `BottomNav` bar for thumb-friendly navigation on `xs` viewports.
+  - Laptop permanent sidebar `Drawer` from the `md` breakpoint (768px; set in `theme.ts`).
+  - Fixed `BottomNav` bar on phones (below 768px).
+  - Page content centered with `maxWidth: 1280`.
+- **Admin pages** (`AdminHome`, `AdminDashboardPage`, `AdminAttendeesPage`, `AdminOfficersPage`, `AdminTasksPage`) share `AdminUi.tsx` (header with back link, stat tiles, empty states, date formatting).
 - **`EventStampCard.tsx`**: Self-contained component that computes event session stamp slots dynamically:
   - Reads active event sessions and attendee stamp status.
   - Renders grid of circular slots representing each workshop/session.
@@ -84,11 +103,11 @@ graph TD
 ### 2. State Management Layer
 - **`AuthContext.tsx`**:
   - Manages active user session (`User | null`).
-  - Handles authentication operations (`login`, `logout`, `signup`).
-  - Persists session tokens and user state in `localStorage` under `aws-event-tracker.auth.v2`.
+  - Handles `login`, `logout` and `setCurrentUser` (after profile changes).
+  - Persists the signed-in user in `localStorage` under `aws-event-tracker.user` and refreshes it from the server on startup (so role changes and approvals apply).
 - **`EventContext.tsx`**:
   - Maintains currently selected active event (`AppEvent | null`).
-  - Persists event context in `localStorage` under `aws-event-tracker.selectedEvent.v2`.
+  - Persists event context in `localStorage` under `aws-event-tracker.selectedEvent` and refreshes it on startup.
 
 ### 3. Service, Serverless & Cloud Storage Layer
 - **`sessionService.ts`**: Handles session lookup, stamp creation (`createStamp`), stamp approvals (`approveStamp`), and declines (`declineStamp`). Connects to `/api/stamps` and `/api/sessions` with local fallback.
@@ -98,11 +117,24 @@ graph TD
 - **`authService.ts`**: Sign up, sign in, approval (`approveUser` / `rejectUser`), profile and role updates and password changes through `/api/users` (scrypt-hashed passwords), with a `localStorage` fallback.
 - **`notifyService.ts` → `/api/notify`**: Email notifications through Amazon SES (account approved/declined, event assignment, new task) and a daily Vercel Cron job (8:00 AM Manila) for event and task reminders.
 - **`registrationService.ts` / `taskService.ts` / `speakerService.ts`**: Registrations and check-in, officer tasks, and the speaker directory through `/api/registrations`, `/api/tasks` and `/api/speakers`, with `localStorage` fallback (`apiClient.ts`).
-- **`seedData.ts`**: Provides initial dataset seeded into `localStorage` on first load.
+- **`seedData.ts`**: Initial events/sessions used by the local fallback.
+
+### 4. Notifications (Amazon SES)
+| Trigger | Recipients | Sent by |
+| :--- | :--- | :--- |
+| New sign-up waiting | Admin inbox (`ADMIN_NOTIFY_EMAIL`, default `aws.apcofficial@gmail.com`) | Sign-up page → `/api/notify` |
+| Account approved / declined (with reason) | The person | Manage Accounts → `/api/notify` |
+| Officer assigned to an event | That officer (APC + personal email) | Event page → `/api/notify` |
+| New task | Assigned officers | Officer Tasks → `/api/notify` |
+| Event tomorrow / "See you today" | Registered attendees + assigned officers | Daily Vercel Cron → `/api/notify` |
+| Task due tomorrow | Assigned officers | Daily Vercel Cron |
+| Failed reminders / daily job error | Admin inbox | Daily Vercel Cron |
+
+Each reminder is sent once (flags stored on the event/task); moving an event's date re-arms its reminders. Without `SES_FROM_EMAIL`, nothing is sent and the app says so.
 
 ---
 
-## 🎨 Mobile-First & "No-Overlays" Design Principles
+## 🎨 Responsive & "No-Overlays" Design Principles
 
 1. **Inline Flow over Modal Popups**:
    - Replaced `<Dialog>` and full-screen backdrop modals with inline `<Card>` and `<Collapse>` elements.
@@ -112,8 +144,9 @@ graph TD
    - Navigation header uses `position="sticky"` with `borderRadius: 0` to prevent floating card overlays.
    - Bottom navigation bar (`BottomNav`) is fixed at `bottom: 0` with `zIndex: 1200` and padded content offset (`pb: 10`).
 
-3. **Responsive Grid Layouts**:
-   - Grid containers adapt automatically: 1 column on mobile (`xs`), 2 columns on tablet (`sm`), and 3 columns on desktop (`md`).
+3. **Responsive Layouts (phone & laptop)**:
+   - Breakpoints (`theme.ts`): `sm` 600, `md` 768 (sidebar layout), `lg` 1100, `xl` 1536.
+   - Phones: one column. Laptops: CSS grids with 2–3 columns (event picker, admin lists), side-by-side sections (Profile, Connect, Officer Dashboard, Officer Tasks), and a two-column Welcome page.
 
 ---
 
@@ -172,7 +205,23 @@ erDiagram
         string status
     }
 
-    User ||--o{ OfficerTask : "assigned to" 
+    Registration {
+        string id PK
+        string eventId FK
+        string personId FK
+        string rsvp
+        boolean checkedIn
+    }
+
+    Speaker {
+        string id PK
+        string name
+        string avatarUrl
+    }
+
+    User ||--o{ OfficerTask : "assigned to"
+    AppEvent ||--o{ Speaker : features
+    AppEvent ||--o{ User : "officers assigned" 
 ```
 
 ---
@@ -183,7 +232,9 @@ erDiagram
 | :--- | :--- |
 | **`attendee`** | View schedule, request stamps, edit personal bio/socials, view own stamp card. |
 | **`officer`** | All attendee privileges + `OfficerDashboardPage`: see and complete assigned tasks, approve/decline stamp requests. |
-| **`admin`** | All officer privileges + approve/decline sign-ups and change roles (`/admin`), monitor attendees and stamp finishers with Excel export (`/admin/attendees`), officer achievements (`/admin/officers`), assign officer tasks (`/admin/tasks`), edit events. |
+| **`admin`** | All officer privileges + approve/decline sign-ups (optional reason), change roles and delete accounts (`/admin`), monitor attendees and stamp finishers with Excel export (`/admin/attendees`), officer achievements, archive batches (`/admin/officers`), assign officer tasks (`/admin/tasks`), edit events and assign officers, send reminders. |
+
+The built-in admin is `awsapc.admin` (password from `ADMIN_PASSWORD`). There are no demo accounts. Admin actions are checked on the server against the acting account's role; the app does not yet use signed sessions (see ADR-008).
 
 New accounts have `status: 'pending'` and cannot sign in until an admin approves them. Officer hierarchy: President → VP Internal → VP External → Directors → Assistant Directors → Associates; committees: Secretariat, Operations, Marketing, Technicals, Relations.
 

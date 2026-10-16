@@ -154,7 +154,63 @@ Accounts, registrations and officer data lived in in-memory mock services, so si
 
 ### Consequences
 - **Positive**: One source of truth across logins and devices; admins control who gets in; officer work (events, stamps, tasks) can be monitored and exported.
-- **Negative**: There are no server-side sessions yet — the API trusts the `actorId` sent by the app for admin actions. Moving sign-in to Amazon Cognito (or signed tokens) is the next step before handling sensitive data. Table scans are fine at club scale but would need indexes for large data.
+- **Negative**: There are no server-side sessions yet — the API trusts the `actorId` sent by the app for admin actions (it checks that account's role, but the id itself is not signed). Moving sign-in to Amazon Cognito (or signed tokens) is the next step before handling sensitive data. Table scans are fine at club scale but would need indexes for large data.
+
+---
+
+## ADR-009: Email Notifications with Amazon SES and Vercel Cron
+
+### Status
+**Accepted**
+
+### Context
+Officers and attendees need reminders (assignment, event tomorrow, event day, tasks) and the admin needs to know about new sign-ups and failures, without anyone keeping the app open.
+
+### Decision
+- One serverless function, `/api/notify`, sends all emails through **Amazon SES** (same AWS account and keys as DynamoDB/S3).
+- In-app actions (approve/decline, assign officer, new task, new sign-up) call `/api/notify` right after saving.
+- A **Vercel Cron** job (`vercel.json`, `0 0 * * *` = 8:00 AM Manila) calls `GET /api/notify` (protected by `CRON_SECRET`) for event and task reminders. Sent flags on records prevent duplicates.
+- Officers get emails on their APC and personal email; admin alerts go to `ADMIN_NOTIFY_EMAIL` (default `aws.apcofficial@gmail.com`).
+
+### Consequences
+- **Positive**: No extra service or account; reminders work while the app is closed; failures are reported to the admin.
+- **Negative**: SES starts in sandbox mode (only verified addresses) until production access is granted; sending from a Gmail address may land in spam until a custom domain is used; Vercel Hobby crons run once per day.
+
+---
+
+## ADR-010: Built-in Admin from Environment, No Demo Accounts
+
+### Status
+**Accepted**
+
+### Context
+Public demo accounts with known passwords are unsafe once the app holds real student data.
+
+### Decision
+Remove all demo accounts. The only built-in account is `awsapc.admin`, created on first use from `ADMIN_PASSWORD` (Vercel) or `VITE_LOCAL_ADMIN_PASSWORD` (`.env.local`, local only). No password is stored in the code.
+
+### Consequences
+- **Positive**: No public credentials; the admin can change the password in the app.
+- **Negative**: A fresh deployment can't be used until `ADMIN_PASSWORD` is set.
+
+---
+
+## ADR-011: Responsive Layout for Phones and Laptops
+
+### Status
+**Accepted** (extends ADR-002 and ADR-005)
+
+### Context
+Laptops with display scaling (e.g. 1280px at 150% ≈ 853px) fell below the old 900px breakpoint and got the phone layout, and several pages were single narrow columns even on wide screens.
+
+### Decision
+- Move the `md` breakpoint to **768px** (sidebar layout) and `lg` to 1100px in `theme.ts`.
+- Use CSS grid on laptops (2–3 columns, side-by-side sections) and center content with a 1280px max width.
+- Keep the single-column layout and bottom navigation on phones.
+
+### Consequences
+- **Positive**: The desktop UI appears on scaled laptop screens; wide screens are used well; phones are unchanged.
+- **Negative**: Tablets in portrait (768px+) now get the sidebar layout.
 
 ---
 

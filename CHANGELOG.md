@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Wider screens use the space**: Welcome page is a two-column hero; Select Event shows events in 2–3 columns; Profile puts the password card beside the profile; Connect shows About and Social Links side by side; Officer Dashboard shows tasks and stamp requests side by side; Manage Accounts, Attendees and Achievements lists use two columns; Officer Tasks puts the form beside the task list; admins' event pages use the full width; the Event Builder form is wider.
 - Phones keep the single-column layout and bottom bar.
 
+### Documentation
+- README, ARCHITECTURE, DECISIONS (ADR-009 email/cron, ADR-010 built-in admin, ADR-011 responsive layout) and ROADMAP updated for v0.4.0–v0.5.1: sign-up types, admin approval, notifications, archive batches, deployment variables, phone/laptop layouts.
+
 ---
 
 ## [0.5.0] - 2026-10-16

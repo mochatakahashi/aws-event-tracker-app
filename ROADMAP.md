@@ -6,7 +6,7 @@ This document outlines the development milestones, current status, and future te
 
 ## 🎯 Vision Statement
 
-To provide AWS Student Builder Group members at Asia Pacific College with an intuitive, mobile-optimized event companion that streamlines workshop activity verification, networking, and session tracking without friction.
+To provide AWS Student Builder Group members at Asia Pacific College with an intuitive event companion for phones and laptops that streamlines workshop activity verification, networking, and session tracking without friction.
 
 ---
 
@@ -15,7 +15,7 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 ### ✅ Version 0.1.0 — Initial MVP & Core Architecture
 - [x] Initial React + Vite + TypeScript application setup.
 - [x] Mock data layer with simulated latency for Events, Sessions, Speakers, and Registrations.
-- [x] React Context authentication (`AuthContext`) with hardcoded multi-role demo accounts (`admin`, `officer`, `attendee`).
+- [x] React Context authentication (`AuthContext`) with multi-role mock accounts (replaced by real accounts in v0.4.0).
 - [x] Dashboard view with statistics, upcoming sessions list, and event selection.
 - [x] Event Flow schedule page displaying time-grouped sessions.
 - [x] Speaker lineup with company details and LinkedIn link integration.
@@ -42,8 +42,6 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 
 ---
 
-## 🔮 Upcoming Milestones
-
 ### ✅ Version 0.3.1 — Cloud Assets Pipeline & Live DynamoDB Backend
 - [x] **Amazon S3 Asset Pipeline**: Cloud storage for event banners and speaker/profile avatars via secure pre-signed URLs (`/api/upload-url`, `storageService.ts`).
 - [x] **16:9 Banner Image Adjuster (`ImageBannerAdjuster`)**: Interactive drag, zoom (1× to 3×), and fit-to-frame editor with instant 1280×720 export and dashboard synchronization.
@@ -55,9 +53,39 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 
 ---
 
+### ✅ Version 0.4.0 — Real Accounts, Approval & Admin Monitoring
+- [x] **Accounts in DynamoDB** (`/api/users`) with scrypt-hashed passwords; email sign-in; Google sign-in removed.
+- [x] **Sign-up types**: APC Student, Outside Attendee, Officer (position + committee); First / M.I. / Last name.
+- [x] **Admin approval** for every new account.
+- [x] **Admin Dashboard**: Manage Accounts, Edit Events, Attendees & Achievements (Excel for profs), Officers, Officer Tasks.
+- [x] **Officer tasks** visible on the Officer Dashboard.
+- [x] Registrations, speakers, profile photos/bios saved to the database.
+
+---
+
+### ✅ Version 0.5.0 — Email Notifications, Archive Batches, No Demo Accounts
+- [x] **Amazon SES emails**: approval/decline (with reason), event assignment, new task, daily reminders (Vercel Cron), admin alerts to `aws.apcofficial@gmail.com`.
+- [x] **Decline reasons** (optional, with quick picks).
+- [x] **Archive officers by school year** (alumni attendees, Past batches) and delete accounts.
+- [x] **Demo accounts removed**; built-in `awsapc.admin` from `ADMIN_PASSWORD`.
+
+---
+
+### ✅ Version 0.5.1 — Phone & Laptop Layouts
+- [x] Sidebar layout from 768px; laptop grids and side-by-side sections; phones unchanged.
+
+---
+
 ## 🔮 Upcoming Milestones & Next Steps
 
-### 🚧 Version 0.3.5 — Officer In-Person QR Scanner & Verification (Immediate Next Priority)
+### 🚧 Version 0.6.0 — In-App Notifications & Calendar
+- [ ] **In-app notification bell** with the same messages as the emails (Notifications page is still sample content).
+- [ ] **Calendar invite (.ics)** attached to event emails.
+- [ ] **SES on a custom domain** for better email deliverability.
+
+---
+
+### 🚧 Version 0.6.5 — Officer In-Person QR Scanner & Verification
 - [ ] **Officer In-Person QR Camera Scanner**: Enable officers to scan attendee QR codes (from `NetworkingCard` / attendee passes) via device camera to instantly pull up their stamp passport and approve stamps on the spot.
 - [ ] **Attendee Event Pass / Ticket QR**: Dedicated digital event check-in badge containing attendee ID and registered event token.
 - [ ] **NFC Badge Tap Integration**: Web NFC API support for physical event badge check-ins.
@@ -65,8 +93,8 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 
 ---
 
-### 📅 Version 0.4.0 — Production Auth & Real-Time Sync
-- [ ] **AWS Amplify / Cognito Authentication**: Replace mock auth with real user pools, APC Google Workspace SSO, and MFA.
+### 📅 Version 0.7.0 — Production Auth & Real-Time Sync
+- [ ] **AWS Cognito Authentication / signed sessions**: Replace the current app-level account checks with signed tokens (and optionally APC Google Workspace SSO and MFA).
 - [ ] **Real-Time Stamp Approvals & Notifications**: Live WebSockets or Server-Sent Events (SSE) notifying attendees immediately when an officer approves their stamp.
 - [ ] **Officer In-App Notification Feed**: Push alerts for incoming stamp requests to assigned session officers.
 
@@ -83,7 +111,7 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 
 | Feature | Target Version | Status | Priority |
 | :--- | :--- | :--- | :--- |
-| Mock Auth & Role Context | v0.1.0 | ✅ Completed | High |
+| Mock Auth & Role Context | v0.1.0 | ✅ Completed (replaced in v0.4.0) | High |
 | Schedule & Session Flow | v0.1.0 | ✅ Completed | High |
 | Mobile Bottom Navigation | v0.2.0 | ✅ Completed | High |
 | No-Overlay UI Architecture | v0.2.0 | ✅ Completed | High |
@@ -92,10 +120,17 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 | 16:9 Banner Adjuster & S3 Upload | v0.3.1 | ✅ Completed | High |
 | Circular Avatar Adjuster & S3 Upload | v0.3.1 | ✅ Completed | High |
 | Live DynamoDB API & Seeding | v0.3.1 | ✅ Completed | High |
-| Officer Camera QR Scanner | v0.3.5 | 🚀 **Next Up** | High |
-| Offline PWA Support | v0.3.5 | ⏳ Planned | Medium |
-| Real-Time Stamp Notifications | v0.4.0 | ⏳ Planned | High |
-| AWS Cognito Authentication | v0.4.0 | ⏳ Planned | High |
+| Accounts, Sign-up Types & Admin Approval | v0.4.0 | ✅ Completed | High |
+| Attendee/Stamp Monitoring & Excel Export | v0.4.0 | ✅ Completed | High |
+| Officer Tasks & Achievements | v0.4.0 | ✅ Completed | High |
+| Email Notifications (SES) & Daily Reminders | v0.5.0 | ✅ Completed | High |
+| Officer Archive by School Year | v0.5.0 | ✅ Completed | Medium |
+| Phone & Laptop Layouts | v0.5.1 | ✅ Completed | High |
+| In-App Notification Bell | v0.6.0 | 🚀 **Next Up** | High |
+| Officer Camera QR Scanner | v0.6.5 | ⏳ Planned | High |
+| Offline PWA Support | v0.6.5 | ⏳ Planned | Medium |
+| Real-Time Stamp Notifications | v0.7.0 | ⏳ Planned | High |
+| AWS Cognito Authentication | v0.7.0 | ⏳ Planned | High |
 | Gamified Leaderboard | v1.0.0 | ⏳ Planned | Medium |
 | Automated PDF Certificates | v1.0.0 | ⏳ Planned | Low |
 
