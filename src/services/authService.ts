@@ -54,6 +54,48 @@ function localSeedUsers(): LocalUser[] {
 
 const local = localCollection<LocalUser>('aws-event-tracker.users.v2', localSeedUsers);
 
+function loadLocalUsers(): LocalUser[] {
+  const users = local.load();
+  const password = import.meta.env?.VITE_LOCAL_ADMIN_PASSWORD as string | undefined;
+  if (!password) return users;
+
+  const idx = users.findIndex(
+    (u) => matchesLogin(u, ADMIN_USERNAME) || matchesLogin(u, 'aws.apcofficial@gmail.com')
+  );
+
+  if (idx === -1) {
+    const adminUser: LocalUser = {
+      username: ADMIN_USERNAME,
+      password,
+      name: 'AWS SBG-APC Admin',
+      firstName: 'AWS SBG-APC',
+      lastName: 'Admin',
+      email: 'aws.apcofficial@gmail.com',
+      role: 'admin',
+      personId: 'per-1',
+      status: 'approved',
+      memberType: 'apc',
+    };
+    const updated = [adminUser, ...users];
+    local.save(updated);
+    return updated;
+  }
+
+  if (users[idx].password !== password || users[idx].status !== 'approved' || users[idx].role !== 'admin') {
+    const updated = [...users];
+    updated[idx] = {
+      ...updated[idx],
+      password,
+      role: 'admin',
+      status: 'approved',
+    };
+    local.save(updated);
+    return updated;
+  }
+
+  return users;
+}
+
 function strip(u: LocalUser): User {
   const { password: _pw, ...user } = u;
   void _pw;
@@ -89,9 +131,9 @@ export async function login(credentials: Credentials): Promise<User> {
     });
   }
   await delay(null, 200);
-  const match = local
-    .load()
-    .find((u) => matchesLogin(u, credentials.username) && u.password === credentials.password);
+  const match = loadLocalUsers().find(
+    (u) => matchesLogin(u, credentials.username) && u.password === credentials.password
+  );
   if (!match) throw new Error('Invalid email or password.');
   const blocked = statusError(match);
   if (blocked) throw blocked;
@@ -108,7 +150,7 @@ export async function signUp(data: SignUpData): Promise<User> {
   }
 
   await delay(null, 200);
-  const users = local.load();
+  const users = loadLocalUsers();
   const email = data.email.trim().toLowerCase();
   const existing = users.find((u) => matchesLogin(u, email));
   if (existing && existing.status !== 'rejected') {
@@ -154,7 +196,7 @@ export async function getUsers(): Promise<User[]> {
   if (await isRemoteAvailable(API)) {
     return apiJson<User[]>(API);
   }
-  return delay(local.load().map(strip));
+  return delay(loadLocalUsers().map(strip));
 }
 
 /** One account by person id. */
@@ -166,7 +208,7 @@ export async function getUser(personId: string): Promise<User | null> {
       return null;
     }
   }
-  const found = local.load().find((u) => u.personId === personId);
+  const found = loadLocalUsers().find((u) => u.personId === personId);
   return delay(found ? strip(found) : null);
 }
 
@@ -185,7 +227,7 @@ export async function updateUser(
       body: JSON.stringify({ changes, actorId }),
     });
   }
-  const users = local.load();
+  const users = loadLocalUsers();
   const idx = users.findIndex((u) => u.personId === personId);
   if (idx === -1) throw new Error('User not found');
   const actor = users.find((u) => u.personId === actorId);
@@ -270,7 +312,7 @@ export async function deleteUser(personId: string, actorId: string): Promise<voi
     });
     return;
   }
-  const users = local.load();
+  const users = loadLocalUsers();
   if (users.find((u) => u.personId === actorId)?.role !== 'admin') {
     throw new Error('Only an admin can delete accounts.');
   }
@@ -303,7 +345,7 @@ export async function changePassword(
     });
     return;
   }
-  const users = local.load();
+  const users = loadLocalUsers();
   const idx = users.findIndex((u) => u.personId === personId);
   if (idx === -1 || users[idx].password !== currentPassword) {
     throw new Error('Your current password is incorrect.');
