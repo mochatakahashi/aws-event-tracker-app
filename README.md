@@ -95,37 +95,91 @@ The AWS access key also needs the `ses:SendEmail` permission. While SES is in sa
 - **Testing**: Vitest + React Testing Library
 - **State Management**: React Context (`AuthContext`, `EventContext`) + LocalStorage Persistence
 - **Backend**: Vercel Serverless Functions + AWS SDK v3 (Amazon DynamoDB, Amazon S3, Amazon SES), Vercel Cron for daily reminders
+- **Email**: Gmail SMTP through `nodemailer` (Amazon SES as the fallback)
+- **QR codes**: `qrcode` draws the attendee pass; `jsqr` reads it from the camera (both loaded only on the pages that use them)
+- **Certificates**: `pdf-lib` builds the PDF on the server (no native binaries, runs on Vercel)
 - **Excel export**: `write-excel-file` (loaded only when exporting)
 
 ---
 
 ## 🚀 Getting Started
 
-### Prerequisites
-- **Node.js**: v18.0.0 or higher
-- **npm**: v9.0.0 or higher
+### What to install on your computer
 
-### Installation
+| Tool | Version | Why | Check with |
+| :--- | :--- | :--- | :--- |
+| **Node.js** (includes npm) | 18 or newer (20 LTS recommended) | Runs Vite, the tests and the build | `node -v` and `npm -v` |
+| **Git** | any recent | Clone, commit and push | `git --version` |
+| **Vercel CLI** *(optional)* | latest | `vercel dev` runs the `/api` functions locally | `npx vercel --version` |
+
+Everything else comes from `npm install`. The packages the project uses:
+
+| Package | Used for | Added in |
+| :--- | :--- | :--- |
+| `react`, `react-dom`, `react-router-dom` | The app and its pages | 0.1.0 |
+| `@mui/material`, `@mui/icons-material`, `@emotion/*`, `@mui/x-charts` | UI components, icons, charts | 0.1.0 |
+| `@aws-sdk/client-dynamodb`, `@aws-sdk/lib-dynamodb` | Database (API functions) | 0.3.1 |
+| `@aws-sdk/client-s3`, `@aws-sdk/s3-request-presigner` | Image uploads and certificate files in S3 | 0.3.1 |
+| `@aws-sdk/client-sesv2` | Email through Amazon SES (fallback) | 0.5.0 |
+| `write-excel-file` | Excel downloads for admins | 0.4.0 |
+| `nodemailer` (+ `@types/nodemailer`) | Email through Gmail SMTP | 0.5.3 |
+| **`qrcode`** (+ `@types/qrcode`) | Draws the attendee's QR pass | **0.6.0** |
+| **`jsqr`** | Reads QR codes from the officer's camera | **0.6.0** |
+| **`pdf-lib`** | Builds the certificate of participation PDF | **0.6.0** |
+
+### First-time setup
 
 ```bash
-# Clone repository
+# 1. Get the code
 git clone https://github.com/mochatakahashi/aws-event-tracker-app.git
-
-# Navigate into project directory
 cd aws-event-tracker-app
 
-# Install dependencies
+# 2. Install all packages (reads package.json / package-lock.json)
 npm install
 
-# Launch development server
+# 3. Local admin password (file is git-ignored)
+#    Windows:  copy .env.example .env.local
+#    macOS/Linux: cp .env.example .env.local
+#    then edit .env.local and set VITE_LOCAL_ADMIN_PASSWORD
+
+# 4. Start the app
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173) in your browser and sign in as `awsapc.admin` (see Admin Account above).
+Open [http://localhost:5173](http://localhost:5173) and sign in as `awsapc.admin` with the password from `.env.local`.
 
-> With `npm run dev` the `/api` functions don't run, so data stays in this browser and no emails or S3 uploads happen. Use your Vercel deployment (or `vercel dev`) to test the database, uploads and emails.
+### Updating an existing copy
+
+When you pull changes that add packages (like v0.6.0's `qrcode`, `jsqr` and `pdf-lib`), install them before running:
+
+```bash
+git pull
+npm install
+npm run dev
+```
+
+If `npm run dev` or `npm run build` fails with *"Cannot find module …"* after a pull, run `npm install` again. If it still fails (for example a missing native Rollup package on Windows), delete `node_modules` and install again:
+
+```bash
+rmdir /s /q node_modules   # Windows (Command Prompt)
+rm -rf node_modules        # macOS / Linux
+npm install
+```
+
+### What works locally vs. deployed
+
+| Feature | `npm run dev` | Deployed on Vercel (or `vercel dev`) |
+| :--- | :--- | :--- |
+| Accounts, events, stamps, tasks, registrations | ✅ saved in this browser only | ✅ shared DynamoDB |
+| In-app notifications (bell) | ✅ this browser only | ✅ shared |
+| QR pass and Add to Calendar | ✅ | ✅ |
+| Camera scanner | ✅ on `http://localhost` in this computer's browser; phones need https | ✅ (https) |
+| Certificate download | ❌ shows "downloads from the deployed app" | ✅ |
+| Emails, S3 uploads | ❌ | ✅ |
 
 ### Deploying (Vercel)
+
+Vercel installs the packages from `package-lock.json` by itself on every deploy — nothing to install on the server. Push to `main` (or redeploy) after changing settings.
 
 Set these in Vercel → Settings → Environment Variables, then redeploy:
 
@@ -139,6 +193,32 @@ Set these in Vercel → Settings → Environment Variables, then redeploy:
 | `GMAIL_USER` + `GMAIL_APP_PASSWORD` or `SES_FROM_EMAIL`, and `CRON_SECRET` (+ optional `SES_REGION`, `APP_URL`, `ADMIN_NOTIFY_EMAIL`) | Email notifications — see above |
 
 > The camera scanner needs the **https** app link (browsers only allow the camera on secure pages). On the deployed Vercel URL this works automatically.
+
+### ✅ Setup checklist (deployed app)
+
+1. **Vercel environment variables** — the table above. After adding or changing any of them, **Redeploy** (Deployments → ⋯ → Redeploy); old deployments keep the old values.
+2. **IAM permissions** for the user whose keys are in `APP_AWS_ACCESS_KEY_ID` / `APP_AWS_SECRET_ACCESS_KEY` (replace the table, region, account and bucket names):
+
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       { "Effect": "Allow",
+         "Action": ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:DeleteItem", "dynamodb:Scan"],
+         "Resource": "arn:aws:dynamodb:ap-southeast-1:<account-id>:table/aws_events" },
+       { "Effect": "Allow",
+         "Action": ["s3:PutObject", "s3:GetObject"],
+         "Resource": ["arn:aws:s3:::<bucket>/events/*", "arn:aws:s3:::<bucket>/certificates/*"] },
+       { "Effect": "Allow", "Action": "ses:SendEmail", "Resource": "*" }
+     ]
+   }
+   ```
+
+   The `certificates/*` line is **new in v0.6.0**. The SES statement is only needed if you use SES instead of Gmail.
+3. **Gmail app password** — sign in to Google **as `aws.apcofficial@gmail.com`**, turn on 2-Step Verification, create an App Password at `myaccount.google.com/apppasswords`, and paste it into `GMAIL_APP_PASSWORD`. A password created on any other Google account fails with error 535.
+4. **S3 bucket CORS** (already needed for image uploads) must allow `PUT` from your Vercel domain. Certificate downloads use signed links, so the bucket can stay private.
+5. **Cron** — `CRON_SECRET` set; `vercel.json` already schedules `/api/notify` daily at 8:00 AM Manila.
+6. **Test** — sign up with a spare email, approve or decline it (email + bell), register for an event, open **My Event Pass**, scan it from an officer's phone on the https link, then download the certificate.
 
 ---
 
@@ -249,7 +329,7 @@ aws-event-tracker-app/
 ## 🔌 Cloud Backend & Database Integration
 
 The application operates in a **Hybrid Mode**:
-1. **Live AWS Cloud (Vercel Serverless + DynamoDB + S3)**: When deployed or running with the serverless API (`vercel dev`), accounts, events, sessions, stamps, registrations, officer tasks and speakers are stored in one DynamoDB table (each record has an `entityType`), and images in the Amazon S3 bucket. Everyone sees the same data on every device.
+1. **Live AWS Cloud (Vercel Serverless + DynamoDB + S3)**: When deployed or running with the serverless API (`vercel dev`), accounts, events, sessions, stamps, registrations (with check-in and certificate info), officer tasks, speakers and in-app notifications are stored in one DynamoDB table (each record has an `entityType`), and images and certificate PDFs in the Amazon S3 bucket. Everyone sees the same data on every device.
 2. **Local Fallback**: With `npm run dev` the `/api` functions don't run, so the services fall back to this browser's `localStorage`. Different logins in the same browser still see each other's changes, but nothing is shared with other devices, and uploads to S3 don't work.
 
 ---

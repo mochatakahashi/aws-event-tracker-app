@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.1] - 2026-10-16
+
+### Documentation
+- **README**: new *What to install on your computer* (Node.js, Git, optional Vercel CLI), a table of every npm package and the version it was added in (v0.6.0 adds `qrcode`, `jsqr`, `pdf-lib`), first-time setup with `.env.local`, *Updating an existing copy* (`git pull` → `npm install`), *What works locally vs. deployed*, and a deployed-app **setup checklist** (Vercel variables, IAM policy including the new `certificates/*` S3 access, Gmail App Password on the right account, S3 CORS, cron, end-to-end test).
+- **`.env.example`**: lists `AWS_S3_BUCKET_NAME`, `ADMIN_PASSWORD`, `CRON_SECRET` and `APP_URL`.
+- **ARCHITECTURE**: diagram includes the pass, scanner and notification pages, in-app notification table, QR check-in & certificate sequence diagram, `Notification` entity and new registration fields, updated roles.
+- **DECISIONS**: ADR-012 (Gmail SMTP + self-contained API functions), ADR-013 (in-app notifications), ADR-014 (QR pass, camera check-in, PDF certificates).
+
+---
+
 ## [0.6.0] - 2026-10-16
 
 ### Added

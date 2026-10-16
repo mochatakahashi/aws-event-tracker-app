@@ -15,6 +15,9 @@ graph TD
         Layout --> Flow["EventFlowPage"]
         Layout --> Profile["ProfilePage"]
         Layout --> OfficerDash["OfficerDashboardPage"]
+        OfficerDash --> Scanner["OfficerScanPage (camera QR check-in)"]
+        Layout --> Pass["EventPassPage (QR pass, calendar, certificate)"]
+        Layout --> Notifs["NotificationsPage (bell inbox)"]
         Layout --> AdminHome["AdminHome (admin /home)"]
         AdminHome --> AdminDash["AdminDashboardPage (Manage Accounts)"]
         AdminHome --> AdminAtt["AdminAttendeesPage (Attendees & Stamps, Excel)"]
@@ -42,15 +45,16 @@ graph TD
         StorageSvc["storageService.ts"]
         RegSvc["registrationService.ts"]
         TaskSvc["taskService.ts"]
-        NotifySvc["notifyService.ts"]
+        NotifySvc["notifyService.ts (emails)"]
+        InAppSvc["notificationService.ts (bell)"]
         LocalStore[("Browser LocalStorage (Fallback)")]
     end
 
     subgraph Serverless API & AWS Cloud
         VercelAPI["Vercel Serverless Functions (/api/*)"]
-        DynamoDB[("Amazon DynamoDB (single table: users, events, sessions, stamps, registrations, tasks, speakers)")]
-        S3Bucket[("Amazon S3 (Banners & Avatars)")]
-        SES[("Amazon SES (Emails)")]
+        DynamoDB[("Amazon DynamoDB (single table: users, events, sessions, stamps, registrations, tasks, speakers, notifications)")]
+        S3Bucket[("Amazon S3 (banners, avatars, certificate PDFs)")]
+        SES[("Gmail SMTP / Amazon SES (Emails)")]
         Cron["Vercel Cron (daily 8:00 AM Manila)"]
     end
 
@@ -71,6 +75,11 @@ graph TD
     RegSvc --> VercelAPI
     TaskSvc --> VercelAPI
     NotifySvc --> VercelAPI
+    InAppSvc --> VercelAPI
+    InAppSvc -.-> LocalStore
+    Scanner -.-> RegSvc
+    Pass -.-> RegSvc
+    Notifs -.-> InAppSvc
     AdminAtt -.-> RegSvc
     AdminTasks -.-> TaskSvc
     Cron --> VercelAPI
@@ -122,7 +131,20 @@ graph TD
 - **Check-in & certificates (`/api/registrations?action=checkin|checkout|certificate`)**: the QR pass encodes `…/#/officer/scan?pass=<registrationId>`. Check-in requires an approved officer/admin `actorId`, sets `checkedIn/checkedInAt/checkedInBy`, and issues a certificate (`pdf-lib` → `s3://$AWS_S3_BUCKET_NAME/certificates/<eventId>/<certificateId>.pdf`). An upload failure never blocks check-in; it is retried on the next scan or download. Downloads redirect to a 10-minute signed S3 link, or the PDF is generated on the fly when no bucket is set.
 - **`utils/calendar.ts`**: RFC 5545 `.ics` builder (UTC times, escaping, line folding, 1-hour alarm) and Google Calendar `TEMPLATE` links with `ctz=Asia/Manila`.
 
-### 4. Notifications (Amazon SES)
+### 4. Notifications — email (Gmail SMTP / Amazon SES) and in-app
+
+Emails go through Gmail SMTP when `GMAIL_USER` + `GMAIL_APP_PASSWORD` are set, otherwise Amazon SES. In-app notifications (the bell) are written by the page that performed the action:
+
+| In-app notification | Recipient | Created by |
+| :--- | :--- | :--- |
+| New sign-up waiting | Every admin (`toRole: 'admin'`) | Sign-up page |
+| Account approved / declined (with reason) | The person | Manage Accounts |
+| Assigned to an event | That officer | Event page (admin) |
+| New task | Assigned officers | Officer Tasks |
+| Stamp approved / declined | The attendee | Officer Dashboard |
+| Checked in (certificate ready) | The attendee | Check-in Scanner |
+
+Emails:
 | Trigger | Recipients | Sent by |
 | :--- | :--- | :--- |
 | New sign-up waiting | Admin inbox (`ADMIN_NOTIFY_EMAIL`, default `aws.apcofficial@gmail.com`) | Sign-up page → `/api/notify` |
@@ -133,7 +155,27 @@ graph TD
 | Task due tomorrow | Assigned officers | Daily Vercel Cron |
 | Failed reminders / daily job error | Admin inbox | Daily Vercel Cron |
 
-Each reminder is sent once (flags stored on the event/task); moving an event's date re-arms its reminders. Without `SES_FROM_EMAIL`, nothing is sent and the app says so.
+Each reminder is sent once (flags stored on the event/task); moving an event's date re-arms its reminders. Without Gmail or `SES_FROM_EMAIL` settings, no email is sent and the app says so (in-app notifications still work).
+
+### 5. QR check-in & certificates
+
+```mermaid
+sequenceDiagram
+    participant A as Attendee (My Event Pass)
+    participant O as Officer (Check-in Scanner)
+    participant API as /api/registrations
+    participant DB as DynamoDB
+    participant S3 as Amazon S3
+    A->>A: QR = …/#/officer/scan?pass=<registrationId>
+    O->>O: Camera reads QR (jsQR)
+    O->>API: GET ?id=<registrationId> (+ person, stamps)
+    O->>API: POST ?action=checkin {id, actorId}
+    API->>DB: verify actor is officer/admin, set checkedIn
+    API->>S3: put certificates/<eventId>/<certificateId>.pdf (pdf-lib)
+    API-->>O: registration (+ certificateId)
+    A->>API: GET ?action=certificate&id&personId
+    API-->>A: 302 to 10-minute signed S3 link (or PDF built on the fly)
+```
 
 ---
 
@@ -214,6 +256,20 @@ erDiagram
         string personId FK
         string rsvp
         boolean checkedIn
+        string checkedInAt
+        string checkedInBy FK
+        string certificateId
+        string certificateKey
+    }
+
+    Notification {
+        string id PK
+        string personId FK
+        string kind
+        string title
+        string link
+        boolean read
+        string createdAt
     }
 
     Speaker {
@@ -223,6 +279,7 @@ erDiagram
     }
 
     User ||--o{ OfficerTask : "assigned to"
+    User ||--o{ Notification : receives
     AppEvent ||--o{ Speaker : features
     AppEvent ||--o{ User : "officers assigned" 
 ```
@@ -233,11 +290,11 @@ erDiagram
 
 | Role | Permissions |
 | :--- | :--- |
-| **`attendee`** | View schedule, request stamps, edit personal bio/socials, view own stamp card. |
-| **`officer`** | All attendee privileges + `OfficerDashboardPage`: see and complete assigned tasks, approve/decline stamp requests. |
+| **`attendee`** | View schedule, request stamps, edit personal bio/socials, view own stamp card, show the QR event pass, add events to a calendar, download own certificate after check-in, read own notifications. |
+| **`officer`** | All attendee privileges + `OfficerDashboardPage`: see and complete assigned tasks, approve/decline stamp requests, and check attendees in with the **Check-in Scanner** (`/officer/scan`). |
 | **`admin`** | All officer privileges + approve/decline sign-ups (optional reason), change roles and delete accounts (`/admin`), monitor attendees and stamp finishers with Excel export (`/admin/attendees`), officer achievements, archive batches (`/admin/officers`), assign officer tasks (`/admin/tasks`), edit events and assign officers, send reminders. |
 
-The built-in admin is `awsapc.admin` (password from `ADMIN_PASSWORD`). There are no demo accounts. Admin actions are checked on the server against the acting account's role; the app does not yet use signed sessions (see ADR-008).
+The built-in admin is `awsapc.admin` (password from `ADMIN_PASSWORD`). There are no demo accounts. Admin actions — and check-ins (`/api/registrations?action=checkin`, officer or admin) — are checked on the server against the acting account's role; the app does not yet use signed sessions (see ADR-008). A certificate can only be downloaded by its owner or by an officer/admin.
 
 New accounts have `status: 'pending'` and cannot sign in until an admin approves them. Officer hierarchy: President → VP Internal → VP External → Directors → Assistant Directors → Associates; committees: Secretariat, Operations, Marketing, Technicals, Relations.
 

@@ -161,7 +161,7 @@ Accounts, registrations and officer data lived in in-memory mock services, so si
 ## ADR-009: Email Notifications with Amazon SES and Vercel Cron
 
 ### Status
-**Accepted**
+**Accepted** — sending partly superseded by ADR-012 (Gmail SMTP is preferred when configured; SES remains the fallback)
 
 ### Context
 Officers and attendees need reminders (assignment, event tomorrow, event day, tasks) and the admin needs to know about new sign-ups and failures, without anyone keeping the app open.
@@ -211,6 +211,62 @@ Laptops with display scaling (e.g. 1280px at 150% ≈ 853px) fell below the old 
 ### Consequences
 - **Positive**: The desktop UI appears on scaled laptop screens; wide screens are used well; phones are unchanged.
 - **Negative**: Tablets in portrait (768px+) now get the sidebar layout.
+
+---
+
+## ADR-012: Gmail SMTP (Nodemailer) for Email, Self-contained API Functions
+
+### Status
+**Accepted**
+
+### Context
+Amazon SES stays in sandbox mode (verified recipients only) until AWS grants production access, which blocked approval/decline emails to new users. The club already owns `aws.apcofficial@gmail.com`.
+
+### Decision
+- Send email through **Gmail SMTP with Nodemailer** when `GMAIL_USER` and `GMAIL_APP_PASSWORD` are set; otherwise fall back to SES. Every user email is CC'd to and replies go to the club inbox.
+- Keep each file in `api/` **self-contained** (no imports from other project folders). The project is an ES module (`"type": "module"`), and an extensionless import such as `../lib/mail` fails on Vercel with `ERR_MODULE_NOT_FOUND`, which took down `/api/notify`.
+- Send failures are explained to the admin (e.g. Gmail error 535 = App Password created on a different Google account) and reported to the admin inbox.
+
+### Consequences
+- **Positive**: Works without SES production access; simple setup.
+- **Negative**: Gmail limits sending (~500/day) and needs an App Password with 2-Step Verification; some helper code is repeated across API files.
+
+---
+
+## ADR-013: In-app Notifications Stored in DynamoDB with Polling
+
+### Status
+**Accepted**
+
+### Context
+Users need updates (stamps, approvals, assignments, tasks, check-in) even when email is unavailable, and the Notifications page only had sample data.
+
+### Decision
+- A `notification` record per recipient in the same DynamoDB table (`/api/notifications`), created by the page that performed the action (`notifyInApp`, which never blocks the action). Admin-wide notices use `toRole: 'admin'`, resolved on the server.
+- The bell badge (`useUnreadNotifications`) refreshes after any change in the app, on window focus and every 30 seconds. Links must be in-app paths.
+
+### Consequences
+- **Positive**: No new AWS service; works with the localStorage fallback; real-time enough for events.
+- **Negative**: Polling, not push (WebSockets/SSE planned for v0.7.0); table scans per request are fine at club scale only.
+
+---
+
+## ADR-014: QR Event Pass, Camera Check-in and PDF Certificates
+
+### Status
+**Accepted**
+
+### Context
+On-site check-in at APC workshops was manual, and professors/attendees wanted proof of participation.
+
+### Decision
+- The pass QR encodes the app link `…/#/officer/scan?pass=<registrationId>` (drawn with `qrcode`), so it also opens the scanner from a phone's normal camera app.
+- The scanner uses `getUserMedia` + **`jsqr`** (works on iPhone Safari, unlike the native `BarcodeDetector`), with a name/email/student ID search fallback. One tap = check-in only; stamps are still approved from the Officer Dashboard.
+- Check-in goes through `POST /api/registrations?action=checkin`, which requires an approved officer/admin `actorId`, then builds the certificate with **`pdf-lib`** (pure JavaScript, no native binaries on Vercel) and stores it privately in S3 under `certificates/<eventId>/<certificateId>.pdf`. Downloads redirect to a 10-minute signed link. An S3 failure never blocks check-in; it is retried on the next scan or download, and without a bucket the PDF is generated on the fly.
+
+### Consequences
+- **Positive**: Fast door check-in from any phone; certificates without manual work; the bucket stays private.
+- **Negative**: The camera requires https; a registration id in the QR is not a secret (check-in still needs an officer account); standard PDF fonts only cover Latin characters (others are simplified).
 
 ---
 
