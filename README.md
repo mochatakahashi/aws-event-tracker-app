@@ -19,7 +19,9 @@
 - **My Registrations**: Manage event RSVPs (`going`, `interested`, `declined`) and view upcoming events.
 - **🎟️ Digital Event Pass (`/pass`)**: a personal QR code for each registered event. It turns green the moment an officer scans it.
 - **📅 Add to Calendar**: one tap on the event page or pass — **Google Calendar** link, or an **.ics** file for Apple Calendar / Outlook — with Manila time, venue, the session schedule and a 1-hour reminder.
-- **🏅 Certificate of Participation**: unlocked at check-in; a PDF with the attendee's name, event, date, venue and a certificate ID, downloaded from the pass or event page.
+- **🏅 Certificate of Participation**: unlocked at check-in; a PDF with the attendee's name, event, date, venue, a certificate ID and a **"Scan to verify" QR code**, downloaded from the pass or event page.
+- **📜 Certificate verification (`/#/verify/:id`, public — no sign-in)**: anyone (professors, recruiters) can type a certificate ID or scan the QR on the certificate to see whether it's genuine, with the attendee's name, event, date and issue date. Withdrawn certificates (check-in undone) show as no longer valid.
+- **🏆 Builder Leaderboard (`/leaderboard`)**: top builders by approved stamps and completed workshops, per event or across all events — a podium for the top 3, the full ranking (ties share a rank), *Your standing*, and **achievement badges**: ⭐ First Stamp, 🛠️ Workshop Warrior (3 workshops), ☁️ Cloud Explorer (5 stamps), 🏆 Full Passport Complete (every stamp of an event), 🚀 Multi-Event Builder (stamps at 2+ events). Opened from the sidebar or the Achievements page.
 
 ### ✍️ Sign Up & Accounts
 - **Three sign-up types**: APC Student (APC email + student ID), Outside Attendee (any email + school/organization, no student ID) and Officer (APC email, optional personal Gmail, student ID, position and committee).
@@ -35,7 +37,7 @@
 - **Officers (`AdminOfficersPage`)**: officers in hierarchy order with events volunteered (and their event role), stamps approved and task progress; edit position/committee; **archive** one officer or the whole school-year batch (they become alumni attendees, listed under *Past batches*); delete; Excel download.
 - **Officer Tasks (`AdminTasksPage`)**: assign tasks (optional event and due date) to one or more officers.
 - **Officer Dashboard (`OfficerDashboardPage`)**: the officer's tasks (Start / Mark done / Reopen), the stamp approval queue, and **Open scanner**.
-- **Check-in Scanner (`/officer/scan`, officers and admins)**: scans an attendee's QR pass with the phone or laptop camera, shows their name, affiliation and stamp passport, and checks them in with **one tap** (which also issues their certificate). A *"Can't scan? Find the attendee"* search works without a camera. Re-scanning says who already checked them in.
+- **Check-in Scanner (`/officer/scan`, officers and admins)**: scans an attendee's QR pass with the phone or laptop camera, shows their name, affiliation and stamp passport, and checks them in with **one tap** (which also issues their certificate). At a workshop booth, the officer taps **Approve stamp** on the session they just finished (sessions happening now are listed first and highlighted) — no need to go back to the Officer Dashboard; the attendee gets a notification. A *"Can't scan? Find the attendee"* search works without a camera. Re-scanning says who already checked them in.
 - **Assign officers to events** on the event page (admins only), listed in hierarchy order.
 
 ### 🔔 Notifications
@@ -283,6 +285,7 @@ aws-event-tracker-app/
 │   │   ├── EventsPage.tsx
 │   │   ├── LoginPage.tsx
 │   │   ├── MorePage.tsx
+│   │   ├── LeaderboardPage.tsx      # Builder Leaderboard & badges
 │   │   ├── NotificationsPage.tsx    # In-app notification center
 │   │   ├── OfficerDashboardPage.tsx
 │   │   ├── OfficerScanPage.tsx      # Check-in scanner
@@ -290,6 +293,7 @@ aws-event-tracker-app/
 │   │   ├── SelectEventPage.tsx
 │   │   ├── SessionDetailPage.tsx
 │   │   ├── SignUpPage.tsx
+│   │   ├── VerifyCertificatePage.tsx # Public certificate verification
 │   │   └── WelcomePage.tsx
 │   ├── services/          # Cloud API & service layer
 │   │   ├── authService.ts

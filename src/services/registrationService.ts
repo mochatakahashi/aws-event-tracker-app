@@ -242,3 +242,55 @@ export async function countRegistrations(eventId: string): Promise<number> {
 export function __resetRegistrations(): void {
   local.reset();
 }
+
+export interface CertificateCheck {
+  valid: boolean;
+  status: 'valid' | 'revoked' | 'not-found' | 'invalid';
+  certificateId: string;
+  name?: string;
+  eventTitle?: string;
+  eventDate?: string;
+  venue?: string;
+  issuedAt?: string;
+}
+
+/** Normalize what someone typed or scanned into a certificate ID (or ''). */
+export function normalizeCertificateId(input: string): string {
+  const raw = decodeURIComponent(String(input || '')).trim();
+  const m = raw.toUpperCase().match(/CERT-\d{4}-[A-Z0-9]{4,16}/);
+  return m ? m[0] : '';
+}
+
+/** Public check that a certificate ID is real (no sign-in needed). */
+export async function verifyCertificate(input: string): Promise<CertificateCheck> {
+  const certificateId = normalizeCertificateId(input);
+  if (!certificateId) return { valid: false, status: 'invalid', certificateId: String(input || '').trim() };
+  if (await isRemoteAvailable(API)) {
+    const res = await fetch(`${API}?action=verify&certificateId=${encodeURIComponent(certificateId)}`);
+    const data = (await res.json().catch(() => ({}))) as Partial<CertificateCheck>;
+    if (res.status === 404 || res.status === 400) {
+      return { valid: false, status: res.status === 404 ? 'not-found' : 'invalid', certificateId };
+    }
+    if (!res.ok) throw new Error('Could not check the certificate right now. Try again in a moment.');
+    return data as CertificateCheck;
+  }
+  const reg = local.load().find((r) => r.certificateId?.toUpperCase() === certificateId);
+  if (!reg) return delay({ valid: false, status: 'not-found', certificateId });
+  const [users, { getEvents }] = await Promise.all([getUsers(), import('./eventService')]);
+  const person = users.find((u) => u.personId === reg.personId);
+  const event = (await getEvents()).find((e) => e.id === reg.eventId);
+  const fmt = (iso?: string) =>
+    iso ? new Date(iso).toLocaleDateString('en-US', { timeZone: 'Asia/Manila', month: 'long', day: 'numeric', year: 'numeric' }) : '';
+  const start = fmt(event?.startAt);
+  const end = fmt(event?.endAt);
+  return {
+    valid: reg.checkedIn,
+    status: reg.checkedIn ? 'valid' : 'revoked',
+    certificateId,
+    name: person?.name ?? 'Participant',
+    eventTitle: event?.title ?? 'AWS SBG-APC Event',
+    eventDate: start === end || !end ? start : `${start} – ${end}`,
+    venue: event?.venue ?? '',
+    issuedAt: reg.certificateIssuedAt,
+  };
+}

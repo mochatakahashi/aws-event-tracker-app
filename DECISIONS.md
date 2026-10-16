@@ -270,4 +270,23 @@ On-site check-in at APC workshops was manual, and professors/attendees wanted pr
 
 ---
 
+## ADR-015: Booth Stamps in the Scanner, Public Certificate Verification, Client-side Leaderboard
+
+### Status
+**Accepted**
+
+### Context
+Officers at workshop booths had to leave the scanner to approve stamps; certificates needed a way for outsiders to confirm they're real; attendees wanted to see how they rank.
+
+### Decision
+- **Scanner stamps** reuse the existing stamp API (create-if-missing, then approve) instead of a new endpoint, so the Officer Dashboard queue and the scanner stay consistent.
+- **Verification** is a public route outside sign-in. The API answers by certificate ID with only the fields printed on the certificate; certificate IDs are random (32-character alphabet, 8 characters) so they can't be guessed. Undoing a check-in marks the certificate *revoked* instead of deleting it.
+- **Leaderboard and badges** are computed in the browser from stamps and sessions (`utils/badges.ts`, unit-tested) — no new table or API function, and the Vercel Hobby limit of 12 functions is untouched (11 used).
+
+### Consequences
+- **Positive**: No new infrastructure; one place defines the badge rules; verification works for anyone with the link or QR.
+- **Negative**: The leaderboard downloads all stamps (fine at club scale; a server-side aggregate would be needed for thousands of attendees). Certificates issued before v0.6.5 have no QR code, but their IDs can still be verified on the page.
+
+---
+
 *Last Updated: October 2026*

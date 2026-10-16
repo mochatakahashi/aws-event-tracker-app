@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
+import Link from '@mui/material/Link';
+import { Link as RouterLink } from 'react-router-dom';
 import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import { certificateLink } from '../services/registrationService';
@@ -44,7 +46,12 @@ export default function CertificateButton({ registration, personId }: { registra
         {href === null
           ? 'Certificates download from the deployed app.'
           : registration.certificateId
-            ? `Certificate ID: ${registration.certificateId}`
+            ? <>
+                Certificate ID: {registration.certificateId} ·{' '}
+                <Link component={RouterLink} to={`/verify/${registration.certificateId}`}>
+                  Verify
+                </Link>
+              </>
             : 'Certificate of participation (PDF)'}
       </Typography>
     </Box>

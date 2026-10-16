@@ -35,6 +35,7 @@ import BottomNav from './BottomNav';
 import EventOrganizerLogo from './EventOrganizerLogo';
 import { useUnreadNotifications } from '../hooks/useUnreadNotifications';
 import QrCode2RoundedIcon from '@mui/icons-material/QrCode2Rounded';
+import LeaderboardRoundedIcon from '@mui/icons-material/LeaderboardRounded';
 
 const DRAWER_WIDTH = 260;
 
@@ -47,6 +48,7 @@ interface NavItem {
 const ALL_NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', to: '/home', icon: <DashboardRoundedIcon /> },
   { label: 'Achievements', to: '/achievements', icon: <EmojiEventsRoundedIcon /> },
+  { label: 'Leaderboard', to: '/leaderboard', icon: <LeaderboardRoundedIcon /> },
   { label: 'Events', to: '/events', icon: <CalendarMonthIcon /> },
   { label: 'Connect', to: '/connect', icon: <PeopleAltIcon /> },
   { label: 'Notifications', to: '/notifications', icon: <NotificationsNoneRoundedIcon /> },

@@ -10,6 +10,8 @@ import CardContent from '@mui/material/CardContent';
 import LinearProgress from '@mui/material/LinearProgress';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
+import Button from '@mui/material/Button';
+import LeaderboardRoundedIcon from '@mui/icons-material/LeaderboardRounded';
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import WorkspacePremiumRoundedIcon from '@mui/icons-material/WorkspacePremiumRounded';
@@ -121,6 +123,15 @@ export default function AchievementsPage() {
             Track your stamps, sessions attended, and event milestones.
           </Typography>
         </Box>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<LeaderboardRoundedIcon />}
+          onClick={() => navigate('/leaderboard')}
+          sx={{ flexShrink: 0, ml: 1 }}
+        >
+          Leaderboard
+        </Button>
       </Stack>
 
       {/* Stats Row */}

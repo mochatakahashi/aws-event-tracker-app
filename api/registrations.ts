@@ -10,6 +10,7 @@ import {
 import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf-lib';
+import QRCode from 'qrcode';
 
 /**
  * Event registrations (single-table DynamoDB, entityType = 'registration').
@@ -25,6 +26,8 @@ import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf
  * GET    /api/registrations?action=certificate&id=reg-1&personId=per-1
  *        → the certificate PDF (redirect to a short-lived S3 link, or generated on the fly
  *          when S3 isn't configured). Only for checked-in registrations.
+ * GET    /api/registrations?action=verify&certificateId=CERT-2026-ABCD2345   (public)
+ *        → { valid, status, certificateId, name, eventTitle, eventDate, venue, issuedAt }
  *
  * Certificates are saved to s3://$AWS_S3_BUCKET_NAME/certificates/<eventId>/<certificateId>.pdf
  */
@@ -149,6 +152,8 @@ export async function renderCertificate(d: {
   venue: string;
   certificateId: string;
   issuedAt: string;
+  /** Public verification link printed as a QR code. */
+  verifyUrl?: string;
 }): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   pdf.setTitle(`Certificate of Participation — ${pdfSafe(d.name)}`);
@@ -195,6 +200,14 @@ export async function renderCertificate(d: {
   page.drawText(idText, { x: width - 90 - regular.widthOfTextAtSize(idText, 10), y: 96, size: 10, font: regular, color: MUTED });
   page.drawText(issued, { x: width - 90 - regular.widthOfTextAtSize(issued, 10), y: 82, size: 10, font: regular, color: MUTED });
 
+  if (d.verifyUrl) {
+    const png = await QRCode.toBuffer(d.verifyUrl, { type: 'png', margin: 1, width: 240, errorCorrectionLevel: 'M' });
+    const qr = await pdf.embedPng(png);
+    const size = 66;
+    page.drawImage(qr, { x: (width - size) / 2, y: 58, width: size, height: size });
+    centered(page, 'Scan to verify', 46, regular, 8, MUTED);
+  }
+
   return pdf.save();
 }
 
@@ -227,7 +240,12 @@ async function certificateData(client: DynamoDBDocumentClient, tableName: string
 }
 
 /** Make the PDF and store it in S3. Returns the fields to save on the registration. */
-async function issueCertificate(client: DynamoDBDocumentClient, tableName: string, reg: any) {
+/** Public page that confirms a certificate is real. */
+function verifyLink(appUrl: string, certificateId: string): string | undefined {
+  return appUrl ? `${appUrl}/#/verify/${encodeURIComponent(certificateId)}` : undefined;
+}
+
+async function issueCertificate(client: DynamoDBDocumentClient, tableName: string, reg: any, appUrl = '') {
   const certificateId = reg.certificateId || newCertificateId();
   const issuedAt = reg.certificateIssuedAt || new Date().toISOString();
   const s3 = s3Config();
@@ -236,7 +254,12 @@ async function issueCertificate(client: DynamoDBDocumentClient, tableName: strin
     return { certificateId, certificateIssuedAt: issuedAt, certificateKey: undefined, certificateError: undefined };
   }
   try {
-    const bytes = await renderCertificate({ ...(await certificateData(client, tableName, reg)), certificateId, issuedAt });
+    const bytes = await renderCertificate({
+      ...(await certificateData(client, tableName, reg)),
+      certificateId,
+      issuedAt,
+      verifyUrl: verifyLink(appUrl, certificateId),
+    });
     const key = `certificates/${reg.eventId}/${certificateId}.pdf`;
     await s3.client.send(
       new PutObjectCommand({ Bucket: s3.bucket, Key: key, Body: Buffer.from(bytes), ContentType: 'application/pdf' })
@@ -274,6 +297,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const str = (v: unknown) => (typeof v === 'string' && v ? v : undefined);
 
     const action = str(q.action);
+    const host = (req.headers?.['x-forwarded-host'] || req.headers?.host || '') as string;
+    const appUrl = (process.env.APP_URL || (host ? `https://${host}` : '')).replace(/\/$/, '');
+
+    // Public certificate verification (only the details printed on the certificate)
+    if (req.method === 'GET' && action === 'verify') {
+      const certificateId = String(q.certificateId || '').trim().toUpperCase();
+      if (!/^CERT-\d{4}-[A-Z0-9]{4,16}$/.test(certificateId)) {
+        return res.status(400).json({ valid: false, status: 'invalid', error: 'That is not a valid certificate ID format.' });
+      }
+      const reg = (await scanType(client, tableName, 'registration')).find((r) => r.certificateId === certificateId);
+      if (!reg) return res.status(404).json({ valid: false, status: 'not-found', certificateId });
+      const data = await certificateData(client, tableName, reg);
+      const status = reg.checkedIn ? 'valid' : 'revoked';
+      return res.status(200).json({
+        valid: status === 'valid',
+        status,
+        certificateId,
+        name: data.name,
+        eventTitle: data.eventTitle,
+        eventDate: data.eventDate,
+        venue: data.venue,
+        issuedAt: reg.certificateIssuedAt,
+      });
+    }
 
     // Certificate download
     if (req.method === 'GET' && action === 'certificate') {
@@ -291,7 +338,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       let current = reg;
       const s3 = s3Config();
       if (s3 && !current.certificateKey) {
-        current = { ...current, ...(await issueCertificate(client, tableName, current)) };
+        current = { ...current, ...(await issueCertificate(client, tableName, current, appUrl)) };
         await client.send(new PutCommand({ TableName: tableName, Item: current }));
       }
       const fileName = `AWS-SBG-APC-Certificate-${current.certificateId || 'participation'}.pdf`;
@@ -311,13 +358,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       // No S3: build the same PDF on the fly.
       if (!current.certificateId) {
-        current = { ...current, ...(await issueCertificate(client, tableName, current)) };
+        current = { ...current, ...(await issueCertificate(client, tableName, current, appUrl)) };
         await client.send(new PutCommand({ TableName: tableName, Item: current }));
       }
       const bytes = await renderCertificate({
         ...(await certificateData(client, tableName, current)),
         certificateId: current.certificateId,
         issuedAt: current.certificateIssuedAt || new Date().toISOString(),
+        verifyUrl: verifyLink(appUrl, current.certificateId),
       });
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
@@ -343,7 +391,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (reg.checkedIn) {
         // Retry the certificate if an earlier upload failed.
         if (reg.certificateError || !reg.certificateId) {
-          const retried = { ...reg, ...(await issueCertificate(client, tableName, reg)) };
+          const retried = { ...reg, ...(await issueCertificate(client, tableName, reg, appUrl)) };
           await client.send(new PutCommand({ TableName: tableName, Item: retried }));
           return res.status(200).json({ registration: clean(retried), alreadyCheckedIn: true });
         }
@@ -357,7 +405,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         checkedInBy: actor.id,
         updatedAt: now,
       };
-      const withCert = { ...checked, ...(await issueCertificate(client, tableName, checked)) };
+      const withCert = { ...checked, ...(await issueCertificate(client, tableName, checked, appUrl)) };
       await client.send(new PutCommand({ TableName: tableName, Item: withCert }));
       return res.status(200).json({ registration: clean(withCert), alreadyCheckedIn: false });
     }

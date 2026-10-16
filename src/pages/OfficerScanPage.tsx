@@ -30,7 +30,7 @@ import { useAuth } from '../context/AuthContext';
 import { useEvent } from '../context/EventContext';
 import { getEvents } from '../services/eventService';
 import { checkIn, getPeople, getRegistration, getRegistrationsByEvent } from '../services/registrationService';
-import { getSessionsByEvent, getStampsByAttendee } from '../services/sessionService';
+import { approveStamp, createStamp, getSessionsByEvent, getStampsByAttendee } from '../services/sessionService';
 import { notifyInApp } from '../services/notificationService';
 import { affiliation, memberLabel } from '../utils/people';
 import { parsePass } from '../utils/pass';
@@ -59,6 +59,13 @@ const initials = (name = '?') =>
     .slice(0, 2)
     .toUpperCase();
 
+const isLive = (s: Session, now = Date.now()) =>
+  Boolean(s.startTime && s.endTime) && new Date(s.startTime).getTime() <= now && new Date(s.endTime).getTime() >= now;
+
+/** Sessions happening now first, then by start time. */
+const orderSessions = (list: Session[]) =>
+  [...list].sort((a, b) => Number(isLive(b)) - Number(isLive(a)) || (a.startTime || '').localeCompare(b.startTime || ''));
+
 /** Pick the event at the door: one happening now, the selected one, or the next upcoming. */
 function defaultEvent(events: AppEvent[], selected?: string): string {
   const now = Date.now();
@@ -86,6 +93,8 @@ export default function OfficerScanPage() {
   const [scanned, setScanned] = useState<Scanned | null>(null);
   const [looking, setLooking] = useState(false);
   const [working, setWorking] = useState(false);
+  const [stampBusy, setStampBusy] = useState<string | null>(null);
+  const [stampJustApproved, setStampJustApproved] = useState<string | null>(null);
   const [error, setError] = useState('');
   const lastCode = useRef<{ text: string; at: number }>({ text: '', at: 0 });
 
@@ -193,9 +202,37 @@ export default function OfficerScanPage() {
     }
   }
 
+  async function handleApproveStamp(session: Session) {
+    if (!scanned || !user) return;
+    setStampBusy(session.id);
+    setError('');
+    try {
+      const existing = scanned.stamps.find((x) => x.sessionId === session.id);
+      const pending =
+        existing ?? (await createStamp({ sessionId: session.id, attendeeId: scanned.reg.personId, status: 'pending' }));
+      const approved = await approveStamp(pending.id, user.personId);
+      setScanned((cur) =>
+        cur && { ...cur, stamps: [...cur.stamps.filter((x) => x.sessionId !== session.id), approved] },
+      );
+      setStampJustApproved(session.id);
+      void notifyInApp({
+        personIds: [scanned.reg.personId],
+        kind: 'stamp-approved',
+        title: 'Stamp collected! ⭐',
+        message: `Your stamp for "${session.title}" was approved by ${user.name}.`,
+        link: '/achievements',
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not approve the stamp. Try again.');
+    } finally {
+      setStampBusy(null);
+    }
+  }
+
   function scanNext() {
     setScanned(null);
     setError('');
+    setStampJustApproved(null);
     lastCode.current = { text: '', at: 0 };
   }
 
@@ -274,17 +311,59 @@ export default function OfficerScanPage() {
               value={(100 * scanned.stamps.filter((s) => s.status === 'approved').length) / scanned.stampSessions.length}
               sx={{ height: 6, borderRadius: 3, mb: 1.25 }}
             />
-            <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
-              {scanned.stampSessions.map((s) => {
+            <Stack spacing={0.75}>
+              {orderSessions(scanned.stampSessions).map((s) => {
                 const st = scanned.stamps.find((x) => x.sessionId === s.id);
+                const approved = st?.status === 'approved';
+                const live = isLive(s);
                 return (
-                  <Chip
+                  <Stack
                     key={s.id}
-                    size="small"
-                    color={st?.status === 'approved' ? 'success' : st ? 'warning' : 'default'}
-                    variant={st ? 'filled' : 'outlined'}
-                    label={`${st?.status === 'approved' ? '✓ ' : st ? '… ' : ''}${s.title}`}
-                  />
+                    direction="row"
+                    alignItems="center"
+                    spacing={1}
+                    sx={{
+                      p: 1,
+                      pl: 1.25,
+                      borderRadius: '10px',
+                      bgcolor: approved ? alpha(brand.success, 0.08) : '#fff',
+                      border: `1px solid ${live && !approved ? alpha(brand.primary, 0.45) : alpha(brand.primary, 0.1)}`,
+                    }}
+                  >
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }} noWrap>
+                        {s.title}
+                      </Typography>
+                      <Stack direction="row" spacing={0.75} alignItems="center">
+                        <Typography variant="caption" color="text.secondary" noWrap>
+                          {[manilaTime(s.startTime), s.room].filter(Boolean).join(' · ')}
+                        </Typography>
+                        {live && <Chip size="small" color="primary" label="Now" sx={{ height: 18, fontSize: '0.65rem' }} />}
+                        {st?.status === 'pending' && (
+                          <Chip size="small" color="warning" label="Requested" sx={{ height: 18, fontSize: '0.65rem' }} />
+                        )}
+                      </Stack>
+                    </Box>
+                    {approved ? (
+                      <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: brand.success, flexShrink: 0 }}>
+                        <CheckCircleRoundedIcon fontSize="small" />
+                        <Typography variant="caption" sx={{ fontWeight: 700 }}>
+                          {st?.approvedBy === user?.personId && stampJustApproved === s.id ? 'Approved!' : 'Approved'}
+                        </Typography>
+                      </Stack>
+                    ) : (
+                      <Button
+                        size="small"
+                        variant={live ? 'contained' : 'outlined'}
+                        startIcon={stampBusy === s.id ? <CircularProgress size={14} color="inherit" /> : <StarsRoundedIcon />}
+                        disabled={Boolean(stampBusy)}
+                        onClick={() => handleApproveStamp(s)}
+                        sx={{ flexShrink: 0, borderRadius: '10px', whiteSpace: 'nowrap' }}
+                      >
+                        Approve stamp
+                      </Button>
+                    )}
+                  </Stack>
                 );
               })}
             </Stack>
@@ -337,7 +416,7 @@ export default function OfficerScanPage() {
         Check-in Scanner
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
-        Scan an attendee’s QR pass to see their details and check them in with one tap.
+        Scan an attendee’s QR pass to check them in or approve the stamp for the session they just finished.
       </Typography>
 
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ sm: 'center' }} sx={{ mb: 2.5 }}>

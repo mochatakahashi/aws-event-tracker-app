@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.5] - 2026-10-16
+
+### Added
+- **🎯 Approve stamps from the Check-in Scanner**: after scanning a pass, every stamp session of the event is listed with **Approve stamp** (sessions happening now first, marked *Now*; requested ones marked *Requested*). Works whether or not the attendee requested the stamp, updates the passport progress immediately, and notifies the attendee.
+- **📜 Certificate verification page** (`/#/verify` and `/#/verify/:id`, public): look up a certificate ID or scan the new **"Scan to verify" QR code** printed on certificates. Shows *Verified*, *No longer valid* (check-in undone) or *Not found*, with only the details printed on the certificate. The pass and event page link to it next to the certificate ID. API: `GET /api/registrations?action=verify&certificateId=`.
+- **🏆 Builder Leaderboard & achievement badges** (`/leaderboard`, sidebar + Achievements page): ranking by approved stamps and completed workshops per event or across all events, top-3 podium, *Your standing*, and five badges — First Stamp, Workshop Warrior, Cloud Explorer, Full Passport Complete, Multi-Event Builder.
+
+### Notes
+- **Nothing new to install**: these features use packages already added in v0.6.0 (`qrcode` is now also used on the server for the certificate QR). Run `npm install` only if you haven't since v0.6.0.
+- Certificates issued before this version have no QR code; their IDs still verify on the page.
+
+---
+
 ## [0.6.2] - 2026-10-16
 
 ### Added

@@ -139,7 +139,7 @@ export default function OfficerDashboardPage() {
           <Box sx={{ flex: 1, minWidth: 200 }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>On-site check-in</Typography>
             <Typography variant="body2" color="text.secondary">
-              Scan an attendee’s QR pass at the door or booth to check them in.
+              Scan an attendee’s QR pass at the door to check them in, or at a booth to approve their stamp.
             </Typography>
           </Box>
           <Button variant="contained" startIcon={<QrCodeScannerRoundedIcon />} onClick={() => navigate('/officer/scan')}>

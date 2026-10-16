@@ -31,6 +31,8 @@ import EventBuilderPage from './pages/EventBuilderPage';
 import NotFoundPage from './pages/NotFoundPage';
 import EventPassPage from './pages/EventPassPage';
 import OfficerScanPage from './pages/OfficerScanPage';
+import VerifyCertificatePage from './pages/VerifyCertificatePage';
+import LeaderboardPage from './pages/LeaderboardPage';
 
 function App() {
   return (
@@ -44,6 +46,8 @@ function App() {
               <Route path="/" element={<WelcomePage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/signup" element={<SignUpPage />} />
+              <Route path="/verify" element={<VerifyCertificatePage />} />
+              <Route path="/verify/:id" element={<VerifyCertificatePage />} />
 
               {/* Protected: Select event (no layout, standalone) */}
               <Route
@@ -74,6 +78,7 @@ function App() {
                 <Route path="/officer" element={<OfficerDashboardPage />} />
                 <Route path="/officer/scan" element={<OfficerScanPage />} />
                 <Route path="/pass" element={<EventPassPage />} />
+                <Route path="/leaderboard" element={<LeaderboardPage />} />
                 <Route path="/admin" element={<AdminDashboardPage />} />
                 <Route path="/admin/attendees" element={<AdminAttendeesPage />} />
                 <Route path="/admin/officers" element={<AdminOfficersPage />} />

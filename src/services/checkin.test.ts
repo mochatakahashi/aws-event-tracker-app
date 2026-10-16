@@ -6,6 +6,8 @@ import {
   getRegistration,
   registerForEvent,
   toggleCheckIn,
+  normalizeCertificateId,
+  verifyCertificate,
 } from './registrationService';
 import {
   __resetNotifications,
@@ -49,6 +51,26 @@ describe('check-in', () => {
 
   it('has no certificate link without the API', async () => {
     expect(await certificateLink('reg-1', 'per-1')).toBeNull();
+  });
+});
+
+describe('certificate verification', () => {
+  it('normalizes typed or scanned IDs', () => {
+    expect(normalizeCertificateId(' cert-2026-ab12cd34 ')).toBe('CERT-2026-AB12CD34');
+    expect(normalizeCertificateId('https://app/#/verify/CERT-2026-AB12CD34')).toBe('CERT-2026-AB12CD34');
+    expect(normalizeCertificateId('hello')).toBe('');
+  });
+
+  it('verifies, then reports revoked after undo, and not-found for unknown IDs', async () => {
+    const reg = await registerForEvent('evt-1', 'per-1');
+    const { registration } = await checkIn(reg.id, 'per-1');
+    const ok = await verifyCertificate(registration.certificateId!.toLowerCase());
+    expect(ok.valid).toBe(true);
+    expect(ok.status).toBe('valid');
+    await toggleCheckIn(reg.id, 'per-1');
+    expect((await verifyCertificate(registration.certificateId!)).status).toBe('revoked');
+    expect((await verifyCertificate('CERT-2026-NOPE1234')).status).toBe('not-found');
+    expect((await verifyCertificate('nope')).status).toBe('invalid');
   });
 });
 

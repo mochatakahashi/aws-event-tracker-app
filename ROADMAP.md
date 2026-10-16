@@ -89,9 +89,10 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 
 ### 🚧 Version 0.6.5 — On-site Extras & Email Notification Delivery
 - [ ] **Instant Email Delivery via Official AWS Email (Amazon SES)**: Migrate email delivery from personal Gmail App Password to the official AWS sender address through Amazon SES for instant automated notifications (account approval/decline with reason, event assignments, officer tasks, and daily cron reminders).
-- [ ] **Approve stamps from the scanner** (officer picks the session and approves on the spot).
+- [x] **Approve stamps from the scanner** (officer picks the session and approves on the spot).
 - [ ] **`.ics` attached to event emails** and a custom email domain for deliverability.
-- [ ] **Certificate verification page** (look up a certificate ID).
+- [x] **Certificate verification page** (`/#/verify/:id`, QR code on every certificate).
+- [x] **Builder Leaderboard & achievement badges** (moved up from v1.0.0).
 - [ ] **NFC Badge Tap Integration**: Web NFC API support for physical event badge check-ins.
 - [ ] **Offline Stamp Storage (Service Worker / PWA)**: Enable offline stamp caching so attendees can request stamps even with low venue connectivity.
 
@@ -105,7 +106,7 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 ---
 
 ### 🚀 Version 1.0.0 — Leaderboard, Gamification & Certificates
-- [ ] **Builder Leaderboard & Badges**: Gamified leaderboard ranking attendees by stamp count and workshop activity completions.
+- [x] **Builder Leaderboard & Badges**: delivered in v0.6.5.
 - [ ] **Certificate of Completion**: a second certificate for attendees who complete 100% of event stamps.
 - [ ] **Multi-Event Analytics**: Officer/Admin reporting dashboard showing attendance retention and workshop completion rates.
 
@@ -134,12 +135,13 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 | Attendee QR Pass & Officer Camera Scanner | v0.6.0 | ✅ Completed | High |
 | Add to Calendar (.ics / Google) | v0.6.0 | ✅ Completed | Medium |
 | Certificate of Participation (PDF → S3) | v0.6.0 | ✅ Completed | Medium |
-| Stamp Approval from Scanner | v0.6.5 | 🚀 **Next Up** | Medium |
+| Stamp Approval from Scanner | v0.6.5 | ✅ Completed | Medium |
+| Certificate Verification Page | v0.6.5 | ✅ Completed | Medium |
 | Instant Email via AWS Email (SES) | v0.6.5 | ⏳ Pending (AWS Email Setup) | High |
 | Offline PWA Support | v0.6.5 | ⏳ Planned | Medium |
 | Real-Time Stamp Notifications | v0.7.0 | ⏳ Planned | High |
 | AWS Cognito Authentication | v0.7.0 | ⏳ Planned | High |
-| Gamified Leaderboard | v1.0.0 | ⏳ Planned | Medium |
+| Builder Leaderboard & Badges | v0.6.5 | ✅ Completed | Medium |
 | Certificate of Completion (100% stamps) | v1.0.0 | ⏳ Planned | Low |
 
 ---

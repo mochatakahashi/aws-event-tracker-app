@@ -18,6 +18,8 @@ graph TD
         OfficerDash --> Scanner["OfficerScanPage (camera QR check-in)"]
         Layout --> Pass["EventPassPage (QR pass, calendar, certificate)"]
         Layout --> Notifs["NotificationsPage (bell inbox)"]
+        Layout --> Leader["LeaderboardPage (ranking & badges)"]
+        Public["VerifyCertificatePage (public /verify/:id)"]
         Layout --> AdminHome["AdminHome (admin /home)"]
         AdminHome --> AdminDash["AdminDashboardPage (Manage Accounts)"]
         AdminHome --> AdminAtt["AdminAttendeesPage (Attendees & Stamps, Excel)"]
@@ -80,6 +82,9 @@ graph TD
     Scanner -.-> RegSvc
     Pass -.-> RegSvc
     Notifs -.-> InAppSvc
+    Scanner -.-> SessionSvc
+    Leader -.-> SessionSvc
+    Public -.-> RegSvc
     AdminAtt -.-> RegSvc
     AdminTasks -.-> TaskSvc
     Cron --> VercelAPI
@@ -176,6 +181,10 @@ sequenceDiagram
     A->>API: GET ?action=certificate&id&personId
     API-->>A: 302 to 10-minute signed S3 link (or PDF built on the fly)
 ```
+
+- **Stamps at the booth**: the scanner lists the event's stamp sessions (live ones first). *Approve stamp* reuses `sessionService` — it creates the stamp if the attendee never requested it, then approves it with the officer's id — and notifies the attendee.
+- **Verification**: every certificate carries a QR code to `…/#/verify/<certificateId>` (built from `APP_URL` or the request host). `GET /api/registrations?action=verify&certificateId=` is public and returns only what is printed on the certificate (name, event, dates, venue, issue date) plus `valid` / `revoked` / `not-found`.
+- **Leaderboard** (`utils/badges.ts`): one approved stamp per person and session counts; ranked by stamps, then workshops (session `type: 'workshop'`), then whoever reached the score first; admins are excluded. Badges are always computed from all events so they don't change with the event filter.
 
 ---
 
@@ -290,8 +299,9 @@ erDiagram
 
 | Role | Permissions |
 | :--- | :--- |
-| **`attendee`** | View schedule, request stamps, edit personal bio/socials, view own stamp card, show the QR event pass, add events to a calendar, download own certificate after check-in, read own notifications. |
-| **`officer`** | All attendee privileges + `OfficerDashboardPage`: see and complete assigned tasks, approve/decline stamp requests, and check attendees in with the **Check-in Scanner** (`/officer/scan`). |
+| **public (signed out)** | Welcome, sign-in, sign-up, and **certificate verification** (`/verify/:id`). |
+| **`attendee`** | View schedule, request stamps, edit personal bio/socials, view own stamp card, show the QR event pass, add events to a calendar, download own certificate after check-in, read own notifications, view the **leaderboard** and own badges. |
+| **`officer`** | All attendee privileges + `OfficerDashboardPage`: see and complete assigned tasks, approve/decline stamp requests, and check attendees in and **approve stamps** with the **Check-in Scanner** (`/officer/scan`). |
 | **`admin`** | All officer privileges + approve/decline sign-ups (optional reason), change roles and delete accounts (`/admin`), monitor attendees and stamp finishers with Excel export (`/admin/attendees`), officer achievements, archive batches (`/admin/officers`), assign officer tasks (`/admin/tasks`), edit events and assign officers, send reminders. |
 
 The built-in admin is `awsapc.admin` (password from `ADMIN_PASSWORD`). There are no demo accounts. Admin actions — and check-ins (`/api/registrations?action=checkin`, officer or admin) — are checked on the server against the acting account's role; the app does not yet use signed sessions (see ADR-008). A certificate can only be downloaded by its owner or by an officer/admin.
