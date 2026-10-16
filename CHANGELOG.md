@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.5.3] - 2026-10-16
+
+### Fixed
+- **Emails not sending after the Gmail switch**: `api/notify.ts` imported `../lib/mail` without a `.js` extension, which fails on Vercel because the project is an ES module (`"type": "module"`), so `/api/notify` crashed before sending. The Gmail (Nodemailer) sender now lives inside `api/notify.ts` like the other self-contained API files. Spaces in `GMAIL_APP_PASSWORD` are ignored, and the club inbox isn't CC'd on emails already addressed to it.
+
+### Changed
+- Email now goes through Gmail SMTP when `GMAIL_USER` and `GMAIL_APP_PASSWORD` are set (Amazon SES is the fallback). Every user email is CC'd to and replies go to aws.apcofficial@gmail.com.
+
+---
+
 ## [0.5.2] - 2026-10-16
 
 ### Changed

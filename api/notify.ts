@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
 import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2';
-import { sendNotificationEmail } from '../lib/mail';
+import nodemailer from 'nodemailer';
 
 /**
  * Email notifications through Gmail SMTP (Nodemailer) or Amazon SES.
@@ -87,10 +87,19 @@ async function sendMail(mail: Mail, appUrl: string): Promise<boolean> {
     .join('\n');
   const html = renderHtml(mail, appUrl);
 
-  // 1. Prefer Gmail SMTP via Nodemailer if credentials are provided
-  if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
-    await sendNotificationEmail({
-      to,
+  // 1. Prefer Gmail SMTP (Nodemailer) when GMAIL_USER + GMAIL_APP_PASSWORD are set.
+  //    Kept in this file on purpose: Vercel functions here are self-contained
+  //    (an extensionless import like '../lib/mail' fails under "type": "module").
+  const gmailUser = process.env.GMAIL_USER?.trim();
+  const gmailPass = process.env.GMAIL_APP_PASSWORD?.replace(/\s+/g, '');
+  if (gmailUser && gmailPass) {
+    const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: gmailUser, pass: gmailPass } });
+    await transporter.sendMail({
+      from: `"AWS SBG-APC" <${gmailUser}>`,
+      to: to.join(', '),
+      // Keep a copy in the club inbox (skip when the club inbox is already the recipient).
+      ...(to.includes(gmailUser.toLowerCase()) ? {} : { cc: gmailUser }),
+      replyTo: gmailUser,
       subject: mail.subject,
       html,
       text,
