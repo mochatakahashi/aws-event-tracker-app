@@ -16,10 +16,14 @@ graph TD
         Layout --> Profile["ProfilePage"]
         Layout --> OfficerDash["OfficerDashboardPage"]
         Layout --> AdminDash["AdminDashboardPage"]
+        Layout --> Builder["EventBuilderPage"]
 
         Dashboard --> StampCard["EventStampCard (Circle Stamp Passport)"]
         Flow --> StampCard
         Profile --> QRCard["NetworkingCard (Inline QR Code)"]
+        Profile --> AvatarAdjuster["AvatarImageAdjuster (Circular Crop)"]
+        Builder --> BannerAdjuster["ImageBannerAdjuster (16:9 Frame)"]
+        Builder --> AvatarAdjuster
     end
 
     subgraph State Management Layer
@@ -27,22 +31,36 @@ graph TD
         EventCtx["EventContext (Active Event Selection)"]
     end
 
-    subgraph Mock Service & Storage Layer
+    subgraph Client Service Layer
         AuthSvc["authService.ts"]
         EventSvc["eventService.ts"]
         SessionSvc["sessionService.ts"]
-        SpeakerSvc["speakerService.ts"]
-        LocalStore[("Browser LocalStorage")]
+        StorageSvc["storageService.ts"]
+        LocalStore[("Browser LocalStorage (Fallback)")]
+    end
+
+    subgraph Serverless API & AWS Cloud
+        VercelAPI["Vercel Serverless Functions (/api/*)"]
+        DynamoDB[("Amazon DynamoDB (Events, Sessions, Stamps)")]
+        S3Bucket[("Amazon S3 (Banners & Avatars)")]
     end
 
     Dashboard -.-> AuthCtx
     Dashboard -.-> EventCtx
     OfficerDash -.-> SessionSvc
     StampCard -.-> SessionSvc
+    BannerAdjuster -.-> StorageSvc
+    AvatarAdjuster -.-> StorageSvc
 
-    SessionSvc --> LocalStore
-    EventSvc --> LocalStore
+    EventSvc --> VercelAPI
+    SessionSvc --> VercelAPI
+    StorageSvc --> VercelAPI
+    EventSvc -.-> LocalStore
+    SessionSvc -.-> LocalStore
     AuthSvc --> LocalStore
+
+    VercelAPI --> DynamoDB
+    VercelAPI -. Pre-signed URLs .-> S3Bucket
 ```
 
 ---
@@ -59,6 +77,8 @@ graph TD
   - Reads active event sessions and attendee stamp status.
   - Renders grid of circular slots representing each workshop/session.
   - Handles one-tap stamp requests and displays approval state transitions (`approved`, `pending`, `unclaimed`).
+- **`ImageBannerAdjuster.tsx`**: 16:9 interactive banner frame editor with zoom, pan, and 1280×720 export matching preview.
+- **`AvatarImageAdjuster.tsx`**: Circular avatar cropper with circular mask preview and pan/zoom controls for attendees and speakers.
 - **`NetworkingCard.tsx`**: Inline, non-overlay profile card generating external QR code images using QR Server API.
 
 ### 2. State Management Layer
@@ -70,11 +90,13 @@ graph TD
   - Maintains currently selected active event (`AppEvent | null`).
   - Persists event context in `localStorage` under `aws-event-tracker.selectedEvent.v2`.
 
-### 3. Service & Mock Data Layer
-- **`sessionService.ts`**: Handles session lookup, stamp creation (`createStamp`), stamp approvals (`approveStamp`), and declines (`declineStamp`).
-- **`eventService.ts`**: Handles event CRUD operations.
+### 3. Service, Serverless & Cloud Storage Layer
+- **`sessionService.ts`**: Handles session lookup, stamp creation (`createStamp`), stamp approvals (`approveStamp`), and declines (`declineStamp`). Connects to `/api/stamps` and `/api/sessions` with local fallback.
+- **`eventService.ts`**: Handles event CRUD operations, connecting to `/api/events` with local fallback.
+- **`storageService.ts`**: Requests S3 pre-signed upload URLs from `/api/upload-url` and streams cropped images directly to Amazon S3.
+- **`api/` (Vercel Functions)**: Self-contained serverless microservices connecting to AWS SDK v3 DynamoDB client (`@aws-sdk/client-dynamodb`, `@aws-sdk/lib-dynamodb`) and S3 client (`@aws-sdk/client-s3`).
 - **`authService.ts`**: Handles credentials lookup and role updates (`updateUserRole`).
-- **`seedData.ts`**: Provides initial mock dataset seeded into `localStorage` on first load.
+- **`seedData.ts`**: Provides initial dataset seeded into `localStorage` on first load.
 
 ---
 

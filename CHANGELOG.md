@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.3.1] - 2026-10-16
 
+### Added
+- **Circular Avatar Image Adjuster (`AvatarImageAdjuster.tsx`)**:
+  - Interactive avatar adjuster featuring a circular viewport preview, pan/drag positioning, zoom slider (1× to 3×), and direct S3 upload via pre-signed URLs.
+  - Wired into `ProfilePage.tsx` for updating personal profile avatars with instant preview, change, and remove actions.
+  - Wired into `EventBuilderPage.tsx` for speaker headshots with full crop control and instant preview.
+- **AWS Cloud Backend & DynamoDB / S3 Serverless API (Vercel)**:
+  - **`/api/events`**: GET and POST handlers for live event records in Amazon DynamoDB.
+  - **`/api/sessions`**: GET and POST handlers for event session records in DynamoDB.
+  - **`/api/stamps`**: GET stamps, POST request stamp, and PUT approve/decline stamp handlers backed by DynamoDB.
+  - **`/api/upload-url`**: Generates S3 pre-signed upload URLs for secure direct-to-S3 asset uploads.
+  - **`/api/seed`**: Dedicated serverless endpoint for seeding default events, sessions, and stamps into DynamoDB.
+  - **`storageService.ts`**: Client-side integration for requesting pre-signed S3 upload URLs and streaming image blobs directly to S3.
+  - **Hybrid Service Fallback**: `eventService.ts` and `sessionService.ts` seamlessly communicate with live `/api/*` routes when available, gracefully falling back to `localStorage`.
+  - Configured `vercel.json` with SPA routing rewrites and API route declarations.
+
 ### Fixed
 - **Event Banner Adjuster (`ImageBannerAdjuster.tsx`) – over-zoomed uploads**: Newly uploaded banner images no longer open heavily zoomed in or off-center.
   - The image is now scaled to fit entirely inside the 16:9 frame (contain) and centered by default.

@@ -68,7 +68,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           TableName: tableName,
         })
       );
-      return res.status(200).json(result.Items || []);
+      const events = (result.Items || []).filter(
+        (item: any) =>
+          item.entityType === 'event' || (!item.entityType && item.id && String(item.id).startsWith('evt-'))
+      );
+      return res.status(200).json(events);
     }
 
     // POST /api/events (Create)
@@ -82,6 +86,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const itemToSave = {
         ...event,
         id,
+        entityType: 'event',
         createdAt: event.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -116,6 +121,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ...(existing.Item || {}),
         ...eventUpdates,
         id: eventId,
+        entityType: 'event',
         updatedAt: new Date().toISOString(),
       };
 

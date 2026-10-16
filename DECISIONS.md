@@ -97,4 +97,44 @@ Default MUI `Paper` theme rules applied a 16px `border-radius` to `AppBar`, caus
 
 ---
 
+## ADR-006: Direct-to-S3 Presigned Image Upload Pipeline & In-Browser Cropping
+
+### Status
+**Accepted**
+
+### Context
+Event banner images and attendee/speaker profile photos need to be high quality yet properly sized (16:9 for banners, 1:1 circular for avatars). Processing uploads through a custom server backend introduces compute overhead, payload limits, and latency.
+
+### Decision
+Implement in-browser interactive image adjustment with direct-to-S3 pre-signed upload URLs:
+- **`ImageBannerAdjuster.tsx`**: Renders a fixed 16:9 viewport with zoom (1×–3×), drag-to-position, and containment calculations. Generates an exact 1280×720 JPEG blob via HTML5 Canvas.
+- **`AvatarImageAdjuster.tsx`**: Renders a circular crop mask with zoom and pan controls. Generates a square JPEG blob via HTML5 Canvas.
+- **`api/upload-url.ts`**: AWS Lambda / Vercel Serverless Function that uses `@aws-sdk/s3-request-presigner` (`PutObjectCommand`) to issue temporary pre-signed upload URLs.
+- **`storageService.ts`**: Direct PUT upload from browser client to Amazon S3 bucket (`aws-event-tracker-assets`), eliminating proxy bottlenecks.
+
+### Consequences
+- **Positive**: Zero backend image processing load, fast uploads, pixel-accurate previews matching saved outputs, no server upload bandwidth costs.
+- **Negative**: Requires valid AWS IAM credentials configured in serverless environment for S3 URL generation.
+
+---
+
+## ADR-007: Vercel Serverless Functions with Amazon DynamoDB & Hybrid Fallback
+
+### Status
+**Accepted**
+
+### Context
+Transitioning from purely local mock data to live cloud storage requires scalable endpoints for Events, Sessions, and Stamps, while maintaining offline development capabilities and zero disruption to frontend components.
+
+### Decision
+Deploy lightweight serverless API functions on Vercel backed by Amazon DynamoDB (`@aws-sdk/lib-dynamodb` DocumentClient):
+- Created endpoints `/api/events`, `/api/sessions`, `/api/stamps`, and `/api/seed`.
+- Built hybrid fallback handling inside `eventService.ts` and `sessionService.ts`: the client attempts to reach live `/api/*` endpoints first and transparently falls back to `localStorage` when offline or when backend credentials are not provisioned.
+
+### Consequences
+- **Positive**: Seamless live deployment on Vercel with instant cloud persistence, seamless offline/local fallback, zero changes required to presentation components.
+- **Negative**: Requires keeping DynamoDB schemas and frontend TypeScript types strictly aligned.
+
+---
+
 *Last Updated: October 2026*

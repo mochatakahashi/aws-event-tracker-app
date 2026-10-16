@@ -44,22 +44,35 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 
 ## 🔮 Upcoming Milestones
 
-### 🚧 Version 0.3.0 — NFC & QR Verification System (In Progress)
-- [ ] **Officer In-Person QR Scanner**: Allow officers to scan attendee QR cards via device camera to automatically approve session stamps.
+### ✅ Version 0.3.1 — Cloud Assets Pipeline & Live DynamoDB Backend
+- [x] **Amazon S3 Asset Pipeline**: Cloud storage for event banners and speaker/profile avatars via secure pre-signed URLs (`/api/upload-url`, `storageService.ts`).
+- [x] **16:9 Banner Image Adjuster (`ImageBannerAdjuster`)**: Interactive drag, zoom (1× to 3×), and fit-to-frame editor with instant 1280×720 export and dashboard synchronization.
+- [x] **Circular Avatar Image Adjuster (`AvatarImageAdjuster`)**: Circular crop preview, pan/drag, and zoom controls for attendee profiles and event speakers.
+- [x] **Amazon DynamoDB Serverless API (Vercel Functions)**:
+  - Live endpoints for Events (`/api/events`), Sessions (`/api/sessions`), and Stamps (`/api/stamps`).
+  - Batch seeding endpoint (`/api/seed`) for initial data provisioning.
+  - Hybrid service fallback in `eventService.ts` and `sessionService.ts` for offline/local development resiliency.
+
+---
+
+## 🔮 Upcoming Milestones & Next Steps
+
+### 🚧 Version 0.3.5 — Officer In-Person QR Scanner & Verification (Immediate Next Priority)
+- [ ] **Officer In-Person QR Camera Scanner**: Enable officers to scan attendee QR codes (from `NetworkingCard` / attendee passes) via device camera to instantly pull up their stamp passport and approve stamps on the spot.
+- [ ] **Attendee Event Pass / Ticket QR**: Dedicated digital event check-in badge containing attendee ID and registered event token.
 - [ ] **NFC Badge Tap Integration**: Web NFC API support for physical event badge check-ins.
 - [ ] **Offline Stamp Storage (Service Worker / PWA)**: Enable offline stamp caching so attendees can request stamps even with low venue connectivity.
 
 ---
 
-### 📅 Version 0.4.0 — Cloud Infrastructure & Live Backend Integration
-- [ ] **AWS Amplify / Cognito Authentication**: Replace mock auth with real user pools, SSO (APC Google Workspace), and MFA.
-- [ ] **AWS AppSync / GraphQL API**: Connect application to live AWS AppSync GraphQL backend backed by Amazon DynamoDB tables.
-- [ ] **Real-Time WebSockets**: Live real-time stamp approval notifications sent to attendees when an officer approves their request.
-- [ ] **Amazon S3 Asset Pipeline**: Cloud storage for speaker avatars, event banners, and generated QR cards.
+### 📅 Version 0.4.0 — Production Auth & Real-Time Sync
+- [ ] **AWS Amplify / Cognito Authentication**: Replace mock auth with real user pools, APC Google Workspace SSO, and MFA.
+- [ ] **Real-Time Stamp Approvals & Notifications**: Live WebSockets or Server-Sent Events (SSE) notifying attendees immediately when an officer approves their stamp.
+- [ ] **Officer In-App Notification Feed**: Push alerts for incoming stamp requests to assigned session officers.
 
 ---
 
-### 🚀 Version 1.0.0 — Production Release & Leaderboard
+### 🚀 Version 1.0.0 — Leaderboard, Gamification & Certificates
 - [ ] **Builder Leaderboard & Badges**: Gamified leaderboard ranking attendees by stamp count and workshop activity completions.
 - [ ] **Automated Certificate of Attendance**: Automatic PDF certificate generation upon completing 100% of event stamps.
 - [ ] **Multi-Event Analytics**: Officer/Admin reporting dashboard showing attendance retention and workshop completion rates.
@@ -76,9 +89,14 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 | No-Overlay UI Architecture | v0.2.0 | ✅ Completed | High |
 | Event Stamp Passport Card | v0.2.5 | ✅ Completed | High |
 | Officer Stamp Queue | v0.2.5 | ✅ Completed | High |
-| Camera QR Scanner | v0.3.0 | ⏳ Planned | Medium |
-| Offline PWA Support | v0.3.0 | ⏳ Planned | Medium |
-| AWS Cognito & DynamoDB Sync | v0.4.0 | ⏳ Planned | High |
+| 16:9 Banner Adjuster & S3 Upload | v0.3.1 | ✅ Completed | High |
+| Circular Avatar Adjuster & S3 Upload | v0.3.1 | ✅ Completed | High |
+| Live DynamoDB API & Seeding | v0.3.1 | ✅ Completed | High |
+| Officer Camera QR Scanner | v0.3.5 | 🚀 **Next Up** | High |
+| Offline PWA Support | v0.3.5 | ⏳ Planned | Medium |
+| Real-Time Stamp Notifications | v0.4.0 | ⏳ Planned | High |
+| AWS Cognito Authentication | v0.4.0 | ⏳ Planned | High |
+| Gamified Leaderboard | v1.0.0 | ⏳ Planned | Medium |
 | Automated PDF Certificates | v1.0.0 | ⏳ Planned | Low |
 
 ---

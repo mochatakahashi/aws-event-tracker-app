@@ -23,6 +23,11 @@
 - **Admin Role Management (`AdminDashboardPage`)**: Manage user permissions, promoting attendees to officers or administrators.
 - **Multi-Role Support**: Built-in access control for `attendee`, `officer`, and `admin` roles.
 
+### 🎨 Cloud Media & Interactive Image Adjusters
+- **16:9 Banner Image Adjuster (`ImageBannerAdjuster`)**: Interactive frame cropper with 1×–3× zoom, drag positioning, and direct export/upload of 1280×720 banners.
+- **Circular Avatar Image Adjuster (`AvatarImageAdjuster`)**: Circular mask cropper for attendee profile pictures and event speaker headshots with direct S3 pre-signed upload.
+- **Direct-to-S3 Cloud Pipeline**: Client-side canvas export uploaded directly to Amazon S3 via secure pre-signed URLs (`/api/upload-url`).
+
 ### 📱 Mobile-First & Overlay-Free UX
 - **No Overlays**: Replaced screen-obscuring backdrop modals and popups with inline expandable cards and collapse panels.
 - **Sticky Edge-to-Edge Navigation**: Clean 0-radius top app bar with text truncation for seamless mobile viewing.
@@ -93,22 +98,31 @@ Open [http://localhost:5173](http://localhost:5173) in your browser and sign in 
 
 ```
 aws-event-tracker-app/
+├── api/                   # Vercel Serverless Functions (AWS SDK v3)
+│   ├── events.ts          # DynamoDB events CRUD
+│   ├── sessions.ts        # DynamoDB sessions CRUD
+│   ├── stamps.ts          # DynamoDB stamp requests & approvals
+│   ├── upload-url.ts      # S3 pre-signed upload URL generator
+│   └── seed.ts            # Batch database seeding endpoint
 ├── public/                # Static public assets
 ├── src/
 │   ├── components/        # Reusable UI components
-│   │   ├── AppLayout.tsx         # Main layout with sticky header & mobile bottom nav
-│   │   ├── BottomNav.tsx         # Mobile bottom navigation bar
-│   │   ├── EventStampCard.tsx    # Automatic circle stamp passport card
-│   │   ├── NetworkingCard.tsx    # Inline modal-free QR card
-│   │   ├── ProtectedRoute.tsx    # Auth route guard
-│   │   ├── SessionCard.tsx       # Flow session card
-│   │   └── StampBadge.tsx        # Circle badge indicator
+│   │   ├── AppLayout.tsx           # Main layout with sticky header & mobile bottom nav
+│   │   ├── AvatarImageAdjuster.tsx # Circular avatar cropper with S3 upload
+│   │   ├── BottomNav.tsx           # Mobile bottom navigation bar
+│   │   ├── EventStampCard.tsx      # Automatic circle stamp passport card
+│   │   ├── ImageBannerAdjuster.tsx # 16:9 banner frame adjuster with S3 upload
+│   │   ├── NetworkingCard.tsx      # Inline modal-free QR card
+│   │   ├── ProtectedRoute.tsx      # Auth route guard
+│   │   ├── SessionCard.tsx         # Flow session card
+│   │   └── StampBadge.tsx          # Circle badge indicator
 │   ├── context/           # Global React Contexts
-│   │   ├── AuthContext.tsx       # Auth state & localStorage persistence
-│   │   └── EventContext.tsx      # Active event selection state
+│   │   ├── AuthContext.tsx         # Auth state & localStorage persistence
+│   │   └── EventContext.tsx        # Active event selection state
 │   ├── pages/             # Page route views
 │   │   ├── AdminDashboardPage.tsx
 │   │   ├── DashboardPage.tsx
+│   │   ├── EventBuilderPage.tsx
 │   │   ├── EventDetailPage.tsx
 │   │   ├── EventFlowPage.tsx
 │   │   ├── EventsPage.tsx
@@ -121,12 +135,13 @@ aws-event-tracker-app/
 │   │   ├── SessionDetailPage.tsx
 │   │   ├── SignUpPage.tsx
 │   │   └── WelcomePage.tsx
-│   ├── services/          # Mock service & data layer
+│   ├── services/          # Cloud API & service layer
 │   │   ├── authService.ts
 │   │   ├── eventService.ts
 │   │   ├── registrationService.ts
 │   │   ├── sessionService.ts
 │   │   ├── speakerService.ts
+│   │   ├── storageService.ts       # S3 pre-signed upload client
 │   │   └── seedData.ts
 │   ├── theme/             # MUI theme configuration & brand tokens
 │   │   └── theme.ts
@@ -141,18 +156,17 @@ aws-event-tracker-app/
 ├── DECISIONS.md           # Architectural Decision Records (ADRs)
 ├── ROADMAP.md             # Project roadmap & upcoming features
 ├── README.md              # Project documentation
+├── vercel.json            # Vercel deployment & routing config
 └── package.json
 ```
 
 ---
 
-## 🔌 Backend Integration Guide
+## 🔌 Cloud Backend & Database Integration
 
-The app utilizes async mock service functions in `src/services/` that simulate HTTP network latency (`delay()`). To integrate a live AWS backend (e.g., API Gateway + AWS Lambda + DynamoDB):
-
-1. **Replace Service Calls**: Swap local storage operations in `src/services/*.ts` with `fetch` or AWS SDK v3 calls.
-2. **Preserve Signatures**: Keep function return types (`Promise<Session[]>`, `Promise<Stamp>`) unchanged to avoid modifying React components.
-3. **Authentication**: Connect `AuthContext.tsx` to AWS Cognito / Amplify Auth.
+The application operates in a **Hybrid Mode**:
+1. **Live AWS Cloud (Vercel Serverless + DynamoDB + S3)**: When deployed or running with the serverless API, data is written to and read from Amazon DynamoDB tables (`Events`, `Sessions`, `Stamps`) and Amazon S3 bucket (`aws-event-tracker-assets`).
+2. **Local Fallback**: If backend endpoints are unreachable or credentials are not configured, client services (`eventService.ts`, `sessionService.ts`) automatically fall back to browser `localStorage` seamlessly.
 
 ---
 
