@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.2] - 2026-10-16
+
+### Added
+- **Local admin authentication auto-sync**: `authService.ts` now automatically injects and syncs the built-in admin account (`awsapc.admin` / `aws.apcofficial@gmail.com`) into browser `localStorage` whenever `VITE_LOCAL_ADMIN_PASSWORD` is configured in `.env.local` or `.env`. Prevents stale local caches from blocking sign-in.
+- **Repository guidelines (`CLAUDE.md`)**: establishes strict project rules against assistant co-authorship tags, session links, branded artifact folders, and force pushes.
+- **Automated commit-msg Git hook**: local hook to ensure commit messages remain clean without unintended co-author lines.
+
+### Changed
+- **Environment variables security**: updated `.gitignore` to explicitly ignore `.env` and `.env.*` to prevent secrets from ever being tracked in Git, with safe dummy templates maintained in `.env.example`.
+- **Roadmap & feature backlog**: recorded official AWS sender email migration (Amazon SES) as a pending work item in `ROADMAP.md` for instant automated notification delivery (account approvals, decline reasons, event assignments, and daily cron reminders).
+- **Repository hygiene**: removed temporary screenshot artifacts and cleaned git history so all commits are solely attributed to the repository owner.
+
+---
+
 ## [0.6.1] - 2026-10-16
 
 ### Documentation
