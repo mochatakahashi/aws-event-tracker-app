@@ -166,7 +166,7 @@ export default function AdminDashboardPage() {
         </Alert>
       )}
       {info && (
-        <Alert severity="info" sx={{ mb: 2 }} onClose={() => setInfo('')}>
+        <Alert severity={/failed|No email sent/.test(info) ? 'warning' : 'success'} sx={{ mb: 2 }} onClose={() => setInfo('')}>
           {info}
         </Alert>
       )}

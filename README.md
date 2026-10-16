@@ -73,7 +73,7 @@ Set these in Vercel → Settings → Environment Variables:
 | `CRON_SECRET` | any long random string | Protects the daily reminder job (`vercel.json` → `crons`) |
 | `ADMIN_NOTIFY_EMAIL` | `aws.apcofficial@gmail.com` | Optional; admin alerts (new sign-ups waiting, failed emails). This is the default |
 
-The AWS access key also needs the `ses:SendEmail` permission. While SES is in sandbox mode it can only email verified addresses — request production access in the SES console.
+The AWS access key also needs the `ses:SendEmail` permission. While SES is in sandbox mode it can only email verified addresses, so approval/decline emails to new users will fail (Manage Accounts shows a warning and the admin inbox gets a report). Request production access in the SES console (**Account dashboard → Request production access**) so every user can receive emails.
 
 ---
 

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.5.2] - 2026-10-16
+
+### Changed
+- **Decline email**: declined sign-ups get an email from the AWS SBG-APC address (`SES_FROM_EMAIL`) with the admin's reason, a "Sign up again" link, and Reply-To set to aws.apcofficial@gmail.com so they can answer directly. Approval emails use the same Reply-To.
+- If SES can't send an approval/decline email (for example, SES is still in sandbox mode and the address isn't verified), the admin sees a warning in Manage Accounts explaining why, and the failure is also emailed to aws.apcofficial@gmail.com. Successful sends show who the email went to.
+
+---
+
 ## [0.5.1] - 2026-10-16
 
 ### Changed

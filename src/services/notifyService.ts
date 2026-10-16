@@ -16,6 +16,10 @@ export interface NotifyResult {
   sent: number;
   /** Why nothing was sent (e.g. email not set up, or running locally). */
   skipped?: string;
+  /** Why sending failed (e.g. SES sandbox). */
+  failed?: string;
+  /** Who it went to. */
+  to?: string[];
 }
 
 export async function notify(n: Notification): Promise<NotifyResult> {
@@ -29,8 +33,10 @@ export async function notify(n: Notification): Promise<NotifyResult> {
 export async function notifyQuietly(n: Notification): Promise<string | null> {
   try {
     const r = await notify(n);
+    if (r.failed) return `Saved, but the email failed: ${r.failed}`;
     if (r.skipped) return `Saved. No email sent: ${r.skipped}`;
-    return r.sent > 0 ? `Email sent (${r.sent}).` : null;
+    if (r.sent > 0) return r.to?.length ? `Email sent to ${r.to.join(', ')}.` : `Email sent (${r.sent}).`;
+    return null;
   } catch (e) {
     return `Saved, but the email failed: ${e instanceof Error ? e.message : 'unknown error'}`;
   }

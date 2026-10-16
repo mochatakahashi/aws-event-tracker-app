@@ -91,6 +91,8 @@ async function sendMail(mail: Mail, appUrl: string): Promise<boolean> {
     new SendEmailCommand({
       FromEmailAddress: from,
       Destination: { ToAddresses: to },
+      // Replies (e.g. "I fixed my email") go to the org inbox.
+      ReplyToAddresses: [ADMIN_NOTIFY_EMAIL],
       Content: {
         Simple: {
           Subject: { Data: mail.subject, Charset: 'UTF-8' },
@@ -155,9 +157,10 @@ function accountMail(u: any): Mail | null {
       subject: 'Your AWS SBG-APC sign-up needs another look',
       heading: `Hi ${firstName(u)},`,
       lines: [
-        'Your sign-up was not approved.',
-        u.rejectionReason ? `Reason: ${u.rejectionReason}` : 'Please check your details.',
+        'Your sign-up for the AWS SBG-APC Event Tracker was declined by the admin.',
+        u.rejectionReason ? `Reason: ${u.rejectionReason}` : 'No reason was given. Please double-check your details.',
         'You can sign up again with the same email and the corrected details.',
+        `Questions? Just reply to this email or write to ${ADMIN_NOTIFY_EMAIL}.`,
       ],
       button: { label: 'Sign up again', path: '/#/signup' },
     };
@@ -288,6 +291,18 @@ async function runReminders(client: DynamoDBDocumentClient, tableName: string, a
   return sent;
 }
 
+/** Plain-language explanation of an SES error. */
+function sesErrorText(err: any): string {
+  const msg = String(err?.message || err);
+  if (/not verified/i.test(msg)) {
+    return 'Amazon SES is still in sandbox mode, so it only emails verified addresses. Request production access in the SES console (Account dashboard → Request production access). Details: ' + msg;
+  }
+  if (/not authorized|AccessDenied/i.test(msg)) {
+    return 'The AWS key is not allowed to send email (needs ses:SendEmail). Details: ' + msg;
+  }
+  return msg;
+}
+
 /** Email the admin inbox about something that needs attention. Never throws. */
 async function reportToAdmin(subject: string, lines: string[], appUrl: string, button?: Mail['button']) {
   try {
@@ -342,8 +357,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const u = await get(body.personId);
         if (u?.entityType !== 'user') return res.status(404).json({ error: 'User not found' });
         const mail = accountMail(u);
-        if (mail && (await sendMail(mail, appUrl))) sent++;
-        break;
+        if (!mail) break;
+        if (addresses(u).length === 0) {
+          return res.status(200).json({ sent: 0, skipped: 'This account has no email address.' });
+        }
+        try {
+          if (await sendMail(mail, appUrl)) sent++;
+        } catch (err: any) {
+          const reason = sesErrorText(err);
+          await reportToAdmin(
+            `Could not email ${u.name} (${u.status === 'rejected' ? 'decline' : 'approval'} notice)`,
+            [`To: ${addresses(u).join(', ')}`, `Error: ${reason}`],
+            appUrl,
+          );
+          return res.status(200).json({ sent: 0, failed: reason });
+        }
+        return res.status(200).json({ sent, to: addresses(u) });
       }
       case 'event-assigned': {
         const ev = await get(body.eventId);
