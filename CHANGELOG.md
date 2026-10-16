@@ -13,6 +13,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **🎯 Approve stamps from the Check-in Scanner**: after scanning a pass, every stamp session of the event is listed with **Approve stamp** (sessions happening now first, marked *Now*; requested ones marked *Requested*). Works whether or not the attendee requested the stamp, updates the passport progress immediately, and notifies the attendee.
 - **📜 Certificate verification page** (`/#/verify` and `/#/verify/:id`, public): look up a certificate ID or scan the new **"Scan to verify" QR code** printed on certificates. Shows *Verified*, *No longer valid* (check-in undone) or *Not found*, with only the details printed on the certificate. The pass and event page link to it next to the certificate ID. API: `GET /api/registrations?action=verify&certificateId=`.
 - **🏆 Builder Leaderboard & achievement badges** (`/leaderboard`, sidebar + Achievements page): ranking by approved stamps and completed workshops per event or across all events, top-3 podium, *Your standing*, and five badges — First Stamp, Workshop Warrior, Cloud Explorer, Full Passport Complete, Multi-Event Builder.
+- **🖼️ Persistent Event Picture Storage & Recent Uploads Database**:
+  - Implemented persistent client-side file storage using IndexedDB (`uploadStorageService.ts`) and a serverless DynamoDB endpoint (`/api/uploads`) for all uploaded event pictures, banners, and speaker photos.
+  - Added the **Recent Uploads Shelf (`RecentUploadsShelf`)** component in both `EventBuilderPage` and `EventDetailPage`: automatically displays the recent uploads on load with a prominent **"⭐ Recent Upload"** badge, thumbnail previews, file sizes, upload timestamps, 1-click **"Use as Banner"** application, full-screen lightbox preview, and delete controls.
+  - Zero-friction upload fallback: if AWS S3 is offline or credentials are not yet set up in local development, pictures are stored directly in local IndexedDB file storage and registered in the database without failing.
+- **📅 Synchronized Seed Events & Participant Estimates**:
+  - Synchronized all 7 past and upcoming events in both `src/services/seedData.ts` and `api/seed.ts` with accurate expected and estimated participant numbers:
+    - *Tech Barangay: AWS x WordPress x Notion* (130 est)
+    - *Cloud Watch: Demo Day x Spider-Man: Brand New Day* (30 est)
+    - *AWS Student Community Day Mega Manila 2026* (380 est)
+    - *Organization Fair 2026* (200 est)
+    - *Mini-Org Fair* (100+ expected)
+    - *AWS Launchpad: Intro to Cloud and AWS Ecosystem* (170 pax expected)
+    - *AWS Launchpad: Core Services* (20 pax)
 
 ### Notes
 - **Nothing new to install**: these features use packages already added in v0.6.0 (`qrcode` is now also used on the server for the certificate QR). Run `npm install` only if you haven't since v0.6.0.

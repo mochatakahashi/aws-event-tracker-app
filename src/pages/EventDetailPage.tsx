@@ -51,6 +51,7 @@ import type { Registration, RsvpStatus, Person } from '../types/attendee';
 import { ModalityChip, StatusChip, TagChip } from '../components/EventChips';
 import AddToCalendarButton from '../components/AddToCalendarButton';
 import CertificateButton from '../components/CertificateButton';
+import RecentUploadsShelf from '../components/RecentUploadsShelf';
 import QrCode2RoundedIcon from '@mui/icons-material/QrCode2Rounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import { formatDateRange } from '../utils/eventDisplay';
@@ -454,6 +455,20 @@ export default function EventDetailPage() {
             )}
 
             <Divider sx={{ my: 3 }} />
+
+            {/* Event Photos & Recent Uploads */}
+            <Box sx={{ mb: 4 }}>
+              <RecentUploadsShelf
+                currentUrl={event.imageUrl}
+                onSelect={(url) => {
+                  if (user?.role === 'admin') {
+                    updateEvent(event.id, { imageUrl: url }).then((updated) => setEvent(updated));
+                  }
+                }}
+                eventId={event.id}
+                title="Event Photos & Recent Uploads"
+              />
+            </Box>
 
             {/* Organizer Card */}
             <Box

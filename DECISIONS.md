@@ -289,4 +289,24 @@ Officers at workshop booths had to leave the scanner to approve stamps; certific
 
 ---
 
+## ADR-016: Persistent Event Picture Storage (IndexedDB + DynamoDB Hybrid) & Recent Uploads Shelf
+
+### Status
+**Accepted**
+
+### Context
+Event organizers and officers frequently upload event banners and speaker photos. When creating new events or reopening the Event Builder, there was no persistent shelf to view or select previously/recently uploaded pictures, and local development without active S3 credentials would fail on upload.
+
+### Decision
+- Store uploaded image assets in persistent client-side **IndexedDB** (`uploadStorageService.ts`) with a serverless DynamoDB endpoint (`/api/uploads`, entityType `upload`).
+- Provide the **`RecentUploadsShelf`** component that automatically loads stored uploads, prominently badging the latest upload with **"⭐ Recent Upload"**, showing file dimensions/sizes, relative upload times, and offering a one-click **"Use as Banner"** action and full-res preview lightbox.
+- If Amazon S3 is offline or not configured in local development (`npm run dev`), the upload seamlessly falls back to storing the image directly in IndexedDB persistent storage as a data URL, registering it in the recent uploads database without throwing errors.
+
+### Consequences
+- **Positive**: Zero upload crashes during offline or local development; officers can reuse previously uploaded photos with 1 click; recent uploads load immediately.
+- **Negative**: High-resolution images stored in IndexedDB consume local client storage (addressed by limiting metadata cache and supporting direct S3 cloud storage).
+
+---
+
 *Last Updated: October 2026*
+

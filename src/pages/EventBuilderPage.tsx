@@ -26,8 +26,9 @@ import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import PersonIcon from '@mui/icons-material/Person';
 import ImageBannerAdjuster from '../components/ImageBannerAdjuster';
 import AvatarImageAdjuster from '../components/AvatarImageAdjuster';
+import RecentUploadsShelf from '../components/RecentUploadsShelf';
 import { getEvent, createEvent, updateEvent, deleteEvent } from '../services/eventService';
-import { uploadImageToS3 } from '../services/storageService';
+import { uploadAndRecordImage } from '../services/uploadStorageService';
 import {
   createSpeaker,
   getSpeakersByIds,
@@ -138,13 +139,18 @@ export default function EventBuilderPage() {
     setUploadError('');
 
     try {
-      const s3Url = await uploadImageToS3(croppedFile, (percent) => {
-        setUploadProgress(percent);
+      const uploadItem = await uploadAndRecordImage(croppedFile, {
+        eventId: id,
+        eventTitle: formData.title,
+        category: 'banner',
+        onProgress: (percent) => {
+          setUploadProgress(percent);
+        },
       });
-      setFormData((prev) => ({ ...prev, imageUrl: s3Url }));
+      setFormData((prev) => ({ ...prev, imageUrl: uploadItem.url }));
       setAdjustSource(null);
     } catch (err: any) {
-      setUploadError(err.message || 'Failed to upload adjusted banner to AWS S3');
+      setUploadError(err.message || 'Failed to upload adjusted banner');
       throw err;
     } finally {
       setUploadingImage(false);
@@ -157,9 +163,14 @@ export default function EventBuilderPage() {
     setUploadingSpeakerAvatar(true);
     setSpeakerUploadProgress(0);
     try {
-      const s3Url = await uploadImageToS3(croppedFile, (pct) => setSpeakerUploadProgress(pct));
+      const uploadItem = await uploadAndRecordImage(croppedFile, {
+        eventId: id,
+        eventTitle: formData.title,
+        category: 'speaker',
+        onProgress: (pct) => setSpeakerUploadProgress(pct),
+      });
       setSpeakers(prev => prev.map((sp, i) =>
-        i === adjustingSpeakerIdx ? { ...sp, avatarUrl: s3Url } : sp
+        i === adjustingSpeakerIdx ? { ...sp, avatarUrl: uploadItem.url } : sp
       ));
       setAdjustingSpeakerIdx(null);
       setAdjustingSpeakerSource(null);
@@ -504,6 +515,15 @@ export default function EventBuilderPage() {
               </Paper>
             )
           }
+
+          {/* Stored Pictures & Recent Uploads Shelf */}
+          <RecentUploadsShelf
+            currentUrl={formData.imageUrl}
+            onSelect={(url) => setFormData((prev) => ({ ...prev, imageUrl: url }))}
+            eventId={id}
+            category="banner"
+            title="Recent Uploads Storage (Database & S3)"
+          />
 
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
             <TextField

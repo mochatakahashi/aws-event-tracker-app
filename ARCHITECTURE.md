@@ -33,6 +33,7 @@ graph TD
         Profile --> AvatarAdjuster["AvatarImageAdjuster (Circular Crop)"]
         Builder --> BannerAdjuster["ImageBannerAdjuster (16:9 Frame)"]
         Builder --> AvatarAdjuster
+        Builder --> UploadShelf["RecentUploadsShelf (Recent Uploads Storage)"]
     end
 
     subgraph State Management Layer
@@ -45,16 +46,18 @@ graph TD
         EventSvc["eventService.ts"]
         SessionSvc["sessionService.ts"]
         StorageSvc["storageService.ts"]
+        UploadStorageSvc["uploadStorageService.ts"]
         RegSvc["registrationService.ts"]
         TaskSvc["taskService.ts"]
         NotifySvc["notifyService.ts (emails)"]
         InAppSvc["notificationService.ts (bell)"]
+        IDBStore[("Browser IndexedDB (Persistent File Storage)")]
         LocalStore[("Browser LocalStorage (Fallback)")]
     end
 
     subgraph Serverless API & AWS Cloud
         VercelAPI["Vercel Serverless Functions (/api/*)"]
-        DynamoDB[("Amazon DynamoDB (single table: users, events, sessions, stamps, registrations, tasks, speakers, notifications)")]
+        DynamoDB[("Amazon DynamoDB (single table: users, events, sessions, stamps, registrations, tasks, speakers, notifications, uploads)")]
         S3Bucket[("Amazon S3 (banners, avatars, certificate PDFs)")]
         SES[("Gmail SMTP / Amazon SES (Emails)")]
         Cron["Vercel Cron (daily 8:00 AM Manila)"]

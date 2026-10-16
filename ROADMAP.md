@@ -93,6 +93,8 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 - [ ] **`.ics` attached to event emails** and a custom email domain for deliverability.
 - [x] **Certificate verification page** (`/#/verify/:id`, QR code on every certificate).
 - [x] **Builder Leaderboard & achievement badges** (moved up from v1.0.0).
+- [x] **Event Picture Storage & Recent Uploads Shelf**: IndexedDB persistent client storage and `/api/uploads` DynamoDB endpoint showing recent uploads on load with 1-click banner application.
+- [x] **Event Seed Synchronization**: Updated all 7 past and upcoming events with official attendee estimates across local and cloud databases.
 - [ ] **NFC Badge Tap Integration**: Web NFC API support for physical event badge check-ins.
 - [ ] **Offline Stamp Storage (Service Worker / PWA)**: Enable offline stamp caching so attendees can request stamps even with low venue connectivity.
 

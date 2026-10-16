@@ -49,6 +49,7 @@
 - **16:9 Banner Image Adjuster (`ImageBannerAdjuster`)**: Interactive frame cropper with 1×–3× zoom, drag positioning, and direct export/upload of 1280×720 banners.
 - **Circular Avatar Image Adjuster (`AvatarImageAdjuster`)**: Circular mask cropper for attendee profile pictures and event speaker headshots with direct S3 pre-signed upload.
 - **Direct-to-S3 Cloud Pipeline**: Client-side canvas export uploaded directly to Amazon S3 via secure pre-signed URLs (`/api/upload-url`).
+- **Persistent Picture Storage & Recent Uploads Shelf (`RecentUploadsShelf`)**: Persistent client-side IndexedDB storage and `/api/uploads` DynamoDB endpoint for event banners and photos. Loads recent uploads with file metadata, relative dates, a **"⭐ Recent Upload"** badge on the latest picture, full-resolution preview, and 1-click **Use as Banner** action with automatic offline fallback.
 
 ### 📱💻 Phone & Laptop Layouts, Overlay-Free UX
 - **Phones (< 768px)**: single-column pages, sticky top bar and a thumb-friendly **bottom navigation bar** (`BottomNav`).
