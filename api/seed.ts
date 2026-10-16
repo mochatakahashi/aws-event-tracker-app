@@ -154,7 +154,6 @@ const initialSessions = [
     eventId: 'evt-1',
     title: 'WordPress Campus Connect',
     description: 'Introduction to WordPress. (Note: You need to show your work that you finished before approval from the officer)',
-    imageUrl: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=600&q=80',
     startTime: '2026-11-14T10:00:00+08:00',
     endTime: '2026-11-14T11:30:00+08:00',
     room: 'Lab 1',

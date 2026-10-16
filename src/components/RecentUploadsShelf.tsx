@@ -19,6 +19,7 @@ import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
 import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 import CloudUploadRoundedIcon from '@mui/icons-material/CloudUploadRounded';
 import StorageRoundedIcon from '@mui/icons-material/StorageRounded';
+import ImageNotSupportedOutlinedIcon from '@mui/icons-material/ImageNotSupportedOutlined';
 import { alpha } from '@mui/material/styles';
 
 import type { EventUploadItem } from '../types/upload';
@@ -208,8 +209,12 @@ export default function RecentUploadsShelf({
             borderColor: 'divider',
           }}
         >
-          <Typography variant="body2" color="text.secondary">
-            No stored uploads yet. Upload an image above to automatically save it to database and file storage.
+          <ImageNotSupportedOutlinedIcon sx={{ fontSize: 32, opacity: 0.45, mb: 0.5, color: 'text.secondary' }} />
+          <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.secondary', display: 'block' }}>
+            No image
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            No cloud images uploaded yet. Upload a picture above to save it to storage.
           </Typography>
         </Box>
       ) : (

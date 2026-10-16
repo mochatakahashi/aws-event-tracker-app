@@ -13,17 +13,9 @@ import AccessTimeIcon from '@mui/icons-material/AccessTimeRounded';
 import BookmarkBorderRoundedIcon from '@mui/icons-material/BookmarkBorderRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import HourglassTopRoundedIcon from '@mui/icons-material/HourglassTopRounded';
+import ImageNotSupportedOutlinedIcon from '@mui/icons-material/ImageNotSupportedOutlined';
 import type { Session } from '../types/session';
 import type { Speaker } from '../types/speaker';
-
-const SESSION_IMAGES: Record<string, string> = {
-  keynote: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=600&q=80',
-  workshop: 'https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=600&q=80',
-  talk: 'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?auto=format&fit=crop&w=600&q=80',
-  networking: 'https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=600&q=80',
-  panel: 'https://images.unsplash.com/photo-1515187029135-18ee286d815b?auto=format&fit=crop&w=600&q=80',
-  break: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=600&q=80',
-};
 
 function formatMonthDay(iso: string): { month: string; day: string } {
   const d = new Date(iso);
@@ -51,7 +43,7 @@ export default function SessionCard({
   speakers,
   onClick,
 }: SessionCardProps) {
-  const coverImage = session.imageUrl ?? SESSION_IMAGES[session.type] ?? SESSION_IMAGES.talk;
+  const coverImage = session.imageUrl || '';
   const { month, day } = formatMonthDay(session.startTime);
   const sessionTime = formatTimeOnly(session.startTime);
   const isApproved = stampStatus === 'approved';
@@ -73,17 +65,40 @@ export default function SessionCard({
     >
       <CardActionArea onClick={onClick} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
         {/* Cover Image Header with Badges */}
-        <Box sx={{ position: 'relative', height: 140, width: '100%', overflow: 'hidden' }}>
-          <Box
-            component="img"
-            src={coverImage}
-            alt={session.title}
-            sx={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-            }}
-          />
+        <Box sx={{ position: 'relative', height: 140, width: '100%', overflow: 'hidden', bgcolor: 'rgba(123, 45, 142, 0.05)' }}>
+          {coverImage ? (
+            <Box
+              component="img"
+              src={coverImage}
+              alt={session.title}
+              sx={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+              }}
+            />
+          ) : (
+            <Box
+              sx={{
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 0.5,
+                color: 'text.secondary',
+              }}
+            >
+              <ImageNotSupportedOutlinedIcon sx={{ fontSize: 28, opacity: 0.4 }} />
+              <Typography
+                variant="caption"
+                sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, fontSize: '0.65rem', opacity: 0.7 }}
+              >
+                No image
+              </Typography>
+            </Box>
+          )}
 
           {/* Overlay Date Badge (Top Left) */}
           <Box

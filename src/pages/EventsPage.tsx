@@ -20,6 +20,7 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import BookmarkBorderRoundedIcon from '@mui/icons-material/BookmarkBorderRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
+import ImageNotSupportedOutlinedIcon from '@mui/icons-material/ImageNotSupportedOutlined';
 import { alpha } from '@mui/material/styles';
 import { getEvents } from '../services/eventService';
 import { getRegistrationsByEvent } from '../services/registrationService';
@@ -27,12 +28,6 @@ import { useAuth } from '../context/AuthContext';
 import { brand } from '../theme/theme';
 import { TagChip } from '../components/EventChips';
 import type { AppEvent } from '../types/event';
-
-const EVENT_COVER_IMAGES: Record<string, string> = {
-  onsite: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=800&q=80',
-  hybrid: 'https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=800&q=80',
-  virtual: 'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?auto=format&fit=crop&w=800&q=80',
-};
 
 function formatMonthDay(iso: string): { month: string; day: string } {
   const d = new Date(iso);
@@ -198,7 +193,7 @@ export default function EventsPage() {
           {displayEvents.map((event) => {
             const st = statusConfig[event.status] ?? statusConfig.upcoming;
             const md = modalityConfig[event.modality] ?? modalityConfig.onsite;
-            const coverImage = event.imageUrl || EVENT_COVER_IMAGES[event.modality] || EVENT_COVER_IMAGES.onsite;
+            const coverImage = event.imageUrl || '';
             const { month, day } = formatMonthDay(event.startAt);
             const eventTime = formatTimeOnly(event.startAt);
 
@@ -224,18 +219,41 @@ export default function EventsPage() {
                   sx={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', flex: 1 }}
                 >
                   {/* Cover Image Header */}
-                  <Box sx={{ position: 'relative', height: 160, width: '100%', overflow: 'hidden' }}>
-                    <Box
-                      component="img"
-                      src={coverImage}
-                      alt={event.title}
-                      sx={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover',
-                        filter: event.status === 'accomplished' ? 'grayscale(0.4)' : 'none',
-                      }}
-                    />
+                  <Box sx={{ position: 'relative', height: 160, width: '100%', overflow: 'hidden', bgcolor: alpha(brand.primary, 0.05) }}>
+                    {coverImage ? (
+                      <Box
+                        component="img"
+                        src={coverImage}
+                        alt={event.title}
+                        sx={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover',
+                          filter: event.status === 'accomplished' ? 'grayscale(0.4)' : 'none',
+                        }}
+                      />
+                    ) : (
+                      <Box
+                        sx={{
+                          width: '100%',
+                          height: '100%',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 0.5,
+                          color: 'text.secondary',
+                        }}
+                      >
+                        <ImageNotSupportedOutlinedIcon sx={{ fontSize: 32, opacity: 0.4 }} />
+                        <Typography
+                          variant="caption"
+                          sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, fontSize: '0.68rem', opacity: 0.7 }}
+                        >
+                          No image
+                        </Typography>
+                      </Box>
+                    )}
 
                     {/* Date Badge Overlay (Top Left) */}
                     <Box

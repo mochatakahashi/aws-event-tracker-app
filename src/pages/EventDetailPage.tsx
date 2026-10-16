@@ -26,6 +26,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import BookmarkBorderRoundedIcon from '@mui/icons-material/BookmarkBorderRounded';
 import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded';
 import PlaceRoundedIcon from '@mui/icons-material/PlaceRounded';
+import ImageNotSupportedOutlinedIcon from '@mui/icons-material/ImageNotSupportedOutlined';
 import LinkedInIcon from '@mui/icons-material/LinkedIn';
 import InstagramIcon from '@mui/icons-material/Instagram';
 import FacebookIcon from '@mui/icons-material/Facebook';
@@ -203,42 +204,63 @@ export default function EventDetailPage() {
   const closed = event.status === 'accomplished' || event.status === 'cancelled';
   const canRegister = !closed && (!isFull || myReg !== null);
 
-  const EVENT_COVER_IMAGES: Record<string, string> = {
-    onsite: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=1200&q=80',
-    hybrid: 'https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=1200&q=80',
-    virtual: 'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?auto=format&fit=crop&w=1200&q=80',
-  };
-
-  const heroImage =
-    event.imageUrl || EVENT_COVER_IMAGES[event.modality] || EVENT_COVER_IMAGES.onsite;
+  const heroImage = event.imageUrl || '';
 
   return (
     <Box sx={{ pb: 6 }}>
-      {/* Top Hero Image Header (Matches "Inspired" mockup in Image 4 & 5) */}
+      {/* Top Hero Image Header */}
       <Box
         sx={{
           position: 'relative',
-          height: { xs: 220, sm: 300 },
+          height: heroImage ? { xs: 220, sm: 300 } : { xs: 160, sm: 200 },
           width: '100%',
           borderRadius: '15px',
           overflow: 'hidden',
           mb: 3,
-          boxShadow: '0 8px 30px rgba(0,0,0,0.15)',
+          bgcolor: alpha(brand.primary, 0.05),
+          border: heroImage ? 'none' : '1px solid',
+          borderColor: alpha(brand.primary, 0.12),
+          boxShadow: heroImage ? '0 8px 30px rgba(0,0,0,0.15)' : 'none',
         }}
       >
-        <Box
-          component="img"
-          src={heroImage}
-          alt={event.title}
-          sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
-        />
-        <Box
-          sx={{
-            position: 'absolute',
-            inset: 0,
-            background: 'linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.6) 100%)',
-          }}
-        />
+        {heroImage ? (
+          <>
+            <Box
+              component="img"
+              src={heroImage}
+              alt={event.title}
+              sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+            <Box
+              sx={{
+                position: 'absolute',
+                inset: 0,
+                background: 'linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.6) 100%)',
+              }}
+            />
+          </>
+        ) : (
+          <Box
+            sx={{
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 0.8,
+              color: 'text.secondary',
+            }}
+          >
+            <ImageNotSupportedOutlinedIcon sx={{ fontSize: 38, opacity: 0.4 }} />
+            <Typography
+              variant="caption"
+              sx={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8, fontSize: '0.72rem', opacity: 0.75 }}
+            >
+              No image
+            </Typography>
+          </Box>
+        )}
 
         {/* Overlay Navigation Bar */}
         <Stack
@@ -258,11 +280,12 @@ export default function EventDetailPage() {
               borderRadius: '20px',
               px: 2,
               py: 0.8,
-              boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              textTransform: 'none',
               '&:hover': { bgcolor: '#fff' },
             }}
           >
-            Event Details
+            Back
           </Button>
 
           <Stack direction="row" spacing={1} alignItems="center">
@@ -277,7 +300,8 @@ export default function EventDetailPage() {
                   borderRadius: '20px',
                   px: 2,
                   py: 0.8,
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                  textTransform: 'none',
                   '&:hover': { bgcolor: '#fff' },
                 }}
               >
@@ -290,7 +314,7 @@ export default function EventDetailPage() {
                   bgcolor: 'rgba(255, 255, 255, 0.9)',
                   backdropFilter: 'blur(8px)',
                   color: '#EF4444',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
                   '&:hover': { bgcolor: '#fff' },
                 }}
               >

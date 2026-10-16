@@ -5,58 +5,6 @@ const DB_NAME = 'aws_event_tracker_uploads_v1';
 const STORE_NAME = 'uploads';
 const STORAGE_KEY = 'aws_event_recent_uploads';
 
-/** Pre-seeded recent uploads from default event assets so the shelf isn't empty on first run. */
-const INITIAL_SEEDS: EventUploadItem[] = [
-  {
-    id: 'upl-seed-1',
-    url: '/images/events/scd-mega-manila.jpg',
-    name: 'scd-mega-manila-banner.jpg',
-    size: 420000,
-    mimeType: 'image/jpeg',
-    uploadedAt: new Date(Date.now() - 3600 * 1000 * 2).toISOString(),
-    eventId: 'evt-1',
-    eventTitle: 'AWS Student Community Day Mega Manila 2026',
-    category: 'banner',
-    storageType: 'local',
-  },
-  {
-    id: 'upl-seed-2',
-    url: '/images/events/org-fair.jpg',
-    name: 'org-fair-2026.jpg',
-    size: 380000,
-    mimeType: 'image/jpeg',
-    uploadedAt: new Date(Date.now() - 3600 * 1000 * 24).toISOString(),
-    eventId: 'evt-2',
-    eventTitle: 'Organization Fair 2026',
-    category: 'banner',
-    storageType: 'local',
-  },
-  {
-    id: 'upl-seed-3',
-    url: '/images/events/mini-org-fair.jpg',
-    name: 'mini-org-fair.jpg',
-    size: 295000,
-    mimeType: 'image/jpeg',
-    uploadedAt: new Date(Date.now() - 3600 * 1000 * 48).toISOString(),
-    eventId: 'evt-3',
-    eventTitle: 'Mini-Org Fair',
-    category: 'banner',
-    storageType: 'local',
-  },
-  {
-    id: 'upl-seed-4',
-    url: '/images/events/launchpad-intro-cloud.jpg',
-    name: 'launchpad-intro-cloud.jpg',
-    size: 310000,
-    mimeType: 'image/jpeg',
-    uploadedAt: new Date(Date.now() - 3600 * 1000 * 72).toISOString(),
-    eventId: 'evt-5',
-    eventTitle: 'AWS Launchpad: Intro to Cloud and AWS Ecosystem',
-    category: 'banner',
-    storageType: 'local',
-  },
-];
-
 /** Open or create the IndexedDB store for storing picture files and metadata. */
 function openUploadsDB(): Promise<IDBDatabase | null> {
   if (typeof window === 'undefined' || !window.indexedDB) {
@@ -85,17 +33,14 @@ function openUploadsDB(): Promise<IDBDatabase | null> {
 
 /** Read items from localStorage fallback. */
 function getFromLocalStorage(): EventUploadItem[] {
-  if (typeof window === 'undefined') return [...INITIAL_SEEDS];
+  if (typeof window === 'undefined') return [];
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_SEEDS));
-      return [...INITIAL_SEEDS];
-    }
+    if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : [...INITIAL_SEEDS];
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
-    return [...INITIAL_SEEDS];
+    return [];
   }
 }
 

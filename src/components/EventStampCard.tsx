@@ -16,6 +16,7 @@ import HourglassTopRoundedIcon from '@mui/icons-material/HourglassTopRounded';
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
 import WorkspacePremiumRoundedIcon from '@mui/icons-material/WorkspacePremiumRounded';
 import PlaceIcon from '@mui/icons-material/PlaceRounded';
+import ImageNotSupportedOutlinedIcon from '@mui/icons-material/ImageNotSupportedOutlined';
 import { alpha } from '@mui/material/styles';
 import { brand } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
@@ -366,13 +367,7 @@ export default function EventStampCard({
               const stamp = stamps.find((s) => s.sessionId === session.id);
               const isApproved = stamp?.status === 'approved';
               const isPending = stamp?.status === 'pending';
-              const coverImage =
-                session.imageUrl ??
-                (session.type === 'workshop'
-                  ? 'https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=600&q=80'
-                  : session.type === 'keynote'
-                  ? 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=600&q=80'
-                  : 'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?auto=format&fit=crop&w=600&q=80');
+              const coverImage = session.imageUrl || '';
 
               return (
                 <Card
@@ -398,13 +393,36 @@ export default function EventStampCard({
                   }}
                 >
                   {/* Image Header with Badges */}
-                  <Box sx={{ position: 'relative', height: 130, width: '100%' }}>
-                    <Box
-                      component="img"
-                      src={coverImage}
-                      alt={session.title}
-                      sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    />
+                  <Box sx={{ position: 'relative', height: 130, width: '100%', bgcolor: alpha(brand.primary, 0.05) }}>
+                    {coverImage ? (
+                      <Box
+                        component="img"
+                        src={coverImage}
+                        alt={session.title}
+                        sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                    ) : (
+                      <Box
+                        sx={{
+                          width: '100%',
+                          height: '100%',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 0.5,
+                          color: 'text.secondary',
+                        }}
+                      >
+                        <ImageNotSupportedOutlinedIcon sx={{ fontSize: 28, opacity: 0.4 }} />
+                        <Typography
+                          variant="caption"
+                          sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, fontSize: '0.65rem', opacity: 0.7 }}
+                        >
+                          No image
+                        </Typography>
+                      </Box>
+                    )}
 
                     {/* Date Badge Overlay */}
                     <Box

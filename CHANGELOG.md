@@ -27,6 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - *AWS Launchpad: Intro to Cloud and AWS Ecosystem* (170 pax expected)
     - *AWS Launchpad: Core Services* (20 pax)
 
+### Changed
+- **🚫 Removed static placeholder images**: Removed hardcoded static asset paths, pre-seeded sample uploads, and Unsplash stock photos across `seedData.ts`, `uploadStorageService.ts`, `EventsPage.tsx`, `EventDetailPage.tsx`, `SessionCard.tsx`, and `EventStampCard.tsx`. Events and sessions without cloud-uploaded pictures now cleanly render a branded **"No image"** placeholder instead of fake static pictures.
+
 ### Notes
 - **Nothing new to install**: these features use packages already added in v0.6.0 (`qrcode` is now also used on the server for the certificate QR). Run `npm install` only if you haven't since v0.6.0.
 - Certificates issued before this version have no QR code; their IDs still verify on the page.

@@ -14,23 +14,11 @@ describe('uploadStorageService', () => {
     }
   });
 
-  it('loads recent uploads with seed data sorted newest first', async () => {
+  it('starts with empty uploads when no files uploaded yet', async () => {
     const uploads = await getRecentUploads();
-    expect(uploads.length).toBeGreaterThanOrEqual(1);
-
-    // Verify ordering
-    for (let i = 0; i < uploads.length - 1; i++) {
-      const current = new Date(uploads[i].uploadedAt).getTime();
-      const next = new Date(uploads[i + 1].uploadedAt).getTime();
-      expect(current).toBeGreaterThanOrEqual(next);
-    }
-  });
-
-  it('retrieves the single latest upload', async () => {
+    expect(uploads).toEqual([]);
     const latest = await getLatestUpload();
-    expect(latest).toBeDefined();
-    expect(latest?.id).toBeDefined();
-    expect(latest?.url).toBeDefined();
+    expect(latest).toBeNull();
   });
 
   it('saves a new upload record and puts it at the top of recent uploads', async () => {
@@ -49,11 +37,39 @@ describe('uploadStorageService', () => {
     await saveUploadRecord(newUpload);
 
     const uploads = await getRecentUploads();
+    expect(uploads.length).toBe(1);
     expect(uploads[0].id).toBe('upl-test-custom-1');
     expect(uploads[0].name).toBe('test-banner.jpg');
 
     const latest = await getLatestUpload();
     expect(latest?.id).toBe('upl-test-custom-1');
+  });
+
+  it('sorts multiple uploads newest first', async () => {
+    const firstUpload: EventUploadItem = {
+      id: 'upl-first',
+      url: 'https://example.com/first.jpg',
+      name: 'first.jpg',
+      uploadedAt: new Date(Date.now() - 60000).toISOString(),
+      category: 'banner',
+      storageType: 'local',
+    };
+
+    const secondUpload: EventUploadItem = {
+      id: 'upl-second',
+      url: 'https://example.com/second.jpg',
+      name: 'second.jpg',
+      uploadedAt: new Date().toISOString(),
+      category: 'banner',
+      storageType: 'local',
+    };
+
+    await saveUploadRecord(firstUpload);
+    await saveUploadRecord(secondUpload);
+
+    const uploads = await getRecentUploads();
+    expect(uploads[0].id).toBe('upl-second');
+    expect(uploads[1].id).toBe('upl-first');
   });
 
   it('filters uploads by category and eventId', async () => {
