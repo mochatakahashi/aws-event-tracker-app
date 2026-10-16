@@ -5,58 +5,71 @@ import type {
   LinkedInProfile,
 } from '../types/speaker';
 import { seedSpeakers } from './seedData';
+import { apiJson, delay, generateId, isRemoteAvailable, localCollection } from './apiClient';
 
 /**
- * In-memory speaker directory. Async to mirror a real API.
+ * Speaker directory. Stored in DynamoDB through `/api/speakers` when deployed
+ * (merged over the built-in seed speakers), and in localStorage otherwise, so
+ * speakers and their photos added in the Event Builder are kept.
  */
 
-let speakers: Speaker[] = seedSpeakers.map((s) => ({ ...s }));
+const API = '/api/speakers';
 
-const LATENCY = 150;
+const local = localCollection<Speaker>('aws-event-tracker.speakers.v1', () =>
+  seedSpeakers.map((s) => ({ ...s })),
+);
 
-function delay<T>(value: T): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), LATENCY));
-}
-
-function generateId(): string {
-  return `spk-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+async function loadAll(): Promise<Speaker[]> {
+  if (await isRemoteAvailable(API)) {
+    const saved = await apiJson<Speaker[]>(API);
+    const byId = new Map<string, Speaker>(seedSpeakers.map((s) => [s.id, { ...s }]));
+    for (const sp of saved) byId.set(sp.id, sp);
+    return [...byId.values()];
+  }
+  return delay(local.load());
 }
 
 /** All speakers, alphabetized by name. */
 export async function getSpeakers(): Promise<Speaker[]> {
-  const sorted = [...speakers].sort((a, b) => a.name.localeCompare(b.name));
-  return delay(sorted.map((s) => ({ ...s })));
+  return (await loadAll()).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /** A single speaker by id, or null. */
 export async function getSpeaker(id: string): Promise<Speaker | null> {
-  const found = speakers.find((s) => s.id === id);
-  return delay(found ? { ...found } : null);
+  return (await loadAll()).find((s) => s.id === id) ?? null;
 }
 
-/** Resolve several speakers by id (used to show an event's lineup). */
+/** Resolve several speakers by id (used to show an event's lineup), keeping the given order. */
 export async function getSpeakersByIds(ids: string[]): Promise<Speaker[]> {
-  const set = new Set(ids);
-  return delay(speakers.filter((s) => set.has(s.id)).map((s) => ({ ...s })));
+  const all = await loadAll();
+  return ids.map((id) => all.find((s) => s.id === id)).filter((s): s is Speaker => Boolean(s));
 }
 
 /** Create a speaker in the directory. */
 export async function createSpeaker(input: NewSpeakerInput): Promise<Speaker> {
-  const created: Speaker = { ...input, id: generateId() };
-  speakers = [...speakers, created];
+  if (await isRemoteAvailable(API)) {
+    return apiJson<Speaker>(API, { method: 'POST', body: JSON.stringify(input) });
+  }
+  const created: Speaker = { ...input, id: generateId('spk') };
+  local.save([...local.load(), created]);
   return delay({ ...created });
 }
 
 /** Update a speaker; rejects if unknown. */
-export async function updateSpeaker(
-  id: string,
-  changes: UpdateSpeakerInput,
-): Promise<Speaker> {
+export async function updateSpeaker(id: string, changes: UpdateSpeakerInput): Promise<Speaker> {
+  if (await isRemoteAvailable(API)) {
+    const current = (await loadAll()).find((s) => s.id === id);
+    return apiJson<Speaker>(`${API}?id=${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify({ ...(current || {}), ...changes }),
+    });
+  }
+  const speakers = local.load();
   const index = speakers.findIndex((s) => s.id === id);
-  if (index === -1) return Promise.reject(new Error(`Speaker not found: ${id}`));
-  const updated: Speaker = { ...speakers[index], ...changes, id };
-  speakers[index] = updated;
-  return delay({ ...updated });
+  if (index === -1) throw new Error(`Speaker not found: ${id}`);
+  speakers[index] = { ...speakers[index], ...changes, id };
+  local.save(speakers);
+  return delay({ ...speakers[index] });
 }
 
 /**
@@ -102,5 +115,5 @@ export async function lookupLinkedInProfile(
 
 /** Reset the directory to seed data (tests / dev only). */
 export function __resetSpeakers(): void {
-  speakers = seedSpeakers.map((s) => ({ ...s }));
+  local.reset();
 }

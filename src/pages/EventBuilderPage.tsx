@@ -28,6 +28,11 @@ import ImageBannerAdjuster from '../components/ImageBannerAdjuster';
 import AvatarImageAdjuster from '../components/AvatarImageAdjuster';
 import { getEvent, createEvent, updateEvent, deleteEvent } from '../services/eventService';
 import { uploadImageToS3 } from '../services/storageService';
+import {
+  createSpeaker,
+  getSpeakersByIds,
+  updateSpeaker as saveSpeakerChanges,
+} from '../services/speakerService';
 import { useAuth } from '../context/AuthContext';
 import { useEvent } from '../context/EventContext';
 import { brand } from '../theme/theme';
@@ -35,10 +40,20 @@ import { EVENT_TAGS, type AppEvent } from '../types/event';
 import { tagColor, tagLabel } from '../utils/eventDisplay';
 
 interface SpeakerDraft {
+  /** Set when the speaker is already saved in the directory. */
+  id?: string;
   name: string;
   headline: string;
   bio: string;
   avatarUrl: string;
+}
+
+/** ISO string → value for <input type="datetime-local"> in the browser's own time zone. */
+function toLocalInput(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 export default function EventBuilderPage() {
@@ -70,8 +85,8 @@ export default function EventBuilderPage() {
     status: 'upcoming',
     tags: [],
     venue: '',
-    startAt: new Date().toISOString().slice(0, 16),
-    endAt: new Date(Date.now() + 3600000).toISOString().slice(0, 16),
+    startAt: toLocalInput(new Date().toISOString()),
+    endAt: toLocalInput(new Date(Date.now() + 3600000).toISOString()),
     description: '',
     capacity: 100,
     participants: 0,
@@ -85,13 +100,22 @@ export default function EventBuilderPage() {
     }
     
     if (isEditing && id) {
-      getEvent(id).then(ev => {
+      getEvent(id).then(async ev => {
         if (ev) {
           setFormData({
             ...ev,
-            startAt: new Date(ev.startAt).toISOString().slice(0, 16),
-            endAt: new Date(ev.endAt).toISOString().slice(0, 16),
+            startAt: toLocalInput(ev.startAt),
+            endAt: toLocalInput(ev.endAt),
           });
+          // Load the saved speaker lineup so it can be edited
+          const lineup = await getSpeakersByIds(ev.speakerIds || []);
+          setSpeakers(lineup.map(sp => ({
+            id: sp.id,
+            name: sp.name,
+            headline: sp.headline || '',
+            bio: sp.bio || '',
+            avatarUrl: sp.avatarUrl || '',
+          })));
         }
       }).finally(() => setLoading(false));
     }
@@ -160,6 +184,28 @@ export default function EventBuilderPage() {
     setSpeakers(prev => prev.map((sp, i) => i === idx ? { ...sp, [field]: value } : sp));
   };
 
+  /** Save the speaker cards to the speaker directory and return their ids. */
+  const saveSpeakers = async (): Promise<string[]> => {
+    const ids: string[] = [];
+    for (const sp of speakers) {
+      if (!sp.name.trim()) continue;
+      const fields = {
+        name: sp.name.trim(),
+        headline: sp.headline.trim(),
+        bio: sp.bio.trim(),
+        avatarUrl: sp.avatarUrl || undefined,
+      };
+      if (sp.id) {
+        await saveSpeakerChanges(sp.id, fields);
+        ids.push(sp.id);
+      } else {
+        const created = await createSpeaker({ ...fields, company: '' });
+        ids.push(created.id);
+      }
+    }
+    return ids;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -176,7 +222,7 @@ export default function EventBuilderPage() {
         description: formData.description || '',
         capacity: Number(formData.capacity) || 100,
         participants: Number(formData.participants) || 0,
-        speakerIds: formData.speakerIds || [],
+        speakerIds: await saveSpeakers(),
         officerIds: formData.officerIds || [],
         // Send '' (not undefined) so removing the banner is persisted too
         imageUrl: formData.imageUrl || '',

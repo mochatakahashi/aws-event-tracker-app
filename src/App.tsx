@@ -24,6 +24,9 @@ import ConnectPage from './pages/ConnectPage';
 import NotificationsPage from './pages/NotificationsPage';
 import OfficerDashboardPage from './pages/OfficerDashboardPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
+import AdminAttendeesPage from './pages/AdminAttendeesPage';
+import AdminOfficersPage from './pages/AdminOfficersPage';
+import AdminTasksPage from './pages/AdminTasksPage';
 import EventBuilderPage from './pages/EventBuilderPage';
 import NotFoundPage from './pages/NotFoundPage';
 
@@ -68,6 +71,9 @@ function App() {
                 <Route path="/notifications" element={<NotificationsPage />} />
                 <Route path="/officer" element={<OfficerDashboardPage />} />
                 <Route path="/admin" element={<AdminDashboardPage />} />
+                <Route path="/admin/attendees" element={<AdminAttendeesPage />} />
+                <Route path="/admin/officers" element={<AdminOfficersPage />} />
+                <Route path="/admin/tasks" element={<AdminTasksPage />} />
                 <Route path="/admin/events/new" element={<EventBuilderPage />} />
                 <Route path="/admin/events/:id/edit" element={<EventBuilderPage />} />
 

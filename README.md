@@ -19,8 +19,12 @@
 - **My Registrations**: Manage event RSVPs (`going`, `interested`, `declined`) and view upcoming events.
 
 ### 🛡️ Officer & Admin Capabilities
-- **Officer Verification Portal (`OfficerDashboardPage`)**: Real-time review queue for officers to verify and approve/decline student stamp requests.
-- **Admin Role Management (`AdminDashboardPage`)**: Manage user permissions, promoting attendees to officers or administrators.
+- **Officer Dashboard (`OfficerDashboardPage`)**: Tasks assigned by an admin (Start / Mark done) and the stamp review queue.
+- **Account Approval (`AdminDashboardPage`)**: Every new sign-up waits for an admin to approve or decline it; admins also change roles.
+- **Attendee & Stamp Monitoring (`AdminAttendeesPage`)**: Per-event attendee list with check-in, stamp finishers per session, and Excel downloads for profs.
+- **Officer Achievements (`AdminOfficersPage`)**: Officers in hierarchy order with events volunteered, stamps approved and task progress.
+- **Officer Tasks (`AdminTasksPage`)**: Assign tasks to one or more officers.
+- **Sign-up types**: APC Student (APC email + student ID), Outside Attendee (any email + organization) and Officer (APC email, optional personal email, position and committee).
 - **Multi-Role Support**: Built-in access control for `attendee`, `officer`, and `admin` roles.
 
 ### 🎨 Cloud Media & Interactive Image Adjusters
@@ -39,9 +43,11 @@
 
 | Username | Password | Role | Name | Purpose |
 | :--- | :--- | :--- | :--- | :--- |
-| `admin` | `admin123` | **Admin** | Admin User | Manage user roles & verify stamps |
-| `officer` | `officer123` | **Officer** | Rodmina Jhoy Ibe | Approve attendee stamp requests |
-| `attendee` | `attendee123` | **Attendee** | Sofia Rossi | Track event flow, request stamps & network |
+| `admin` | `admin123` | **Admin** | Admin User | Approve accounts, monitor attendees, assign tasks |
+| `rj` | `rj123` | **Officer** | Rodmina Jhoy Ibe | Approve attendee stamp requests, see tasks |
+| `sofia` | `sofia123` | **Attendee** | Sofia Rossi | Track event flow, request stamps & network |
+
+These accounts are created automatically in DynamoDB the first time it has no users. **Change the admin password** (Profile → Change password) after deploying, because these demo passwords are public.
 
 ---
 
@@ -102,6 +108,10 @@ aws-event-tracker-app/
 │   ├── events.ts          # DynamoDB events CRUD
 │   ├── sessions.ts        # DynamoDB sessions CRUD
 │   ├── stamps.ts          # DynamoDB stamp requests & approvals
+│   ├── users.ts           # Accounts: sign up, sign in (scrypt), approval, profiles
+│   ├── registrations.ts   # Event registrations & check-in
+│   ├── tasks.ts           # Officer tasks assigned by admins
+│   ├── speakers.ts        # Speaker directory (with photos)
 │   ├── upload-url.ts      # S3 pre-signed upload URL generator
 │   └── seed.ts            # Batch database seeding endpoint
 ├── public/                # Static public assets
@@ -120,7 +130,10 @@ aws-event-tracker-app/
 │   │   ├── AuthContext.tsx         # Auth state & localStorage persistence
 │   │   └── EventContext.tsx        # Active event selection state
 │   ├── pages/             # Page route views
-│   │   ├── AdminDashboardPage.tsx
+│   │   ├── AdminDashboardPage.tsx   # Manage Accounts (approvals, roles)
+│   │   ├── AdminAttendeesPage.tsx   # Attendees, check-in, stamp finishers, Excel
+│   │   ├── AdminOfficersPage.tsx    # Officer achievements & volunteered events
+│   │   ├── AdminTasksPage.tsx       # Assign officer tasks
 │   │   ├── DashboardPage.tsx
 │   │   ├── EventBuilderPage.tsx
 │   │   ├── EventDetailPage.tsx
@@ -141,6 +154,8 @@ aws-event-tracker-app/
 │   │   ├── registrationService.ts
 │   │   ├── sessionService.ts
 │   │   ├── speakerService.ts
+│   │   ├── taskService.ts
+│   │   ├── apiClient.ts            # /api detection + localStorage fallback helpers
 │   │   ├── storageService.ts       # S3 pre-signed upload client
 │   │   └── seedData.ts
 │   ├── theme/             # MUI theme configuration & brand tokens
@@ -165,8 +180,8 @@ aws-event-tracker-app/
 ## 🔌 Cloud Backend & Database Integration
 
 The application operates in a **Hybrid Mode**:
-1. **Live AWS Cloud (Vercel Serverless + DynamoDB + S3)**: When deployed or running with the serverless API, data is written to and read from Amazon DynamoDB tables (`Events`, `Sessions`, `Stamps`) and Amazon S3 bucket (`aws-event-tracker-assets`).
-2. **Local Fallback**: If backend endpoints are unreachable or credentials are not configured, client services (`eventService.ts`, `sessionService.ts`) automatically fall back to browser `localStorage` seamlessly.
+1. **Live AWS Cloud (Vercel Serverless + DynamoDB + S3)**: When deployed or running with the serverless API (`vercel dev`), accounts, events, sessions, stamps, registrations, officer tasks and speakers are stored in one DynamoDB table (each record has an `entityType`), and images in the Amazon S3 bucket. Everyone sees the same data on every device.
+2. **Local Fallback**: With `npm run dev` the `/api` functions don't run, so the services fall back to this browser's `localStorage`. Different logins in the same browser still see each other's changes, but nothing is shared with other devices, and uploads to S3 don't work.
 
 ---
 

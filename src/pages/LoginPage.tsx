@@ -7,11 +7,9 @@ import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import Alert from '@mui/material/Alert';
 import CircularProgress from '@mui/material/CircularProgress';
-import Divider from '@mui/material/Divider';
 import Stack from '@mui/material/Stack';
 import Link from '@mui/material/Link';
 import BoltRoundedIcon from '@mui/icons-material/BoltRounded';
-import GoogleIcon from '@mui/icons-material/Google';
 import { alpha } from '@mui/material/styles';
 import { useAuth } from '../context/AuthContext';
 import { DEMO_CREDENTIALS } from '../services/authService';
@@ -39,7 +37,7 @@ export default function LoginPage() {
 
   function validate(): boolean {
     const errors: { username?: string; password?: string } = {};
-    if (!username.trim()) errors.username = 'Username is required.';
+    if (!username.trim()) errors.username = 'Email is required.';
     if (!password) errors.password = 'Password is required.';
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
@@ -107,31 +105,6 @@ export default function LoginPage() {
         onSubmit={handleSubmit}
         noValidate
       >
-        {/* Google sign-in (visual only for now) */}
-        <Button
-          variant="outlined"
-          fullWidth
-          startIcon={<GoogleIcon />}
-          sx={{
-            py: 1.3,
-            borderColor: alpha(brand.textSecondary, 0.3),
-            color: brand.textPrimary,
-            fontWeight: 500,
-            '&:hover': {
-              borderColor: brand.primary,
-              backgroundColor: alpha(brand.primary, 0.03),
-            },
-          }}
-        >
-          Continue with Google
-        </Button>
-
-        <Divider sx={{ my: 2.5 }}>
-          <Typography variant="body2" color="text.secondary">
-            or
-          </Typography>
-        </Divider>
-
         {error && (
           <Alert severity="error" sx={{ mb: 2 }} role="alert">
             {error}
@@ -147,6 +120,7 @@ export default function LoginPage() {
           fullWidth
           margin="normal"
           autoComplete="username"
+          placeholder="you@student.apc.edu.ph"
           autoFocus
         />
         <TextField
@@ -211,7 +185,8 @@ export default function LoginPage() {
         ← Back to home
       </Link>
 
-      {/* Demo credentials */}
+      {/* Demo credentials (local development only) */}
+      {import.meta.env.DEV && (
       <Paper
         variant="outlined"
         sx={{ mt: 3, p: 2, width: '100%', maxWidth: 400, backgroundColor: alpha(brand.secondary, 0.3) }}
@@ -232,6 +207,7 @@ export default function LoginPage() {
           ))}
         </Stack>
       </Paper>
+      )}
     </Box>
   );
 }

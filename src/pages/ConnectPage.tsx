@@ -20,18 +20,41 @@ import { useAuth } from '../context/AuthContext';
 import { brand } from '../theme/theme';
 import type { SocialLinks } from '../types/auth';
 import NetworkingCard from '../components/NetworkingCard';
+import { updateProfile } from '../services/authService';
 
 export default function ConnectPage() {
-  const { user } = useAuth();
+  const { user, setCurrentUser } = useAuth();
 
   const [editing, setEditing] = useState(false);
-  const [bio, setBio] = useState('CS student & AWS Cloud Club member at APC. Building the future on AWS. ☁️');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [bio, setBio] = useState(user?.bio ?? '');
   const [socials, setSocials] = useState<SocialLinks>({
-    linkedIn: 'https://www.linkedin.com/in/example',
-    github: 'https://github.com/example',
+    linkedIn: '',
+    github: '',
     twitterX: '',
     website: '',
+    ...(user?.socials || {}),
   });
+
+  // Saved on the account, so the bio and links show up on every device
+  async function toggleEditing() {
+    if (!editing) {
+      setEditing(true);
+      return;
+    }
+    if (!user) return;
+    setSaving(true);
+    setSaveError('');
+    try {
+      setCurrentUser(await updateProfile(user.personId, { bio: bio.trim(), socials }));
+      setEditing(false);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Could not save your profile.');
+    } finally {
+      setSaving(false);
+    }
+  }
   const [showQR, setShowQR] = useState(false);
 
   const initials = user?.name
@@ -61,6 +84,7 @@ export default function ConnectPage() {
         />
         <CardContent sx={{ pt: 0, pb: 3, px: 3, position: 'relative' }}>
           <Avatar
+            src={user?.avatarUrl || undefined}
             sx={{
               width: 80,
               height: 80,
@@ -126,12 +150,18 @@ export default function ConnectPage() {
             <Button
               size="small"
               startIcon={editing ? <SaveIcon /> : <EditIcon />}
-              onClick={() => setEditing(!editing)}
+              onClick={toggleEditing}
+              disabled={saving}
               sx={{ fontSize: '0.75rem' }}
             >
-              {editing ? 'Save' : 'Edit'}
+              {saving ? 'Saving…' : editing ? 'Save' : 'Edit'}
             </Button>
           </Stack>
+          {saveError && (
+            <Typography variant="caption" color="error" sx={{ display: 'block', mb: 1 }}>
+              {saveError}
+            </Typography>
+          )}
           {editing ? (
             <TextField
               multiline
@@ -224,10 +254,11 @@ export default function ConnectPage() {
               variant="contained"
               fullWidth
               startIcon={<SaveIcon />}
-              onClick={() => setEditing(false)}
+              onClick={toggleEditing}
+              disabled={saving}
               sx={{ mt: 2 }}
             >
-              Save Changes
+              {saving ? 'Saving…' : 'Save Changes'}
             </Button>
           )}
         </CardContent>

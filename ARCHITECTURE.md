@@ -95,7 +95,8 @@ graph TD
 - **`eventService.ts`**: Handles event CRUD operations, connecting to `/api/events` with local fallback.
 - **`storageService.ts`**: Requests S3 pre-signed upload URLs from `/api/upload-url` and streams cropped images directly to Amazon S3.
 - **`api/` (Vercel Functions)**: Self-contained serverless microservices connecting to AWS SDK v3 DynamoDB client (`@aws-sdk/client-dynamodb`, `@aws-sdk/lib-dynamodb`) and S3 client (`@aws-sdk/client-s3`).
-- **`authService.ts`**: Handles credentials lookup and role updates (`updateUserRole`).
+- **`authService.ts`**: Sign up, sign in, approval (`approveUser` / `rejectUser`), profile and role updates and password changes through `/api/users` (scrypt-hashed passwords), with a `localStorage` fallback.
+- **`registrationService.ts` / `taskService.ts` / `speakerService.ts`**: Registrations and check-in, officer tasks, and the speaker directory through `/api/registrations`, `/api/tasks` and `/api/speakers`, with `localStorage` fallback (`apiClient.ts`).
 - **`seedData.ts`**: Provides initial dataset seeded into `localStorage` on first load.
 
 ---
@@ -152,10 +153,25 @@ erDiagram
     }
 
     User {
-        string username PK
+        string personId PK
+        string email
         string role
-        string personId FK
+        string status
+        string memberType
+        string studentId
+        string organization
+        string officerPosition
+        string committee
     }
+
+    OfficerTask {
+        string id PK
+        string title
+        string eventId FK
+        string status
+    }
+
+    User ||--o{ OfficerTask : "assigned to" 
 ```
 
 ---
@@ -165,8 +181,10 @@ erDiagram
 | Role | Permissions |
 | :--- | :--- |
 | **`attendee`** | View schedule, request stamps, edit personal bio/socials, view own stamp card. |
-| **`officer`** | All attendee privileges + access `OfficerDashboardPage` to approve/decline stamp requests. |
-| **`admin`** | All officer privileges + access `AdminDashboardPage` to change user roles. |
+| **`officer`** | All attendee privileges + `OfficerDashboardPage`: see and complete assigned tasks, approve/decline stamp requests. |
+| **`admin`** | All officer privileges + approve/decline sign-ups and change roles (`/admin`), monitor attendees and stamp finishers with Excel export (`/admin/attendees`), officer achievements (`/admin/officers`), assign officer tasks (`/admin/tasks`), edit events. |
+
+New accounts have `status: 'pending'` and cannot sign in until an admin approves them. Officer hierarchy: President → VP Internal → VP External → Directors → Assistant Directors → Associates; committees: Secretariat, Operations, Marketing, Technicals, Relations.
 
 ---
 

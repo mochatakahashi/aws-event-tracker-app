@@ -8,6 +8,11 @@ import {
   DeleteCommand,
 } from '@aws-sdk/lib-dynamodb';
 
+/** Only touch records of this type: the table also holds users, tasks, etc. */
+function isOwnRecord(item: any): boolean {
+  return Boolean(item) && (item.entityType === 'event' || (!item.entityType && String(item.id || '').startsWith('evt-')));
+}
+
 function getDynamoDocClient() {
   const region = process.env.APP_AWS_REGION || process.env.AWS_REGION || 'ap-southeast-1';
   const accessKeyId = process.env.APP_AWS_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
@@ -57,7 +62,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             Key: { id },
           })
         );
-        if (!result.Item) {
+        if (!isOwnRecord(result.Item)) {
           return res.status(404).json({ error: 'Event not found' });
         }
         return res.status(200).json(result.Item);
@@ -116,6 +121,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           Key: { id: eventId },
         })
       );
+      if (existing.Item && !isOwnRecord(existing.Item)) {
+        return res.status(409).json({ error: 'This id belongs to another kind of record' });
+      }
 
       const merged = {
         ...(existing.Item || {}),
@@ -139,6 +147,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { id } = req.query;
       if (!id || typeof id !== 'string') {
         return res.status(400).json({ error: 'Event ID is required for delete' });
+      }
+
+      const toDelete = await client.send(new GetCommand({ TableName: tableName, Key: { id } }));
+      if (!isOwnRecord(toDelete.Item)) {
+        return res.status(404).json({ error: 'Event not found' });
       }
 
       await client.send(

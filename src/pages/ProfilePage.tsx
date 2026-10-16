@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, type FormEvent, type ReactNode } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Card from '@mui/material/Card';
@@ -20,11 +20,44 @@ import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import { alpha } from '@mui/material/styles';
 import { useAuth } from '../context/AuthContext';
 import { brand } from '../theme/theme';
+import TextField from '@mui/material/TextField';
+import Alert from '@mui/material/Alert';
+import Collapse from '@mui/material/Collapse';
+import LockResetIcon from '@mui/icons-material/LockReset';
+import GroupsIcon from '@mui/icons-material/Groups';
+import BusinessIcon from '@mui/icons-material/Business';
+import AlternateEmailIcon from '@mui/icons-material/AlternateEmail';
 import { uploadImageToS3 } from '../services/storageService';
+import { changePassword, updateProfile } from '../services/authService';
+import { memberLabel, officerTitle } from '../utils/people';
 import AvatarImageAdjuster from '../components/AvatarImageAdjuster';
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, setCurrentUser } = useAuth();
+
+  // Change password
+  const [showPassword, setShowPassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [passwordMsg, setPasswordMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [savingPassword, setSavingPassword] = useState(false);
+
+  async function handleChangePassword(e: FormEvent) {
+    e.preventDefault();
+    if (!user) return;
+    setSavingPassword(true);
+    setPasswordMsg(null);
+    try {
+      await changePassword(user.personId, currentPassword, newPassword);
+      setPasswordMsg({ ok: true, text: 'Password changed.' });
+      setCurrentPassword('');
+      setNewPassword('');
+    } catch (err) {
+      setPasswordMsg({ ok: false, text: err instanceof Error ? err.message : 'Could not change password.' });
+    } finally {
+      setSavingPassword(false);
+    }
+  }
 
   // Profile photo state
   const [adjustSource, setAdjustSource] = useState<File | string | null>(null);
@@ -64,6 +97,8 @@ export default function ProfilePage() {
     setUploadProgress(0);
     try {
       const s3Url = await uploadImageToS3(croppedFile, (pct) => setUploadProgress(pct));
+      // Save it on the account so every login and device sees the new photo
+      if (user) setCurrentUser(await updateProfile(user.personId, { avatarUrl: s3Url }));
       setAvatarUrl(s3Url);
       setAdjustSource(null);
     } catch (err: any) {
@@ -72,6 +107,25 @@ export default function ProfilePage() {
       setUploadingAvatar(false);
     }
   };
+
+  const infoRows: { label: string; value: ReactNode; icon: ReactNode }[] = [
+    { label: 'Full Name', value: user?.name, icon: <PersonIcon /> },
+    { label: 'Email', value: user?.email || user?.username, icon: <EmailIcon /> },
+  ];
+  if (user?.personalEmail) {
+    infoRows.push({ label: 'Personal Email', value: user.personalEmail, icon: <AlternateEmailIcon /> });
+  }
+  if (user) {
+    infoRows.push({ label: 'Member Type', value: memberLabel(user), icon: <BadgeIcon /> });
+  }
+  if (user?.memberType === 'outside') {
+    infoRows.push({ label: 'School / Organization', value: user.organization || '—', icon: <BusinessIcon /> });
+  } else if (user?.studentId) {
+    infoRows.push({ label: 'Student ID', value: user.studentId, icon: <SchoolIcon /> });
+  }
+  if (user?.role === 'officer') {
+    infoRows.push({ label: 'Officer Position', value: officerTitle(user), icon: <GroupsIcon /> });
+  }
 
   return (
     <Box>
@@ -191,48 +245,83 @@ export default function ProfilePage() {
           </Typography>
 
           <Stack spacing={2.5}>
-            <Stack direction="row" spacing={2} alignItems="center">
-              <Avatar sx={{ bgcolor: alpha(brand.primary, 0.1), color: brand.primary, width: 40, height: 40 }}>
-                <PersonIcon />
-              </Avatar>
-              <Box>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.2 }}>
-                  Full Name
-                </Typography>
-                <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                  {user?.name}
-                </Typography>
-              </Box>
-            </Stack>
-
-            <Stack direction="row" spacing={2} alignItems="center">
-              <Avatar sx={{ bgcolor: alpha(brand.primary, 0.1), color: brand.primary, width: 40, height: 40 }}>
-                <EmailIcon />
-              </Avatar>
-              <Box>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.2 }}>
-                  Email Address / Username
-                </Typography>
-                <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                  {user?.username}
-                </Typography>
-              </Box>
-            </Stack>
-
-            <Stack direction="row" spacing={2} alignItems="center">
-              <Avatar sx={{ bgcolor: alpha(brand.primary, 0.1), color: brand.primary, width: 40, height: 40 }}>
-                {user?.studentId ? <SchoolIcon /> : <BadgeIcon />}
-              </Avatar>
-              <Box>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.2 }}>
-                  {user?.studentId ? 'Student ID' : 'Account ID'}
-                </Typography>
-                <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                  {user?.studentId || user?.personId}
-                </Typography>
-              </Box>
-            </Stack>
+            {infoRows.map((row) => (
+              <Stack key={row.label} direction="row" spacing={2} alignItems="center">
+                <Avatar sx={{ bgcolor: alpha(brand.primary, 0.1), color: brand.primary, width: 40, height: 40 }}>
+                  {row.icon}
+                </Avatar>
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.2 }}>
+                    {row.label}
+                  </Typography>
+                  <Typography variant="body1" sx={{ fontWeight: 500, wordBreak: 'break-word' }}>
+                    {row.value}
+                  </Typography>
+                </Box>
+              </Stack>
+            ))}
           </Stack>
+        </CardContent>
+      </Card>
+
+      {/* Change password (inline, no dialog) */}
+      <Card variant="outlined" sx={{ borderRadius: 4, mb: 3 }}>
+        <CardContent sx={{ px: 3 }}>
+          <Stack direction="row" alignItems="center" justifyContent="space-between">
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+              Password
+            </Typography>
+            <Button
+              size="small"
+              startIcon={<LockResetIcon />}
+              onClick={() => {
+                setShowPassword((v) => !v);
+                setPasswordMsg(null);
+              }}
+              sx={{ textTransform: 'none' }}
+            >
+              {showPassword ? 'Cancel' : 'Change password'}
+            </Button>
+          </Stack>
+          <Collapse in={showPassword}>
+            <Box component="form" onSubmit={handleChangePassword} sx={{ mt: 1, maxWidth: 360 }}>
+              {passwordMsg && (
+                <Alert severity={passwordMsg.ok ? 'success' : 'error'} sx={{ mb: 1 }}>
+                  {passwordMsg.text}
+                </Alert>
+              )}
+              <TextField
+                label="Current password"
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                fullWidth
+                size="small"
+                margin="dense"
+                autoComplete="current-password"
+              />
+              <TextField
+                label="New password"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                fullWidth
+                size="small"
+                margin="dense"
+                helperText="At least 6 characters"
+                autoComplete="new-password"
+              />
+              <Button
+                type="submit"
+                variant="contained"
+                size="small"
+                disabled={savingPassword || !currentPassword || !newPassword}
+                sx={{ mt: 1 }}
+              >
+                {savingPassword ? 'Saving…' : 'Save new password'}
+              </Button>
+            </Box>
+          </Collapse>
         </CardContent>
       </Card>
     </Box>

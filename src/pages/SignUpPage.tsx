@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from 'react';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { useState, type FormEvent, type ReactNode } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import TextField from '@mui/material/TextField';
@@ -7,50 +7,85 @@ import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import Alert from '@mui/material/Alert';
 import Link from '@mui/material/Link';
-import Divider from '@mui/material/Divider';
-import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
-import Select from '@mui/material/Select';
+import Stack from '@mui/material/Stack';
 import MenuItem from '@mui/material/MenuItem';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import CircularProgress from '@mui/material/CircularProgress';
 import BoltRoundedIcon from '@mui/icons-material/BoltRounded';
-import GoogleIcon from '@mui/icons-material/Google';
+import SchoolRoundedIcon from '@mui/icons-material/SchoolRounded';
+import PublicRoundedIcon from '@mui/icons-material/PublicRounded';
+import VerifiedUserRoundedIcon from '@mui/icons-material/VerifiedUserRounded';
+import HourglassTopRoundedIcon from '@mui/icons-material/HourglassTopRounded';
 import { alpha } from '@mui/material/styles';
 import { brand } from '../theme/theme';
+import { signUp } from '../services/authService';
+import type { AccountType, Committee, OfficerPosition } from '../types/auth';
+import {
+  COMMITTEES,
+  COMMITTEE_LABELS,
+  OFFICER_POSITIONS,
+  POSITION_LABELS,
+  positionNeedsCommittee,
+  validateSignUp,
+} from '../utils/people';
+
+const TYPE_OPTIONS: { value: AccountType; label: string; hint: string; icon: ReactNode }[] = [
+  { value: 'apc-student', label: 'APC Student', hint: 'Attendee from Asia Pacific College', icon: <SchoolRoundedIcon fontSize="small" /> },
+  { value: 'outside', label: 'Outside Attendee', hint: 'From another school or organization', icon: <PublicRoundedIcon fontSize="small" /> },
+  { value: 'officer', label: 'Officer', hint: 'AWS SBG-APC officer', icon: <VerifiedUserRoundedIcon fontSize="small" /> },
+];
 
 export default function SignUpPage() {
-  const navigate = useNavigate();
-
-  const [name, setName] = useState('');
+  const [accountType, setAccountType] = useState<AccountType>('apc-student');
+  const [firstName, setFirstName] = useState('');
+  const [middleInitial, setMiddleInitial] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
+  const [personalEmail, setPersonalEmail] = useState('');
   const [studentId, setStudentId] = useState('');
-  const [requestedRole, setRequestedRole] = useState<'attendee' | 'officer'>('attendee');
+  const [organization, setOrganization] = useState('');
+  const [officerPosition, setOfficerPosition] = useState<OfficerPosition | ''>('');
+  const [committee, setCommittee] = useState<Committee | ''>('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(false);
 
-  function handleSubmit(e: FormEvent) {
+  const isApc = accountType !== 'outside';
+  const isOfficer = accountType === 'officer';
+
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-
-    if (!name.trim() || !email.trim() || !password) {
-      setError('Please fill in all required fields.');
+    const data = {
+      accountType,
+      firstName,
+      middleInitial: middleInitial || undefined,
+      lastName,
+      email,
+      personalEmail: isOfficer ? personalEmail || undefined : undefined,
+      password,
+      studentId: isApc ? studentId : undefined,
+      organization: isApc ? undefined : organization,
+      officerPosition: isOfficer ? officerPosition || undefined : undefined,
+      committee: isOfficer && positionNeedsCommittee(officerPosition || undefined) ? committee || undefined : undefined,
+    };
+    const invalid = validateSignUp(data, confirmPassword);
+    if (invalid) {
+      setError(invalid);
       return;
     }
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
-      return;
+    setSubmitting(true);
+    try {
+      await signUp(data);
+      setDone(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Sign up failed.');
+    } finally {
+      setSubmitting(false);
     }
-    if (password !== confirmPassword) {
-      setError('Passwords do not match.');
-      return;
-    }
-
-    // Mock signup — in production this would call a backend
-    setSuccess(true);
-    setTimeout(() => {
-      navigate('/login');
-    }, 2000);
   }
 
   return (
@@ -89,140 +124,247 @@ export default function SignUpPage() {
         Join AWS SBG-APC Event Tracker
       </Typography>
 
-      <Paper
-        elevation={3}
-        sx={{ p: 3.5, width: '100%', maxWidth: 400 }}
-        component="form"
-        onSubmit={handleSubmit}
-        noValidate
-      >
-        {/* Google sign-up */}
-        <Button
-          variant="outlined"
-          fullWidth
-          startIcon={<GoogleIcon />}
-          sx={{
-            py: 1.3,
-            borderColor: alpha(brand.textSecondary, 0.3),
-            color: brand.textPrimary,
-            fontWeight: 500,
-            '&:hover': {
-              borderColor: brand.primary,
-              backgroundColor: alpha(brand.primary, 0.03),
-            },
-          }}
-        >
-          Continue with Google
-        </Button>
-
-        <Divider sx={{ my: 2.5 }}>
-          <Typography variant="body2" color="text.secondary">
-            or
+      {done ? (
+        <Paper elevation={3} sx={{ p: 3.5, width: '100%', maxWidth: 440, textAlign: 'center' }}>
+          <HourglassTopRoundedIcon sx={{ fontSize: 44, color: brand.primary, mb: 1 }} />
+          <Typography variant="h3" sx={{ mb: 1 }}>
+            Waiting for approval
           </Typography>
-        </Divider>
-
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
-
-        {success && (
-          <Alert severity="success" sx={{ mb: 2 }}>
-            Account created! Redirecting to login…
-          </Alert>
-        )}
-
-        <TextField
-          label="Full Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          fullWidth
-          margin="normal"
-          required
-          autoFocus
-        />
-        <TextField
-          label="Email Address"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          fullWidth
-          margin="normal"
-          required
-        />
-        <TextField
-          label="Student ID (optional)"
-          value={studentId}
-          onChange={(e) => setStudentId(e.target.value)}
-          fullWidth
-          margin="normal"
-          placeholder="e.g. APC-2024-001"
-        />
-        <FormControl fullWidth margin="normal">
-          <InputLabel id="requested-role-label">Requested Role</InputLabel>
-          <Select
-            labelId="requested-role-label"
-            value={requestedRole}
-            label="Requested Role"
-            onChange={(e) => setRequestedRole(e.target.value as any)}
-          >
-            <MenuItem value="attendee">Attendee (Default)</MenuItem>
-            <MenuItem value="officer">Officer</MenuItem>
-          </Select>
-        </FormControl>
-        <TextField
-          label="Password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          fullWidth
-          margin="normal"
-          required
-          helperText="At least 6 characters"
-        />
-        <TextField
-          label="Confirm Password"
-          type="password"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          fullWidth
-          margin="normal"
-          required
-        />
-
-        <Button
-          type="submit"
-          variant="contained"
-          fullWidth
-          size="large"
-          disabled={success}
-          sx={{ mt: 2, py: 1.4, fontSize: '1rem' }}
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            Your account was created. An admin needs to approve it before you can sign in
+            {isOfficer ? ' as an officer' : ''}. Try signing in again once it's approved.
+          </Typography>
+          <Button component={RouterLink} to="/login" variant="contained" fullWidth>
+            Back to Sign In
+          </Button>
+        </Paper>
+      ) : (
+        <Paper
+          elevation={3}
+          sx={{ p: { xs: 2.5, sm: 3.5 }, width: '100%', maxWidth: 440 }}
+          component="form"
+          onSubmit={handleSubmit}
+          noValidate
         >
-          Create Account
-        </Button>
-
-        <Typography
-          variant="body2"
-          sx={{ mt: 2.5, textAlign: 'center', color: brand.textSecondary }}
-        >
-          Already have an account?{' '}
-          <Link
-            component={RouterLink}
-            to="/login"
-            sx={{ color: brand.primary, fontWeight: 600 }}
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+            I'm signing up as
+          </Typography>
+          <ToggleButtonGroup
+            exclusive
+            fullWidth
+            orientation="vertical"
+            value={accountType}
+            onChange={(_e, v: AccountType | null) => {
+              if (!v) return;
+              setAccountType(v);
+              setError(null);
+            }}
+            sx={{ mb: 1 }}
           >
-            Sign In
-          </Link>
-        </Typography>
-      </Paper>
+            {TYPE_OPTIONS.map((opt) => (
+              <ToggleButton
+                key={opt.value}
+                value={opt.value}
+                sx={{
+                  justifyContent: 'flex-start',
+                  gap: 1.5,
+                  textTransform: 'none',
+                  py: 1,
+                  textAlign: 'left',
+                  '&.Mui-selected, &.Mui-selected:hover': {
+                    bgcolor: alpha(brand.primary, 0.08),
+                    color: brand.primary,
+                    borderColor: alpha(brand.primary, 0.5),
+                  },
+                }}
+              >
+                {opt.icon}
+                <Box>
+                  <Typography variant="body2" sx={{ fontWeight: 700, lineHeight: 1.3 }}>
+                    {opt.label}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {opt.hint}
+                  </Typography>
+                </Box>
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
 
-      <Link
-        component={RouterLink}
-        to="/"
-        variant="body2"
-        sx={{ mt: 3, color: brand.textSecondary }}
-      >
+          {error && (
+            <Alert severity="error" sx={{ mt: 1.5 }} role="alert">
+              {error}
+            </Alert>
+          )}
+
+          {/* Full name: First name, M.I., Last name */}
+          <Stack direction="row" spacing={1.5} sx={{ mt: 1 }}>
+            <TextField
+              label="First Name"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              fullWidth
+              margin="normal"
+              required
+              autoComplete="given-name"
+            />
+            <TextField
+              label="M.I."
+              value={middleInitial}
+              onChange={(e) => setMiddleInitial(e.target.value.slice(0, 3))}
+              margin="normal"
+              sx={{ width: 84, flexShrink: 0 }}
+              inputProps={{ maxLength: 3 }}
+              helperText="Optional"
+            />
+          </Stack>
+          <TextField
+            label="Last Name"
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            fullWidth
+            margin="dense"
+            required
+            autoComplete="family-name"
+          />
+
+          <TextField
+            label={isApc ? 'APC Email' : 'Email Address'}
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            fullWidth
+            margin="normal"
+            required
+            autoComplete="email"
+            placeholder={isApc ? 'you@student.apc.edu.ph' : 'you@gmail.com'}
+            helperText={isApc ? 'Use your @apc.edu.ph or @student.apc.edu.ph email' : 'Any personal or work email'}
+          />
+
+          {isOfficer && (
+            <TextField
+              label="Personal Email"
+              type="email"
+              value={personalEmail}
+              onChange={(e) => setPersonalEmail(e.target.value)}
+              fullWidth
+              margin="normal"
+              placeholder="you@gmail.com"
+              helperText="Optional — e.g. your Gmail"
+            />
+          )}
+
+          {isApc ? (
+            <TextField
+              label="APC Student ID"
+              value={studentId}
+              onChange={(e) => setStudentId(e.target.value)}
+              fullWidth
+              margin="normal"
+              required
+              placeholder="e.g. 2024-100123"
+            />
+          ) : (
+            <TextField
+              label="School / Organization"
+              value={organization}
+              onChange={(e) => setOrganization(e.target.value)}
+              fullWidth
+              margin="normal"
+              required
+              placeholder="e.g. Mapúa University, AWS Cloud Club PH"
+            />
+          )}
+
+          {isOfficer && (
+            <>
+              <TextField
+                select
+                label="Officer Position"
+                value={officerPosition}
+                onChange={(e) => {
+                  const v = e.target.value as OfficerPosition;
+                  setOfficerPosition(v);
+                  if (!positionNeedsCommittee(v)) setCommittee('');
+                }}
+                fullWidth
+                margin="normal"
+                required
+              >
+                {OFFICER_POSITIONS.map((p) => (
+                  <MenuItem key={p} value={p}>
+                    {POSITION_LABELS[p]}
+                  </MenuItem>
+                ))}
+              </TextField>
+              {positionNeedsCommittee(officerPosition || undefined) && (
+                <TextField
+                  select
+                  label="Committee"
+                  value={committee}
+                  onChange={(e) => setCommittee(e.target.value as Committee)}
+                  fullWidth
+                  margin="normal"
+                  required
+                >
+                  {COMMITTEES.map((c) => (
+                    <MenuItem key={c} value={c}>
+                      {COMMITTEE_LABELS[c]}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              )}
+            </>
+          )}
+
+          <TextField
+            label="Password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            fullWidth
+            margin="normal"
+            required
+            helperText="At least 6 characters"
+            autoComplete="new-password"
+          />
+          <TextField
+            label="Confirm Password"
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            fullWidth
+            margin="normal"
+            required
+            autoComplete="new-password"
+          />
+
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+            New accounts are reviewed by an admin before you can sign in.
+          </Typography>
+
+          <Button
+            type="submit"
+            variant="contained"
+            fullWidth
+            size="large"
+            disabled={submitting}
+            startIcon={submitting ? <CircularProgress size={20} color="inherit" /> : null}
+            sx={{ mt: 2, py: 1.4, fontSize: '1rem' }}
+          >
+            {submitting ? 'Creating account…' : 'Create Account'}
+          </Button>
+
+          <Typography variant="body2" sx={{ mt: 2.5, textAlign: 'center', color: brand.textSecondary }}>
+            Already have an account?{' '}
+            <Link component={RouterLink} to="/login" sx={{ color: brand.primary, fontWeight: 600 }}>
+              Sign In
+            </Link>
+          </Typography>
+        </Paper>
+      )}
+
+      <Link component={RouterLink} to="/" variant="body2" sx={{ mt: 3, color: brand.textSecondary }}>
         ← Back to home
       </Link>
     </Box>

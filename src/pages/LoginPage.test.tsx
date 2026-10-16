@@ -15,7 +15,7 @@ describe('LoginPage', () => {
 
     await user.click(screen.getByRole('button', { name: /sign in/i }));
 
-    expect(await screen.findByText(/username is required/i)).toBeInTheDocument();
+    expect(await screen.findByText(/email is required/i)).toBeInTheDocument();
     expect(screen.getByText(/password is required/i)).toBeInTheDocument();
   });
 
@@ -23,19 +23,19 @@ describe('LoginPage', () => {
     const user = userEvent.setup();
     renderWithProviders(<LoginPage />);
 
-    await user.type(screen.getByLabelText(/username/i), 'nope');
+    await user.type(screen.getByLabelText(/email/i), 'nope');
     await user.type(screen.getByLabelText(/password/i), 'wrong');
     await user.click(screen.getByRole('button', { name: /sign in/i }));
 
     const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent(/invalid username or password/i);
+    expect(alert).toHaveTextContent(/invalid email or password/i);
   });
 
   it('logs in and persists the user on valid credentials', async () => {
     const user = userEvent.setup();
     renderWithProviders(<LoginPage />);
 
-    await user.type(screen.getByLabelText(/username/i), 'admin');
+    await user.type(screen.getByLabelText(/email/i), 'admin');
     await user.type(screen.getByLabelText(/password/i), 'admin123');
     await user.click(screen.getByRole('button', { name: /sign in/i }));
 

@@ -11,6 +11,17 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import { getStamps, getSessions, approveStamp, declineStamp } from '../services/sessionService';
 import { getPeople } from '../services/registrationService';
+import { getTasksForOfficer, updateTask } from '../services/taskService';
+import { getEvents } from '../services/eventService';
+import Chip from '@mui/material/Chip';
+import Alert from '@mui/material/Alert';
+import AssignmentIcon from '@mui/icons-material/Assignment';
+import { alpha } from '@mui/material/styles';
+import { brand } from '../theme/theme';
+import { TASK_STATUS_LABELS, type OfficerTask, type TaskStatus } from '../types/task';
+import type { AppEvent } from '../types/event';
+import { formatDate } from '../components/AdminUi';
+import { officerTitle } from '../utils/people';
 import { useAuth } from '../context/AuthContext';
 import type { Stamp, Session } from '../types/session';
 import type { Person } from '../types/attendee';
@@ -23,6 +34,9 @@ export default function OfficerDashboardPage() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [people, setPeople] = useState<Person[]>([]);
   const [loading, setLoading] = useState(true);
+  const [tasks, setTasks] = useState<OfficerTask[]>([]);
+  const [events, setEvents] = useState<AppEvent[]>([]);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (user?.role !== 'admin' && user?.role !== 'officer') {
@@ -30,12 +44,21 @@ export default function OfficerDashboardPage() {
       return;
     }
 
-    Promise.all([getStamps(), getSessions(), getPeople()])
-      .then(([stmps, sess, ppl]) => {
+    Promise.all([
+      getStamps(),
+      getSessions(),
+      getPeople(),
+      user?.personId ? getTasksForOfficer(user.personId) : Promise.resolve([]),
+      getEvents(),
+    ])
+      .then(([stmps, sess, ppl, myTasks, evts]) => {
         setPendingStamps(stmps.filter(s => s.status === 'pending'));
         setSessions(sess);
         setPeople(ppl);
+        setTasks(myTasks);
+        setEvents(evts);
       })
+      .catch((e) => setError(e instanceof Error ? e.message : 'Could not load your dashboard.'))
       .finally(() => setLoading(false));
   }, [user, navigate]);
 
@@ -46,6 +69,16 @@ export default function OfficerDashboardPage() {
       setPendingStamps(prev => prev.filter(s => s.id !== stampId));
     } catch (e) {
       console.error(e);
+    }
+  }
+
+  async function setTaskStatus(task: OfficerTask, status: TaskStatus) {
+    if (!user) return;
+    try {
+      const updated = await updateTask(task.id, { status }, user.personId);
+      setTasks(prev => prev.map(t => (t.id === updated.id ? updated : t)));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not update the task.');
     }
   }
 
@@ -62,10 +95,113 @@ export default function OfficerDashboardPage() {
 
   return (
     <Box>
-      <Typography variant="h2" sx={{ mb: 3 }}>
+      <Typography variant="h2" sx={{ mb: 0.5 }}>
         Officer Dashboard
       </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
+      {user?.role === 'officer' && (
+        <Typography variant="body2" color="primary" sx={{ fontWeight: 600, mb: 3 }}>
+          {officerTitle(user)}
+        </Typography>
+      )}
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+          {error}
+        </Alert>
+      )}
+
+      {/* Tasks assigned by an admin */}
+      <Typography variant="h3" sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+        <AssignmentIcon sx={{ color: brand.primary }} /> My Tasks
+        {tasks.filter(t => t.status !== 'done').length > 0 && (
+          <Chip size="small" color="warning" label={`${tasks.filter(t => t.status !== 'done').length} open`} />
+        )}
+      </Typography>
+      {tasks.length === 0 ? (
+        <Typography color="text.secondary" sx={{ mb: 4 }}>
+          No tasks assigned to you yet.
+        </Typography>
+      ) : (
+        <Stack spacing={1.5} sx={{ mb: 4 }}>
+          {[...tasks]
+            .sort((a, b) => Number(a.status === 'done') - Number(b.status === 'done'))
+            .map(task => {
+              const event = events.find(e => e.id === task.eventId);
+              return (
+                <Card
+                  key={task.id}
+                  variant="outlined"
+                  sx={{
+                    borderColor: task.status === 'done' ? alpha(brand.success, 0.4) : alpha(brand.primary, 0.25),
+                    opacity: task.status === 'done' ? 0.75 : 1,
+                  }}
+                >
+                  <CardContent>
+                    <Stack direction="row" spacing={1} alignItems="flex-start" justifyContent="space-between">
+                      <Typography
+                        variant="subtitle1"
+                        sx={{ fontWeight: 700, textDecoration: task.status === 'done' ? 'line-through' : 'none' }}
+                      >
+                        {task.title}
+                      </Typography>
+                      <Chip
+                        size="small"
+                        color={task.status === 'done' ? 'success' : task.status === 'in-progress' ? 'warning' : 'default'}
+                        label={TASK_STATUS_LABELS[task.status]}
+                      />
+                    </Stack>
+                    {task.description && (
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, whiteSpace: 'pre-line' }}>
+                        {task.description}
+                      </Typography>
+                    )}
+                    <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
+                      {event && <Chip size="small" variant="outlined" label={event.title} />}
+                      {task.dueAt && <Chip size="small" variant="outlined" label={`Due ${formatDate(task.dueAt)}`} />}
+                      {task.assigneeIds.length > 1 && (
+                        <Chip
+                          size="small"
+                          variant="outlined"
+                          label={`With ${task.assigneeIds
+                            .filter(id => id !== user?.personId)
+                            .map(id => people.find(p => p.id === id)?.name || 'another officer')
+                            .join(', ')}`}
+                        />
+                      )}
+                    </Stack>
+                    <Stack direction="row" spacing={1} sx={{ mt: 1.5 }}>
+                      {task.status === 'todo' && (
+                        <Button size="small" variant="outlined" onClick={() => setTaskStatus(task, 'in-progress')}>
+                          Start
+                        </Button>
+                      )}
+                      {task.status !== 'done' ? (
+                        <Button
+                          size="small"
+                          variant="contained"
+                          color="success"
+                          startIcon={<CheckCircleIcon />}
+                          onClick={() => setTaskStatus(task, 'done')}
+                        >
+                          Mark done
+                        </Button>
+                      ) : (
+                        <Button size="small" onClick={() => setTaskStatus(task, 'todo')}>
+                          Reopen
+                        </Button>
+                      )}
+                    </Stack>
+                  </CardContent>
+                </Card>
+              );
+            })}
+        </Stack>
+      )}
+
+      <Typography variant="h3" sx={{ mb: 1 }}>
+        Stamp requests
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         Review and approve pending stamp requests from attendees.
       </Typography>
 

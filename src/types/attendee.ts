@@ -1,4 +1,4 @@
-import type { SocialLinks } from './auth';
+import type { Committee, MemberType, OfficerPosition, SocialLinks, UserRole } from './auth';
 
 /** RSVP state for a registration. */
 export type RsvpStatus = 'going' | 'interested' | 'declined';
@@ -6,8 +6,8 @@ export type RsvpStatus = 'going' | 'interested' | 'declined';
 export const RSVP_STATUSES: RsvpStatus[] = ['going', 'interested', 'declined'];
 
 /**
- * A person in the shared directory. A person can register for any number of
- * events. The logged-in user maps to one of these.
+ * A person in the shared directory (built from approved accounts). A person
+ * can register for any number of events. The logged-in user maps to one of these.
  */
 export interface Person {
   id: string;
@@ -21,6 +21,12 @@ export interface Person {
   studentId?: string;
   /** Profile avatar URL. */
   avatarUrl?: string;
+  role?: UserRole;
+  memberType?: MemberType;
+  /** School / company / organization for outside attendees. */
+  organization?: string;
+  officerPosition?: OfficerPosition;
+  committee?: Committee;
 }
 
 export type NewPersonInput = Omit<Person, 'id'>;

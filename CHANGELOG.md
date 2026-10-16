@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.4.0] - 2026-10-16
+
+### Added
+- **Accounts in DynamoDB (`/api/users`)**: Sign up, sign in, profiles and roles are now stored in the database, so every login and device sees the same accounts. Passwords are hashed with scrypt; password hashes are never returned by the API. Demo accounts are created automatically the first time the table has no users.
+- **Admin approval for every new account**: New sign-ups stay **pending** and cannot sign in until an admin approves them in **Manage Accounts**. Officer sign-ups are approved straight into the officer role; declined people can sign up again with the same email.
+- **New sign-up form**:
+  - Account type: **APC Student**, **Outside Attendee**, or **Officer**.
+  - Full name split into **First Name**, **M.I.** (optional) and **Last Name** (shown as "First M. Last").
+  - APC students and officers must use an **APC email** (`@apc.edu.ph` / `@student.apc.edu.ph`) and enter their **APC Student ID**; officers can add an optional **personal email** (e.g. Gmail).
+  - Outside attendees can use any email, are **not** asked for a student ID, and are asked for their **school / organization**.
+  - Officers pick their **position** in the hierarchy (President → VP Internal → VP External → Directors → Assistant Directors → Associates) and, for Directors / Assistant Directors / Associates, their **committee** (Secretariat, Operations, Marketing, Technicals, Relations).
+- **Admin dashboard** (`/home` for admins) with five areas:
+  - **Manage Accounts** (`/admin`): pending sign-ups with full details, Approve / Decline, search and role changes.
+  - **Edit Events** (`/events`).
+  - **Attendees & Achievements** (`/admin/attendees`): per-event attendee list with check-in, plus stamp monitoring per session, the list of people who finished every session, and **Excel (.xlsx) downloads** for profs (summary, finishers, and one sheet per session).
+  - **Officers** (`/admin/officers`): officers in hierarchy order with events volunteered (and their event role), stamps approved, and task progress; admins can correct an officer's position / committee; Excel download.
+  - **Officer Tasks** (`/admin/tasks`): assign tasks (with optional event and due date) to one or more officers.
+- **My Tasks** on the **Officer Dashboard**: officers see tasks assigned to them and can Start / Mark done / Reopen.
+- **Registrations, tasks and speakers in DynamoDB**: new `/api/registrations`, `/api/tasks` and `/api/speakers` functions (local fallback in `localStorage` when `/api` is not running).
+- **Change password** on the Profile page.
+
+### Changed
+- Removed **Continue with Google** from Sign In and Sign Up (APC email is the main login). Sign in accepts an email (or a demo username).
+- Profile photo, bio and social links are now saved to the account (they were lost on refresh before), and the photo shows in the header and Connect page.
+- Speakers added in the Event Builder (including their photos) are now saved and reloaded when editing an event.
+- Only admins see the **Assign an Officer** form on an event page, and the list only offers officers, in hierarchy order with their title.
+- Demo account shortcuts on the login page only show in local development.
+
+### Fixed
+- **Event times shifting when editing**: the Event Builder showed UTC times in the date/time fields, so each save moved the event by the time-zone offset. It now uses the browser's local time.
+- **API safety**: `/api/events`, `/api/sessions` and `/api/stamps` now only read, update or delete records of their own type, so they can't return or overwrite user accounts stored in the same table.
+
+---
+
 ## [0.3.1] - 2026-10-16
 
 ### Added

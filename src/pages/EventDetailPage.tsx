@@ -42,6 +42,7 @@ import {
   getPeopleByIds,
   getPeople,
 } from '../services/registrationService';
+import { compareOfficers, officerTitle } from '../utils/people';
 import type { AppEvent } from '../types/event';
 import type { Speaker } from '../types/speaker';
 import type { Registration, RsvpStatus, Person } from '../types/attendee';
@@ -100,7 +101,8 @@ export default function EventDetailPage() {
     setOfficers(team);
     setRegistrations(regs);
     setMyReg(mine);
-    setAllPeople(people);
+    // Only officers can be assigned, listed in hierarchy order
+    setAllPeople(people.filter((p) => p.role === 'officer' || p.role === 'admin').sort(compareOfficers));
     setLoading(false);
   }, [id, personId]);
 
@@ -531,6 +533,7 @@ export default function EventDetailPage() {
               Assigned Officers
             </Typography>
 
+            {user?.role === 'admin' && (
             <Box sx={{ mb: 3, p: 2, bgcolor: alpha(brand.primary, 0.04), borderRadius: '12px', border: '1px solid', borderColor: alpha(brand.primary, 0.1) }}>
               <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700 }}>
                 Assign an Officer
@@ -544,12 +547,14 @@ export default function EventDetailPage() {
                     displayEmpty
                     sx={{ borderRadius: '8px', color: newOfficerId ? 'inherit' : 'text.secondary' }}
                   >
-                    <MenuItem value="" disabled>Select Person</MenuItem>
-                    {allPeople.map((p) => (
-                      <MenuItem key={p.id} value={p.id}>
-                        {p.name}
-                      </MenuItem>
-                    ))}
+                    <MenuItem value="" disabled>Select Officer</MenuItem>
+                    {allPeople
+                      .filter((p) => !(event.officerIds || []).includes(p.id))
+                      .map((p) => (
+                        <MenuItem key={p.id} value={p.id}>
+                          {p.name} — {p.role === 'admin' ? 'Admin' : officerTitle(p)}
+                        </MenuItem>
+                      ))}
                   </Select>
                 </FormControl>
                 
@@ -581,6 +586,7 @@ export default function EventDetailPage() {
                 </Button>
               </Stack>
             </Box>
+            )}
 
             {officers.length === 0 ? (
               <Typography color="text.secondary">No officers assigned yet.</Typography>
@@ -601,7 +607,8 @@ export default function EventDetailPage() {
                       }
                       secondary={
                         <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                          {event.officerRoles?.[o.id] || o.bio || 'Officer'}
+                          {o.role === 'officer' ? `${officerTitle(o)} · ` : ''}
+                          {(event.officerRoles?.[o.id] || 'Officer').replace(/\b\w/g, (c) => c.toUpperCase())}
                         </Typography>
                       }
                     />

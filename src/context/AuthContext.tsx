@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import type { Credentials, User } from '../types/auth';
-import { login as loginService } from '../services/authService';
+import { login as loginService, getUser } from '../services/authService';
 
 const STORAGE_KEY = 'aws-event-tracker.user';
 
@@ -17,6 +17,8 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   login: (credentials: Credentials) => Promise<User>;
   logout: () => void;
+  /** Replace the signed-in user after a profile change (photo, bio, …). */
+  setCurrentUser: (user: User) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -42,6 +44,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user]);
 
+  // The stored user can be stale (e.g. an admin changed the role, or the photo
+  // was changed on another device). Refresh it once on startup.
+  const storedPersonId = user?.personId;
+  useEffect(() => {
+    if (!storedPersonId) return;
+    let cancelled = false;
+    getUser(storedPersonId)
+      .then((fresh) => {
+        if (cancelled || !fresh) return;
+        if (fresh.status === 'pending' || fresh.status === 'rejected') {
+          setUser(null);
+        } else {
+          setUser(fresh);
+        }
+      })
+      .catch(() => {
+        /* keep the cached user when offline */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [storedPersonId]);
+
   const login = useCallback(async (credentials: Credentials) => {
     const loggedIn = await loginService(credentials);
     setUser(loggedIn);
@@ -52,9 +77,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  const setCurrentUser = useCallback((next: User) => {
+    setUser(next);
+  }, []);
+
   const value = useMemo<AuthContextValue>(
-    () => ({ user, isAuthenticated: user !== null, login, logout }),
-    [user, login, logout],
+    () => ({ user, isAuthenticated: user !== null, login, logout, setCurrentUser }),
+    [user, login, logout, setCurrentUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

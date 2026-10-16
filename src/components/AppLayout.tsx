@@ -157,7 +157,7 @@ export default function AppLayout() {
       {/* User section */}
       <Box sx={{ p: 2 }}>
         <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1.5 }}>
-          <Avatar sx={{ width: 36, height: 36, fontSize: '0.85rem' }}>{initials}</Avatar>
+          <Avatar src={user?.avatarUrl || undefined} sx={{ width: 36, height: 36, fontSize: '0.85rem' }}>{initials}</Avatar>
           <Box sx={{ minWidth: 0, flex: 1 }}>
             <Typography variant="body2" noWrap sx={{ fontWeight: 600 }}>
               {user?.name}
@@ -228,7 +228,7 @@ export default function AppLayout() {
             sx={{ p: 0.5 }}
             aria-label="account menu"
           >
-            <Avatar sx={{ width: 32, height: 32, fontSize: '0.75rem' }}>
+            <Avatar src={user?.avatarUrl || undefined} sx={{ width: 32, height: 32, fontSize: '0.75rem' }}>
               {initials}
             </Avatar>
           </IconButton>

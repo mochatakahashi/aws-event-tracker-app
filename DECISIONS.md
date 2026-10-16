@@ -137,4 +137,25 @@ Deploy lightweight serverless API functions on Vercel backed by Amazon DynamoDB 
 
 ---
 
+## ADR-008: Accounts, Approval and Officer Tasks in DynamoDB
+
+### Status
+**Accepted**
+
+### Context
+Accounts, registrations and officer data lived in in-memory mock services, so sign-ups never reached the admin, and anything changed in one login (photos, registrations, tasks) disappeared or was invisible to other logins and devices.
+
+### Decision
+- Store accounts (`entityType: 'user'`, id = person id), registrations, officer tasks and speakers in the existing single DynamoDB table, behind new Vercel functions `/api/users`, `/api/registrations`, `/api/tasks` and `/api/speakers`.
+- Hash passwords on the server with scrypt; never return hashes.
+- Every new account starts as `pending` and cannot sign in until an admin approves it. Officer sign-ups record their requested role, position and committee, and become officers on approval.
+- Keep the hybrid pattern: services detect a working JSON `/api` and otherwise use `localStorage` (shared helper `apiClient.ts`).
+- Existing endpoints only touch records of their own type.
+
+### Consequences
+- **Positive**: One source of truth across logins and devices; admins control who gets in; officer work (events, stamps, tasks) can be monitored and exported.
+- **Negative**: There are no server-side sessions yet — the API trusts the `actorId` sent by the app for admin actions. Moving sign-in to Amazon Cognito (or signed tokens) is the next step before handling sensitive data. Table scans are fine at club scale but would need indexes for large data.
+
+---
+
 *Last Updated: October 2026*
