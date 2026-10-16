@@ -11,7 +11,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Local admin authentication auto-sync**: `authService.ts` now automatically injects and syncs the built-in admin account (`awsapc.admin` / `aws.apcofficial@gmail.com`) into browser `localStorage` whenever `VITE_LOCAL_ADMIN_PASSWORD` is configured in `.env.local` or `.env`. Prevents stale local caches from blocking sign-in.
-- **Repository guidelines (`CLAUDE.md`)**: establishes strict project rules against assistant co-authorship tags, session links, branded artifact folders, and force pushes.
 - **Automated commit-msg Git hook**: local hook to ensure commit messages remain clean without unintended co-author lines.
 
 ### Changed
