@@ -2,9 +2,10 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
 import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2';
+import { sendNotificationEmail } from '../lib/mail';
 
 /**
- * Email notifications through Amazon SES.
+ * Email notifications through Gmail SMTP (Nodemailer) or Amazon SES.
  *
  * POST /api/notify { type: 'account-reviewed', personId }          → approved / declined (with reason)
  * POST /api/notify { type: 'event-assigned', eventId, personIds }  → officers assigned to an event
@@ -16,14 +17,15 @@ import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2';
  *        - event today    → "See you today!"
  *        - task due tomorrow → its officers
  *
- * Environment variables (Vercel → Settings → Environment Variables):
- *   SES_FROM_EMAIL  verified SES sender, e.g. "AWS SBG-APC <aws.apcofficial@gmail.com>"
- *   SES_REGION      SES region (defaults to APP_AWS_REGION / ap-southeast-1)
- *   APP_URL         public app URL for links (defaults to this deployment's host)
- *   CRON_SECRET     protects the daily cron call (Vercel sends it automatically)
+ * Environment variables:
+ *   GMAIL_USER          Gmail address (e.g. aws.apcofficial@gmail.com)
+ *   GMAIL_APP_PASSWORD  16-character Google App Password (prefers Gmail SMTP if set)
+ *   SES_FROM_EMAIL      verified SES sender, e.g. "AWS SBG-APC <aws.apcofficial@gmail.com>"
+ *   SES_REGION          SES region (defaults to APP_AWS_REGION / ap-southeast-1)
+ *   APP_URL             public app URL for links (defaults to this deployment's host)
+ *   CRON_SECRET         protects the daily cron call (Vercel sends it automatically)
  *   ADMIN_NOTIFY_EMAIL  where admin alerts go (new sign-ups, failed emails);
  *                       defaults to aws.apcofficial@gmail.com
- * The AWS access key also needs the `ses:SendEmail` permission.
  */
 
 const TZ = 'Asia/Manila';
@@ -78,15 +80,31 @@ ${button}
 }
 
 async function sendMail(mail: Mail, appUrl: string): Promise<boolean> {
-  const from = process.env.SES_FROM_EMAIL;
   const to = [...new Set(mail.to.filter(Boolean).map((e) => e.trim().toLowerCase()))];
-  if (!from || to.length === 0) return false;
+  if (to.length === 0) return false;
+
+  const text = [mail.heading, '', ...mail.lines, mail.button ? `\n${mail.button.label}: ${appUrl}${mail.button.path}` : '']
+    .join('\n');
+  const html = renderHtml(mail, appUrl);
+
+  // 1. Prefer Gmail SMTP via Nodemailer if credentials are provided
+  if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
+    await sendNotificationEmail({
+      to,
+      subject: mail.subject,
+      html,
+      text,
+    });
+    return true;
+  }
+
+  // 2. Fallback to Amazon SES
+  const from = process.env.SES_FROM_EMAIL;
+  if (!from) return false;
   const ses = new SESv2Client({
     region: process.env.SES_REGION || process.env.APP_AWS_REGION || process.env.AWS_REGION || 'ap-southeast-1',
     credentials: awsConfig(),
   });
-  const text = [mail.heading, '', ...mail.lines, mail.button ? `\n${mail.button.label}: ${appUrl}${mail.button.path}` : '']
-    .join('\n');
   await ses.send(
     new SendEmailCommand({
       FromEmailAddress: from,
@@ -96,7 +114,7 @@ async function sendMail(mail: Mail, appUrl: string): Promise<boolean> {
       Content: {
         Simple: {
           Subject: { Data: mail.subject, Charset: 'UTF-8' },
-          Body: { Html: { Data: renderHtml(mail, appUrl), Charset: 'UTF-8' }, Text: { Data: text, Charset: 'UTF-8' } },
+          Body: { Html: { Data: html, Charset: 'UTF-8' }, Text: { Data: text, Charset: 'UTF-8' } },
         },
       },
     })
@@ -291,9 +309,12 @@ async function runReminders(client: DynamoDBDocumentClient, tableName: string, a
   return sent;
 }
 
-/** Plain-language explanation of an SES error. */
+/** Plain-language explanation of email errors (SES or Gmail/SMTP). */
 function sesErrorText(err: any): string {
   const msg = String(err?.message || err);
+  if (/invalid login|badauth|username and password not accepted/i.test(msg)) {
+    return 'Gmail authentication failed. Please check GMAIL_USER and ensure GMAIL_APP_PASSWORD is a valid 16-character Google App Password (not standard account password). Details: ' + msg;
+  }
   if (/not verified/i.test(msg)) {
     return 'Amazon SES is still in sandbox mode, so it only emails verified addresses. Request production access in the SES console (Account dashboard → Request production access). Details: ' + msg;
   }
@@ -322,7 +343,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const host = (req.headers?.['x-forwarded-host'] || req.headers?.host || '') as string;
   const appUrl = (process.env.APP_URL || (host ? `https://${host}` : '')).replace(/\/$/, '');
-  const notConfigured = !process.env.SES_FROM_EMAIL;
+  const hasGmail = Boolean(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD);
+  const notConfigured = !process.env.SES_FROM_EMAIL && !hasGmail;
 
   try {
     const { client, tableName } = getDynamoDocClient();
@@ -335,7 +357,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!secret || req.headers?.authorization !== `Bearer ${secret}`) {
         return res.status(401).json({ error: 'Unauthorized' });
       }
-      if (notConfigured) return res.status(200).json({ sent: 0, skipped: 'SES_FROM_EMAIL is not set' });
+      if (notConfigured) return res.status(200).json({ sent: 0, skipped: 'Email configuration is not set (GMAIL_USER/GMAIL_APP_PASSWORD or SES_FROM_EMAIL)' });
       try {
         return res.status(200).json({ sent: await runReminders(client, tableName, appUrl) });
       } catch (err: any) {
@@ -348,7 +370,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const body = req.body || {};
     if (notConfigured) {
-      return res.status(200).json({ sent: 0, skipped: 'Email is not set up yet (SES_FROM_EMAIL is missing in Vercel).' });
+      return res.status(200).json({ sent: 0, skipped: 'Email is not set up yet (set GMAIL_USER and GMAIL_APP_PASSWORD, or SES_FROM_EMAIL).' });
     }
 
     let sent = 0;
