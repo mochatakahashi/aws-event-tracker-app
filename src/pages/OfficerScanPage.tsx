@@ -276,14 +276,20 @@ export default function OfficerScanPage() {
 
   const peopleById = useMemo(() => new Map(people.map((p) => [p.id, p])), [people]);
   const q = search.trim().toLowerCase();
+  // Without a search, list everyone registered (not checked in first) so staff can just tap a name
   const matches = useMemo(() => {
-    if (!q) return [];
-    return eventRegs
-      .filter((r) => {
-        const p = peopleById.get(r.personId);
-        return [p?.name, p?.email, p?.studentId, p?.organization].filter(Boolean).some((v) => String(v).toLowerCase().includes(q));
-      })
-      .slice(0, 8);
+    const going = eventRegs.filter((r) => r.rsvp !== 'declined');
+    const found = q
+      ? going.filter((r) => {
+          const p = peopleById.get(r.personId);
+          return [p?.name, p?.email, p?.studentId, p?.organization].filter(Boolean).some((v) => String(v).toLowerCase().includes(q));
+        })
+      : going;
+    return [...found].sort(
+      (a, b) =>
+        Number(a.checkedIn) - Number(b.checkedIn) ||
+        (peopleById.get(a.personId)?.name ?? '').localeCompare(peopleById.get(b.personId)?.name ?? ''),
+    );
   }, [q, eventRegs, peopleById]);
 
   const checkedCount = eventRegs.filter((r) => r.checkedIn).length;
@@ -598,8 +604,15 @@ export default function OfficerScanPage() {
                 ),
               }}
             />
-            {q && (
-              <List dense disablePadding sx={{ mt: 1 }}>
+            {!q && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                {matches.length
+                  ? `Registered (${matches.length}) — tap a name. Not checked in yet are listed first.`
+                  : 'No one has registered for this event yet.'}
+              </Typography>
+            )}
+            {(q || matches.length > 0) && (
+              <List dense disablePadding sx={{ mt: 1, maxHeight: 360, overflowY: 'auto' }} data-testid="find-attendee-list">
                 {matches.length === 0 ? (
                   <Typography variant="caption" color="text.secondary">
                     No one registered for this event matches “{search.trim()}”.
