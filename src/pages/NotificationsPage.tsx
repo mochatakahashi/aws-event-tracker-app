@@ -27,6 +27,8 @@ import NotificationsOffOutlinedIcon from '@mui/icons-material/NotificationsOffOu
 import { alpha } from '@mui/material/styles';
 import { brand } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
+import { getUser } from '../services/authService';
+import ConnectButton from '../components/ConnectButton';
 import { getEvents } from '../services/eventService';
 import { getRegistrationsByPerson } from '../services/registrationService';
 import {
@@ -52,6 +54,8 @@ const KIND: Record<NotificationKind, { icon: ReactNode; color: string }> = {
   certificate: { icon: <WorkspacePremiumRoundedIcon />, color: brand.primary },
   'registration-approved': { icon: <HowToRegIcon />, color: brand.success },
   'registration-declined': { icon: <BlockIcon />, color: brand.error },
+  'connection-request': { icon: <PersonAddAlt1Icon />, color: brand.primary },
+  'connection-accepted': { icon: <HowToRegIcon />, color: brand.success },
   announcement: { icon: <CampaignIcon />, color: brand.primary },
 };
 
@@ -71,24 +75,32 @@ function liveOrSoon(events: AppEvent[], myEventIds: Set<string>) {
 }
 
 export default function NotificationsPage() {
-  const { user } = useAuth();
+  const { user, setCurrentUser } = useAuth();
   const navigate = useNavigate();
   const [items, setItems] = useState<AppNotification[]>([]);
   const [live, setLive] = useState<ReturnType<typeof liveOrSoon>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const personId = user?.personId;
   const load = useCallback(async () => {
-    if (!user) return;
+    if (!personId) return;
     try {
-      setItems(await getNotifications(user.personId));
+      const list = await getNotifications(personId);
+      setItems(list);
       setError('');
+      // Keep my account fresh so pending connection requests get Approve / Decline
+      if (list.some((n) => n.kind === 'connection-request')) {
+        const me = await getUser(personId).catch(() => null);
+        if (me) setCurrentUser(me);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load notifications.');
     } finally {
       setLoading(false);
     }
-  }, [user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [personId]);
 
   useEffect(() => {
     void load();
@@ -104,6 +116,13 @@ export default function NotificationsPage() {
       )
       .catch(() => undefined);
   }, [user]);
+
+  /** The sender of a connection request that's still waiting for my answer. */
+  const pendingRequester = (n: AppNotification) => {
+    if (n.kind !== 'connection-request' || !n.link?.startsWith('/people/')) return null;
+    const id = n.link.slice('/people/'.length);
+    return user?.connectionRequests?.includes(id) ? id : null;
+  };
 
   async function open(n: AppNotification) {
     if (!n.read) {
@@ -168,6 +187,11 @@ export default function NotificationsPage() {
             </Box>
           </Stack>
         </CardActionArea>
+        {pendingRequester(n) && (
+          <Box sx={{ px: 2, pb: 1.5, pl: { xs: 2, sm: 8 } }} data-testid={`notif-connect-${pendingRequester(n)}`}>
+            <ConnectButton personId={pendingRequester(n)!} name={n.title.replace(/ wants to connect$/, '')} size="small" />
+          </Box>
+        )}
         <IconButton
           size="small"
           aria-label="Remove notification"
@@ -182,7 +206,7 @@ export default function NotificationsPage() {
 
   return (
     <Box sx={{ maxWidth: 820 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2} sx={{ mb: 3 }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" useFlexGap spacing={1} sx={{ mb: 3 }}>
         <Box>
           <Typography variant="h1">Notifications</Typography>
           <Typography variant="body2" color="text.secondary">

@@ -361,6 +361,72 @@ export function updateProfile(personId: string, changes: ProfileChanges): Promis
   return updateUser(personId, changes, personId);
 }
 
+export type ConnectAction = 'connect' | 'connect-respond' | 'connect-cancel' | 'disconnect';
+export interface ConnectResult {
+  status: 'connected' | 'requested' | 'declined' | 'cancelled' | 'removed';
+  me: User;
+  other: User;
+}
+
+/**
+ * AWS SBG-APC connections. `connect` sends a request (or accepts theirs if
+ * they already asked); the other person approves or declines it.
+ */
+export async function connectionAction(
+  action: ConnectAction,
+  otherId: string,
+  actorId: string,
+  accept?: boolean,
+): Promise<ConnectResult> {
+  if (await isRemoteAvailable(API)) {
+    return apiJson<ConnectResult>(`${API}?action=${action}`, {
+      method: 'POST',
+      body: JSON.stringify({ actorId, id: otherId, accept }),
+    });
+  }
+  const users = loadLocalUsers();
+  const me = users.find((u) => u.personId === actorId);
+  const other = users.find((u) => u.personId === otherId);
+  if (!me || !other || me === other) throw new Error('That account was not found.');
+  const without = (a: string[] | undefined, x: string) => (a ?? []).filter((v) => v !== x);
+  const withId = (a: string[] | undefined, x: string) => ((a ?? []).includes(x) ? a ?? [] : [...(a ?? []), x]);
+  let status: ConnectResult['status'];
+  const link = () => {
+    me.connections = withId(me.connections, otherId);
+    other.connections = withId(other.connections, actorId);
+  };
+  if (action === 'connect') {
+    if ((me.connectionRequests ?? []).includes(otherId)) {
+      link();
+      me.connectionRequests = without(me.connectionRequests, otherId);
+      other.sentConnectionRequests = without(other.sentConnectionRequests, actorId);
+      status = 'connected';
+    } else if ((me.connections ?? []).includes(otherId)) {
+      status = 'connected';
+    } else {
+      other.connectionRequests = withId(other.connectionRequests, actorId);
+      me.sentConnectionRequests = withId(me.sentConnectionRequests, otherId);
+      status = 'requested';
+    }
+  } else if (action === 'connect-respond') {
+    if (!(me.connectionRequests ?? []).includes(otherId)) throw new Error('That connection request is no longer waiting.');
+    me.connectionRequests = without(me.connectionRequests, otherId);
+    other.sentConnectionRequests = without(other.sentConnectionRequests, actorId);
+    if (accept) link();
+    status = accept ? 'connected' : 'declined';
+  } else if (action === 'connect-cancel') {
+    me.sentConnectionRequests = without(me.sentConnectionRequests, otherId);
+    other.connectionRequests = without(other.connectionRequests, actorId);
+    status = 'cancelled';
+  } else {
+    me.connections = without(me.connections, otherId);
+    other.connections = without(other.connections, actorId);
+    status = 'removed';
+  }
+  local.save(users);
+  return delay({ status, me: strip(me), other: strip(other) });
+}
+
 /** Approve a pending account and grant the role it asked for. */
 export async function approveUser(personId: string, actorId: string): Promise<User> {
   const user = (await getUsers()).find((u) => u.personId === personId);

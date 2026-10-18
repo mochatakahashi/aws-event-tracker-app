@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.12] - 2026-10-18
+
+### Added
+- **AWS SBG-APC connection requests**: **Connect** sends a request; the other person gets a notification with **Approve / Decline** and sees it under *Connection requests* on Connect. Sender sees **Requested** (Cancel). Connecting back to someone who already asked you accepts their request. Both get a notice when it's accepted. API: `POST /api/users?action=connect | connect-respond | connect-cancel | disconnect`.
+- **Connection count** on every profile and on your Connect card (*N AWS SBG-APC connections*).
+- **More social links**: Facebook, Instagram, TikTok, YouTube (plus LinkedIn, GitHub, X, Website) and **custom links** with your own name (up to 10). Pick only the ones you want with **Add a link**.
+- **Certificates on Achievements** with View, Download and Copy link.
+
+### Changed
+- **Stamp passports moved** off Achievements: they show on the **Dashboard** and the **event page** for live or upcoming events you're registered for that have stamps.
+- **My achievements** lists completed things only: stamps earned, events attended, certificates, *My progress* and badges.
+- Connections can no longer be written through a profile update; they change only through requests.
+- Theme: the purple gradient applies to primary buttons only, so green **Approve** and red buttons keep their colours.
+
+### Fixed
+- Connect page quick links showed only LinkedIn and GitHub (Website, X and others were missing); all saved links now show.
+
+---
+
 ## [0.6.11] - 2026-10-18
 
 ### Added

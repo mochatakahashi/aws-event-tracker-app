@@ -25,6 +25,8 @@ const KINDS = [
   'certificate',
   'registration-approved',
   'registration-declined',
+  'connection-request',
+  'connection-accepted',
   'announcement',
 ];
 

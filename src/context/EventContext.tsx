@@ -104,3 +104,9 @@ export function useEvent(): EventContextValue {
   }
   return ctx;
 }
+
+/** Like useEvent, but returns null outside an EventProvider. */
+// eslint-disable-next-line react-refresh/only-export-components
+export function useOptionalEvent(): EventContextValue | null {
+  return useContext(EventContext) ?? null;
+}

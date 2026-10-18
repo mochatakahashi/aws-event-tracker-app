@@ -25,7 +25,8 @@ import { useEvent } from '../context/EventContext';
 import AdminHome from '../components/AdminHome';
 import { getEvents } from '../services/eventService';
 import { getRegistrationsByPerson } from '../services/registrationService';
-import { getSessionsByEvent, getStampsByAttendee } from '../services/sessionService';
+import { getSessions, getSessionsByEvent, getStampsByAttendee } from '../services/sessionService';
+import EventStampCard from '../components/EventStampCard';
 import { getNotifications } from '../services/notificationService';
 import { getTasksForOfficer } from '../services/taskService';
 import { timeAgo } from '../utils/time';
@@ -84,6 +85,13 @@ export default function DashboardPage() {
   const [regs, setRegs] = useState<Registration[]>([]);
   const [notifs, setNotifs] = useState<AppNotification[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
+  // Events that have stamp activities (their passports show here while live or upcoming)
+  const [stampEventIds, setStampEventIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    getSessions()
+      .then((all) => setStampEventIds(new Set(all.filter((x) => x.requiresStamp).map((x) => x.eventId))))
+      .catch(() => undefined);
+  }, []);
   const [stamps, setStamps] = useState<Stamp[]>([]);
   const [tasks, setTasks] = useState<OfficerTask[]>([]);
   const [loading, setLoading] = useState(true);
@@ -276,8 +284,8 @@ export default function DashboardPage() {
               title={`At ${selectedEvent.title}`}
               icon={<StarsRoundedIcon />}
               action={
-                <Button size="small" onClick={() => navigate('/achievements')}>
-                  Stamps
+                <Button size="small" onClick={() => navigate(`/events/${selectedEvent.id}`)}>
+                  Event
                 </Button>
               }
             >
@@ -316,6 +324,16 @@ export default function DashboardPage() {
               </Stack>
             </Section>
           )}
+
+          {/* Stamp passports for your live / upcoming events that have stamps */}
+          {[...liveRegs, ...nextRegs]
+            .filter((x) => stampEventIds.has(x.event.id) && x.reg.rsvp !== 'declined')
+            .slice(0, 2)
+            .map((x) => (
+              <Box key={x.event.id} data-testid={`dashboard-passport-${x.event.id}`}>
+                <EventStampCard event={x.event} title="STAMP PASSPORT" hideWhenEmpty />
+              </Box>
+            ))}
 
           {/* Registrations summary */}
           {myRegs.length > 0 && (

@@ -40,6 +40,12 @@ export interface SocialLinks {
   github?: string;
   twitterX?: string;
   website?: string;
+  facebook?: string;
+  instagram?: string;
+  tiktok?: string;
+  youtube?: string;
+  /** Any other links, with the name the person chose (e.g. "Portfolio", "Behance"). */
+  custom?: { label: string; url: string }[];
 }
 
 /** Authenticated user (no sensitive fields). */
@@ -77,7 +83,12 @@ export interface User {
   /** Admin-created accounts start with a temporary password that must be changed. */
   mustChangePassword?: boolean;
   /** Person ids this person added on the Connect page. */
+  /** AWS SBG-APC connections (both people approved). */
   connections?: string[];
+  /** People who asked to connect with you (waiting for your answer). */
+  connectionRequests?: string[];
+  /** People you asked to connect with (waiting for them). */
+  sentConnectionRequests?: string[];
   /** Event ids saved with the bookmark icon. */
   savedEventIds?: string[];
   /** Finished or skipped the first-time app tour. */
@@ -130,7 +141,7 @@ export interface AdminCreateAccount extends SignUpData {
 export type ProfileChanges = Partial<
   Pick<
     User,
-    'avatarUrl' | 'bio' | 'socials' | 'personalEmail' | 'officerPosition' | 'committee' | 'subcommittee' | 'connections' | 'savedEventIds' | 'tutorialSeen'
+    'avatarUrl' | 'bio' | 'socials' | 'personalEmail' | 'officerPosition' | 'committee' | 'subcommittee' | 'savedEventIds' | 'tutorialSeen'
   >
 >;
 

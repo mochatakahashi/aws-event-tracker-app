@@ -30,13 +30,13 @@ const achievements: TourStep = {
   target: 'nav-achievements',
   emoji: '🏆',
   title: 'Achievements',
-  text: 'Your stamp passport and badges. Request a stamp after a session; an officer approves it once you’re checked in.',
+  text: 'What you’ve completed: stamps earned, events attended, certificates and badges. Stamp passports for live and upcoming events are on your Dashboard and the event page.',
 };
 const connect: TourStep = {
   target: 'nav-connect',
   emoji: '🤝',
   title: 'Connect',
-  text: 'Share your QR profile card, scan other people’s cards and see your connections.',
+  text: 'Share your QR profile card and links, send connection requests, approve the ones you get and see your connections.',
 };
 const bell: TourStep = {
   target: 'nav-notifications',

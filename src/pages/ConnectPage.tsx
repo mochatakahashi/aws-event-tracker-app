@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Paper from '@mui/material/Paper';
 import Alert from '@mui/material/Alert';
@@ -17,11 +17,7 @@ import CardContent from '@mui/material/CardContent';
 import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
-import Divider from '@mui/material/Divider';
 import Chip from '@mui/material/Chip';
-import LinkedInIcon from '@mui/icons-material/LinkedIn';
-import GitHubIcon from '@mui/icons-material/GitHub';
-import LanguageIcon from '@mui/icons-material/Language';
 import QrCode2Icon from '@mui/icons-material/QrCode2';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
@@ -30,7 +26,10 @@ import { useAuth } from '../context/AuthContext';
 import { brand } from '../theme/theme';
 import type { SocialLinks } from '../types/auth';
 import NetworkingCard from '../components/NetworkingCard';
-import { updateProfile } from '../services/authService';
+import { getUser, updateProfile } from '../services/authService';
+import ConnectButton from '../components/ConnectButton';
+import SocialLinksEditor from '../components/SocialLinksEditor';
+import SocialLinksRow from '../components/SocialLinksRow';
 
 export default function ConnectPage() {
   const { user, setCurrentUser } = useAuth();
@@ -39,13 +38,16 @@ export default function ConnectPage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [bio, setBio] = useState(user?.bio ?? '');
-  const [socials, setSocials] = useState<SocialLinks>({
-    linkedIn: '',
-    github: '',
-    twitterX: '',
-    website: '',
-    ...(user?.socials || {}),
-  });
+  const [socials, setSocials] = useState<SocialLinks>({ ...(user?.socials || {}) });
+
+  // Fresh copy of my account: new connection requests and connections
+  useEffect(() => {
+    if (!user?.personId) return;
+    getUser(user.personId)
+      .then((u) => u && setCurrentUser(u))
+      .catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.personId]);
 
   // Saved on the account, so the bio and links show up on every device
   async function toggleEditing() {
@@ -78,6 +80,9 @@ export default function ConnectPage() {
       .filter((p): p is NonNullable<typeof p> => Boolean(p))
       .map((person) => ({ person, row: rows.get(person.id) }));
   }, [data, user?.connections]);
+  const peopleById = useMemo(() => new Map((data?.people ?? []).map((p) => [p.id, p])), [data]);
+  const incoming = (user?.connectionRequests ?? []).map((id) => peopleById.get(id)).filter((p): p is NonNullable<typeof p> => Boolean(p));
+  const outgoing = (user?.sentConnectionRequests ?? []).map((id) => peopleById.get(id)).filter((p): p is NonNullable<typeof p> => Boolean(p));
 
   function onScan(text: string) {
     const id = parseProfileLink(text);
@@ -137,6 +142,9 @@ export default function ConnectPage() {
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
                 {user?.studentId ?? user?.username}
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 0.75 }} data-testid="my-connection-count">
+                <strong>{user?.connections?.length ?? 0}</strong> AWS SBG-APC connection{user?.connections?.length === 1 ? '' : 's'}
               </Typography>
               <Chip
                 label={user?.role === 'admin' ? 'Admin' : user?.role === 'officer' ? 'Officer' : 'Attendee'}
@@ -208,6 +216,63 @@ export default function ConnectPage() {
         </Paper>
       )}
 
+      {/* Connection requests */}
+      {(incoming.length > 0 || outgoing.length > 0) && (
+        <Paper sx={{ p: { xs: 2, sm: 2.5 }, mb: 3, borderRadius: '16px' }} data-testid="connection-requests">
+          {incoming.length > 0 && (
+            <>
+              <Typography variant="h4" sx={{ fontWeight: 800, mb: 1.5 }}>
+                Connection requests ({incoming.length})
+              </Typography>
+              <Stack spacing={1} sx={{ mb: outgoing.length ? 2.5 : 0 }}>
+                {incoming.map((p) => (
+                  <Stack
+                    key={p.id}
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={1.5}
+                    alignItems={{ sm: 'center' }}
+                    sx={{ p: 1.25, borderRadius: '12px', border: `1px solid ${alpha(brand.primary, 0.2)}` }}
+                    data-testid={`request-${p.id}`}
+                  >
+                    <Stack direction="row" spacing={1.25} alignItems="center" sx={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => navigate(`/people/${p.id}`)}>
+                      <Avatar src={p.avatarUrl || undefined} sx={{ width: 40, height: 40 }}>
+                        {p.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()}
+                      </Avatar>
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 700 }} noWrap>
+                          {p.name}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
+                          {p.role === 'officer' ? officerTitle(p) : memberLabel(p)}
+                        </Typography>
+                      </Box>
+                    </Stack>
+                    <ConnectButton personId={p.id} name={p.name} size="small" />
+                  </Stack>
+                ))}
+              </Stack>
+            </>
+          )}
+          {outgoing.length > 0 && (
+            <>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 700, mb: 1 }}>
+                Requests you sent
+              </Typography>
+              <Stack spacing={1}>
+                {outgoing.map((p) => (
+                  <Stack key={p.id} direction="row" spacing={1.25} alignItems="center" justifyContent="space-between" flexWrap="wrap" useFlexGap>
+                    <Typography variant="body2" sx={{ fontWeight: 600, cursor: 'pointer' }} onClick={() => navigate(`/people/${p.id}`)}>
+                      {p.name}
+                    </Typography>
+                    <ConnectButton personId={p.id} name={p.name} size="small" />
+                  </Stack>
+                ))}
+              </Stack>
+            </>
+          )}
+        </Paper>
+      )}
+
       {/* My connections */}
       <Paper sx={{ p: { xs: 2, sm: 2.5 }, mb: 3, borderRadius: '16px' }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
@@ -222,8 +287,8 @@ export default function ConnectPage() {
         </Stack>
         {connections.length === 0 ? (
           <Typography variant="body2" color="text.secondary">
-            Scan another attendee's or officer's networking QR, then tap <strong>Add connection</strong>. You'll see their
-            achievements here.
+            Scan another attendee's or officer's networking QR and tap <strong>Connect</strong>. Once they approve, you'll see
+            their achievements here.
           </Typography>
         ) : (
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'repeat(2, minmax(0, 1fr))' }, gap: 1 }}>
@@ -324,56 +389,11 @@ export default function ConnectPage() {
             )}
           </Stack>
 
-          <Stack spacing={2}>
-            <TextField
-              label="LinkedIn URL"
-              value={socials.linkedIn ?? ''}
-              onChange={(e) => setSocials({ ...socials, linkedIn: e.target.value })}
-              fullWidth
-              size="small"
-              disabled={!editing}
-              slotProps={{
-                input: {
-                  startAdornment: <LinkedInIcon sx={{ mr: 1, color: '#0A66C2', fontSize: 20 }} />,
-                },
-              }}
-            />
-            <TextField
-              label="GitHub URL"
-              value={socials.github ?? ''}
-              onChange={(e) => setSocials({ ...socials, github: e.target.value })}
-              fullWidth
-              size="small"
-              disabled={!editing}
-              slotProps={{
-                input: {
-                  startAdornment: <GitHubIcon sx={{ mr: 1, color: '#333', fontSize: 20 }} />,
-                },
-              }}
-            />
-            <TextField
-              label="Twitter / X"
-              value={socials.twitterX ?? ''}
-              onChange={(e) => setSocials({ ...socials, twitterX: e.target.value })}
-              fullWidth
-              size="small"
-              disabled={!editing}
-              placeholder="https://x.com/username"
-            />
-            <TextField
-              label="Website"
-              value={socials.website ?? ''}
-              onChange={(e) => setSocials({ ...socials, website: e.target.value })}
-              fullWidth
-              size="small"
-              disabled={!editing}
-              slotProps={{
-                input: {
-                  startAdornment: <LanguageIcon sx={{ mr: 1, color: brand.textSecondary, fontSize: 20 }} />,
-                },
-              }}
-            />
-          </Stack>
+          {editing ? (
+            <SocialLinksEditor value={socials} onChange={setSocials} />
+          ) : (
+            <SocialLinksRow socials={socials} align="flex-start" empty="No links yet — tap Edit to add Facebook, Instagram, LinkedIn and more." />
+          )}
 
           {editing && (
             <Button
@@ -390,44 +410,6 @@ export default function ConnectPage() {
         </CardContent>
       </Card>
       </Box>
-
-      {/* Quick social links display */}
-      {!editing && (socials.linkedIn || socials.github) && (
-        <>
-          <Divider sx={{ my: 2 }} />
-          <Typography variant="h6" sx={{ color: brand.primary, fontSize: '0.75rem', mb: 1.5 }}>
-            QUICK LINKS
-          </Typography>
-          <Stack direction="row" spacing={1.5}>
-            {socials.linkedIn && (
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<LinkedInIcon />}
-                href={socials.linkedIn}
-                target="_blank"
-                rel="noopener noreferrer"
-                sx={{ borderColor: '#0A66C2', color: '#0A66C2' }}
-              >
-                LinkedIn
-              </Button>
-            )}
-            {socials.github && (
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<GitHubIcon />}
-                href={socials.github}
-                target="_blank"
-                rel="noopener noreferrer"
-                sx={{ borderColor: '#333', color: '#333' }}
-              >
-                GitHub
-              </Button>
-            )}
-          </Stack>
-        </>
-      )}
 
     </Box>
   );

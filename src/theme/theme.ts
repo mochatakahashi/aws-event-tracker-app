@@ -55,6 +55,7 @@ const theme = createTheme({
     },
     success: {
       main: brand.success,
+      contrastText: '#FFFFFF',
     },
     background: {
       default: brand.background,
@@ -101,7 +102,8 @@ const theme = createTheme({
           fontSize: '0.95rem',
           transition: 'all 0.2s ease-in-out',
         },
-        contained: {
+        // Brand gradient only on primary buttons; success/error keep their own colours
+        containedPrimary: {
           background: brand.gradient,
           '&:hover': {
             background: brand.gradientDark,
@@ -110,10 +112,12 @@ const theme = createTheme({
           },
         },
         outlined: {
-          borderColor: brand.primary,
           borderWidth: 2,
+          '&:hover': { borderWidth: 2 },
+        },
+        outlinedPrimary: {
+          borderColor: brand.primary,
           '&:hover': {
-            borderWidth: 2,
             backgroundColor: alpha(brand.primary, 0.05),
           },
         },

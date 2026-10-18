@@ -11,6 +11,8 @@ export type NotificationKind =
   | 'certificate'
   | 'registration-approved'
   | 'registration-declined'
+  | 'connection-request'
+  | 'connection-accepted'
   | 'announcement';
 
 /** One notification in a person's in-app inbox. */

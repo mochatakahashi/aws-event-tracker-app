@@ -175,6 +175,7 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 | Event Desk (scan · stamp requests · attendees) | v0.6.9 | ✅ Completed | High |
 | Certificates after the event (code, link, view/download) | v0.6.10 | ✅ Completed | High |
 | Registration approval, sessions editor, app tour | v0.6.11 | ✅ Completed | High |
+| Connection requests, custom social links, achievements & passports rework | v0.6.12 | ✅ Completed | Medium |
 | Certificate of Completion (100% stamps) | v1.0.0 | ⏳ Planned | Low |
 
 ---

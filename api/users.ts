@@ -21,6 +21,7 @@ import {
  * POST /api/users?action=create   → { actorId, account } admin creates an approved account with a
  *                                   temporary password that must be changed at first sign-in
  * POST /api/users?action=reset    → { actorId, id, newPassword } admin sets a temporary password
+ * POST /api/users?action=connect | connect-respond | connect-cancel | disconnect → { actorId, id, accept? } connection requests
  * POST /api/users?action=award   → { actorId, id, badge, eventId?, note? } admin awards a badge
  * POST /api/users?action=unaward → { actorId, id, awardId } admin takes it back
  * PUT  /api/users?id=per-1        → { changes, actorId } profile / admin changes
@@ -84,7 +85,6 @@ const PROFILE_FIELDS = [
   'officerPosition',
   'committee',
   'subcommittee',
-  'connections',
   'savedEventIds',
   'tutorialSeen',
 ];
@@ -106,6 +106,28 @@ function passwordError(pw: unknown): string | null {
   if (!/[0-9]/.test(pw)) missing.push('one number (0–9)');
   if (!/[^A-Za-z0-9\s]/.test(pw)) missing.push('one special symbol (e.g. ! @ # $ %)');
   return missing.length ? `Password needs: ${missing.join(', ')}.` : null;
+}
+
+const SOCIAL_KEYS = ['linkedIn', 'github', 'twitterX', 'website', 'facebook', 'instagram', 'tiktok', 'youtube'];
+/** Links only (no javascript:/data:), short, and at most 10 custom ones. */
+function cleanSocials(v: unknown) {
+  const out: Record<string, any> = {};
+  if (!v || typeof v !== 'object') return out;
+  const link = (x: unknown) => {
+    if (typeof x !== 'string') return undefined;
+    const t = x.trim().slice(0, 300);
+    return t && !/^(javascript|data|vbscript):/i.test(t) ? t : undefined;
+  };
+  for (const k of SOCIAL_KEYS) {
+    const u = link((v as any)[k]);
+    if (u) out[k] = u;
+  }
+  const custom = Array.isArray((v as any).custom) ? (v as any).custom : [];
+  out.custom = custom
+    .map((c: any) => ({ label: typeof c?.label === 'string' ? c.label.trim().slice(0, 40) : '', url: link(c?.url) }))
+    .filter((c: any) => c.label && c.url)
+    .slice(0, 10);
+  return out;
 }
 
 /** Keep list fields (connections, saved events) as short lists of ids. */
@@ -357,6 +379,69 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json(sanitize(updated));
     }
 
+    // AWS SBG-APC connections: request → the other person approves or declines
+    //   action=connect { actorId, id }          send a request (or accept theirs if they already asked)
+    //   action=connect-respond { actorId, id, accept }  approve / decline a request from id
+    //   action=connect-cancel { actorId, id }   take back a request you sent
+    //   action=disconnect { actorId, id }       remove a connection (both sides)
+    if (req.method === 'POST' && ['connect', 'connect-respond', 'connect-cancel', 'disconnect'].includes(action)) {
+      const { actorId, id, accept } = req.body || {};
+      if (typeof actorId !== 'string' || typeof id !== 'string' || actorId === id) {
+        return res.status(400).json({ error: 'Pick someone else to connect with.' });
+      }
+      const [me, other] = (await Promise.all(
+        [actorId, id].map(async (k) => (await client.send(new GetCommand({ TableName: tableName, Key: { id: k } }))).Item),
+      )) as any[];
+      const active = (u: any) => u?.entityType === 'user' && (u.status ?? 'approved') === 'approved';
+      if (!active(me) || !active(other)) return res.status(404).json({ error: 'That account was not found.' });
+      const list = (u: any, k: string): string[] => (Array.isArray(u[k]) ? u[k] : []);
+      const without = (arr: string[], x: string) => arr.filter((v) => v !== x);
+      const withId = (arr: string[], x: string) => (arr.includes(x) ? arr : [...arr, x]);
+      const now = new Date().toISOString();
+      let status: 'connected' | 'requested' | 'declined' | 'cancelled' | 'removed';
+
+      if (action === 'connect') {
+        if (list(me, 'connections').includes(id) && list(other, 'connections').includes(actorId)) {
+          status = 'connected';
+        } else if (list(me, 'connectionRequests').includes(id)) {
+          // They already asked you: connecting accepts it
+          me.connections = withId(list(me, 'connections'), id);
+          other.connections = withId(list(other, 'connections'), actorId);
+          me.connectionRequests = without(list(me, 'connectionRequests'), id);
+          other.sentConnectionRequests = without(list(other, 'sentConnectionRequests'), actorId);
+          status = 'connected';
+        } else {
+          other.connectionRequests = withId(list(other, 'connectionRequests'), actorId);
+          me.sentConnectionRequests = withId(list(me, 'sentConnectionRequests'), id);
+          status = 'requested';
+        }
+      } else if (action === 'connect-respond') {
+        if (!list(me, 'connectionRequests').includes(id)) {
+          return res.status(404).json({ error: 'That connection request is no longer waiting.' });
+        }
+        me.connectionRequests = without(list(me, 'connectionRequests'), id);
+        other.sentConnectionRequests = without(list(other, 'sentConnectionRequests'), actorId);
+        if (accept) {
+          me.connections = withId(list(me, 'connections'), id);
+          other.connections = withId(list(other, 'connections'), actorId);
+          status = 'connected';
+        } else {
+          status = 'declined';
+        }
+      } else if (action === 'connect-cancel') {
+        me.sentConnectionRequests = without(list(me, 'sentConnectionRequests'), id);
+        other.connectionRequests = without(list(other, 'connectionRequests'), actorId);
+        status = 'cancelled';
+      } else {
+        me.connections = without(list(me, 'connections'), id);
+        other.connections = without(list(other, 'connections'), actorId);
+        status = 'removed';
+      }
+      await client.send(new PutCommand({ TableName: tableName, Item: { ...me, updatedAt: now } }));
+      await client.send(new PutCommand({ TableName: tableName, Item: { ...other, updatedAt: now } }));
+      return res.status(200).json({ status, me: sanitize(me), other: sanitize(other) });
+    }
+
     // Admin-awarded badges (e.g. Best in Pubmat for one event)
     if (req.method === 'POST' && (action === 'award' || action === 'unaward')) {
       const { actorId, id, badge, eventId, note, awardId } = req.body || {};
@@ -436,9 +521,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       for (const key of allowed) {
         if (key in changes) updates[key] = changes[key];
       }
-      if ('connections' in updates) updates.connections = idList(updates.connections).filter((x) => x !== id);
       if ('savedEventIds' in updates) updates.savedEventIds = idList(updates.savedEventIds);
       if ('tutorialSeen' in updates) updates.tutorialSeen = Boolean(updates.tutorialSeen);
+      if ('socials' in updates) updates.socials = cleanSocials(updates.socials);
       if (updates.status === 'approved' && target.status !== 'approved') {
         updates.approvedAt = new Date().toISOString();
         updates.approvedBy = actorId;

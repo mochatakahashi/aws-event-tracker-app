@@ -41,6 +41,7 @@ function toPerson(u: User): Person {
     committee: u.committee,
     subcommittee: u.subcommittee,
     awards: u.awards,
+    connectionCount: u.connections?.length ?? 0,
   };
 }
 

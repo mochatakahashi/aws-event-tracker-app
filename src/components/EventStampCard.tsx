@@ -20,24 +20,32 @@ import ImageNotSupportedOutlinedIcon from '@mui/icons-material/ImageNotSupported
 import { alpha } from '@mui/material/styles';
 import { brand } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
-import { useEvent } from '../context/EventContext';
+import { useOptionalEvent } from '../context/EventContext';
 import { getSessionsByEvent, getStampsByAttendee, createStamp } from '../services/sessionService';
 import type { Session, Stamp } from '../types/session';
+import type { AppEvent } from '../types/event';
 
 interface EventStampCardProps {
   /** Optional custom title header */
   title?: string;
   /** Whether to show sessions that don't require stamps as well, or only stamp sessions */
   filterStampSessionsOnly?: boolean;
+  /** The event to show (defaults to the selected event). */
+  event?: AppEvent | null;
+  /** Show nothing for events without stamp activities. */
+  hideWhenEmpty?: boolean;
 }
 
 export default function EventStampCard({
   title = 'OFFICIAL EVENT STAMP PASSPORT',
   filterStampSessionsOnly = true,
+  event,
+  hideWhenEmpty = false,
 }: EventStampCardProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { selectedEvent } = useEvent();
+  const picked = useOptionalEvent()?.selectedEvent ?? null;
+  const selectedEvent = event ?? picked;
 
   const [sessions, setSessions] = useState<Session[]>([]);
   const [stamps, setStamps] = useState<Stamp[]>([]);
@@ -60,11 +68,12 @@ export default function EventStampCard({
         setStamps(stmps);
       })
       .finally(() => setLoading(false));
-  }, [selectedEvent, user?.personId]);
+  }, [selectedEvent?.id, user?.personId]);
 
   if (!selectedEvent) return null;
 
   if (loading) {
+    if (hideWhenEmpty) return null;
     return (
       <Card variant="outlined" sx={{ p: 3, textAlign: 'center', mb: 3 }}>
         <CircularProgress size={32} />
@@ -92,6 +101,7 @@ export default function EventStampCard({
   const isComplete = totalStampSlots > 0 && approvedCount === totalStampSlots;
 
   if (displaySessions.length === 0) {
+    if (hideWhenEmpty) return null;
     return (
       <Card
         variant="outlined"

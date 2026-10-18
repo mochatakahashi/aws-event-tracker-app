@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
@@ -9,16 +9,13 @@ import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import Tooltip from '@mui/material/Tooltip';
 import CircularProgress from '@mui/material/CircularProgress';
-import Alert from '@mui/material/Alert';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import PersonAddAlt1RoundedIcon from '@mui/icons-material/PersonAddAlt1Rounded';
-import HowToRegRoundedIcon from '@mui/icons-material/HowToRegRounded';
 import { alpha } from '@mui/material/styles';
 import { brand } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
 import { useBoardData } from '../hooks/useBoardData';
-import { updateProfile } from '../services/authService';
-import { notifyInApp } from '../services/notificationService';
+import { getUser } from '../services/authService';
+import ConnectButton from '../components/ConnectButton';
 import { affiliation, memberLabel, officerTitle } from '../utils/people';
 import { BADGES } from '../utils/badges';
 import { officerBadgesFor } from '../utils/officerBadges';
@@ -52,8 +49,6 @@ export default function PersonProfilePage() {
   const { user, setCurrentUser } = useAuth();
   const navigate = useNavigate();
   const { data, loading, error } = useBoardData();
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState('');
 
   const person = data?.people.find((p) => p.id === id);
   const row = useMemo(() => (data ? attendeeBoard(data).find((r) => r.personId === id) : undefined), [data, id]);
@@ -73,32 +68,15 @@ export default function PersonProfilePage() {
   );
 
   const isMe = user?.personId === id;
-  const connected = Boolean(user?.connections?.includes(id));
 
-  async function toggleConnection() {
-    if (!user || !person) return;
-    setBusy(true);
-    setMsg('');
-    try {
-      const next = connected ? (user.connections || []).filter((x) => x !== id) : [...(user.connections || []), id];
-      const updated = await updateProfile(user.personId, { connections: next });
-      setCurrentUser(updated);
-      if (!connected) {
-        setMsg(`${person.name} was added to your connections.`);
-        void notifyInApp({
-          personIds: [id],
-          kind: 'announcement',
-          title: `${user.name} added you as a connection`,
-          message: 'Open their profile to see their achievements and add them back.',
-          link: `/people/${user.personId}`,
-        });
-      }
-    } catch (e) {
-      setMsg(e instanceof Error ? e.message : 'Could not update your connections.');
-    } finally {
-      setBusy(false);
-    }
-  }
+  // Fresh copy of my account so new connection requests show up
+  useEffect(() => {
+    if (!user?.personId) return;
+    getUser(user.personId)
+      .then((u) => u && setCurrentUser(u))
+      .catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.personId, id]);
 
   if (loading) {
     return (
@@ -152,23 +130,11 @@ export default function PersonProfilePage() {
                 {affiliation(person) !== '—' && <Chip size="small" variant="outlined" label={affiliation(person)} />}
               </Stack>
             </Box>
-            {!isMe && user && (
-              <Button
-                variant={connected ? 'outlined' : 'contained'}
-                startIcon={connected ? <HowToRegRoundedIcon /> : <PersonAddAlt1RoundedIcon />}
-                onClick={toggleConnection}
-                disabled={busy}
-                sx={{ flexShrink: 0 }}
-              >
-                {connected ? 'Connected' : 'Add connection'}
-              </Button>
-            )}
+            {!isMe && user && <ConnectButton personId={person.id} name={person.name} />}
           </Stack>
-          {msg && (
-            <Alert severity="success" sx={{ mt: 2 }} onClose={() => setMsg('')}>
-              {msg}
-            </Alert>
-          )}
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }} data-testid="connection-count">
+            <strong>{person.connectionCount ?? 0}</strong> AWS SBG-APC connection{person.connectionCount === 1 ? '' : 's'}
+          </Typography>
           {person.bio && (
             <Typography sx={{ mt: 2, whiteSpace: 'pre-line', color: 'text.secondary' }}>{person.bio}</Typography>
           )}

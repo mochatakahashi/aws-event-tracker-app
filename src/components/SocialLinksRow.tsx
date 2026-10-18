@@ -1,28 +1,23 @@
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
-import LinkedInIcon from '@mui/icons-material/LinkedIn';
-import GitHubIcon from '@mui/icons-material/GitHub';
-import XIcon from '@mui/icons-material/X';
-import LanguageIcon from '@mui/icons-material/Language';
 import type { SocialLinks } from '../types/auth';
+import { socialEntries, toUrl } from '../utils/socials';
 
-const ITEMS: { key: keyof SocialLinks; label: string; icon: JSX.Element; color: string }[] = [
-  { key: 'linkedIn', label: 'LinkedIn', icon: <LinkedInIcon />, color: '#0A66C2' },
-  { key: 'github', label: 'GitHub', icon: <GitHubIcon />, color: '#24292F' },
-  { key: 'twitterX', label: 'X', icon: <XIcon />, color: '#000' },
-  { key: 'website', label: 'Website', icon: <LanguageIcon />, color: '#7B2D8E' },
-];
+export { toUrl };
 
-/** Make "github.com/x" clickable. */
-export function toUrl(v: string): string {
-  return /^https?:\/\//i.test(v) ? v : `https://${v}`;
-}
-
-/** All of a person's social links as buttons. */
-export default function SocialLinksRow({ socials, empty = 'No social links yet.' }: { socials?: SocialLinks; empty?: string }) {
-  const present = ITEMS.filter((i) => socials?.[i.key]?.trim());
-  if (present.length === 0) {
+/** All of a person's social links (standard platforms and their own custom ones) as buttons. */
+export default function SocialLinksRow({
+  socials,
+  empty = 'No social links yet.',
+  align = 'center',
+}: {
+  socials?: SocialLinks;
+  empty?: string;
+  align?: 'center' | 'flex-start';
+}) {
+  const links = socialEntries(socials);
+  if (links.length === 0) {
     return (
       <Typography variant="caption" color="text.secondary">
         {empty}
@@ -30,19 +25,19 @@ export default function SocialLinksRow({ socials, empty = 'No social links yet.'
     );
   }
   return (
-    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap justifyContent="center">
-      {present.map((i) => (
+    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap justifyContent={align} data-testid="social-links">
+      {links.map((l) => (
         <Button
-          key={i.key}
+          key={l.id}
           size="small"
           variant="outlined"
-          startIcon={i.icon}
-          href={toUrl(socials![i.key]!.trim())}
+          startIcon={l.icon}
+          href={l.url}
           target="_blank"
           rel="noopener noreferrer"
-          sx={{ color: i.color, borderColor: 'divider' }}
+          sx={{ color: l.color, borderColor: 'divider', textTransform: 'none' }}
         >
-          {i.label}
+          {l.label}
         </Button>
       ))}
     </Stack>

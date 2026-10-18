@@ -52,6 +52,7 @@ import RecentUploadsShelf from '../components/RecentUploadsShelf';
 import InlinePass from '../components/InlinePass';
 import EventStaffPanel from '../components/EventStaffPanel';
 import SessionsSection from '../components/SessionsSection';
+import EventStampCard from '../components/EventStampCard';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import { formatDateRange } from '../utils/eventDisplay';
 import { useAuth } from '../context/AuthContext';
@@ -394,6 +395,13 @@ export default function EventDetailPage() {
             <Divider sx={{ my: 3 }} />
 
             <SessionsSection event={event} refreshKey={`${myReg?.id ?? ''}:${myReg?.rsvp ?? ''}`} isAdmin={user?.role === 'admin'} />
+
+            {/* Your stamp passport for this event (registered, event not over, has stamps) */}
+            {myReg && myReg.rsvp !== 'declined' && event.status !== 'accomplished' && event.status !== 'cancelled' && (
+              <Box sx={{ mt: 3, '&:empty': { display: 'none' } }} data-testid="event-passport">
+                <EventStampCard event={event} title="YOUR STAMP PASSPORT" hideWhenEmpty />
+              </Box>
+            )}
 
             <Divider sx={{ my: 3 }} />
 
