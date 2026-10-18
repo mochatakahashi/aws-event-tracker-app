@@ -40,6 +40,8 @@ export interface Stamp {
   approvedBy?: string;
   /** ISO 8601 timestamp of approval. */
   approvedAt?: string;
+  /** When the attendee asked for it. */
+  requestedAt?: string;
   status: 'pending' | 'approved';
 }
 

@@ -152,7 +152,7 @@ Emails go through Gmail SMTP when `GMAIL_USER` + `GMAIL_APP_PASSWORD` are set, o
 | Assigned to an event | That officer | Event page (admin) |
 | New task | Assigned officers | Officer Tasks |
 | Stamp approved / declined | The attendee | Officer Dashboard |
-| Checked in (certificate ready) | The attendee | Check-in Scanner |
+| Checked in (certificate ready) | The attendee | Event Desk |
 
 Emails:
 | Trigger | Recipients | Sent by |
@@ -172,7 +172,7 @@ Each reminder is sent once (flags stored on the event/task); moving an event's d
 ```mermaid
 sequenceDiagram
     participant A as Attendee (My Event Pass)
-    participant O as Officer (Check-in Scanner)
+    participant O as Officer (Event Desk)
     participant API as /api/registrations
     participant DB as DynamoDB
     participant S3 as Amazon S3
@@ -188,6 +188,7 @@ sequenceDiagram
 ```
 
 - **Event staff (who may do what)**: each event stores `officerIds` + `officerRoles` and two duty lists, `stampOfficerIds` and `checkinOfficerIds`. Only an admin changes them, through `PUT /api/events?id=…&action=staff`; ordinary event edits keep the lists and prune anyone no longer assigned. `/api/stamps` (approve / decline) and `/api/registrations` (check-in / undo / opening someone else's certificate) look up the actor and allow admins, or officers on the matching list for **that** event. New stamps are always `pending`; a plain registration `PUT` can't set `checkedIn`. The client mirrors the rule in `utils/eventStaff.ts` (`canDo`) to hide what an officer can't do.
+- **Event Desk** (`OfficerScanPage` + `StampRequestsPanel` + `EventAttendeesPanel`): for the selected event it loads registrations, sessions and that event's stamps, refreshing every 20 s; the sidebar badge comes from `useDeskCounts` (pending stamps at events where the user may approve). `PUT /api/stamps` only approves when the attendee has a checked-in registration for the session's event (`409 NOT_CHECKED_IN` otherwise), so *Check in & approve* calls check-in first, then approve.
 - **Session picks**: `registration.sessionIds` holds the sessions a registered attendee plans to attend; only they can change it (`PUT /api/registrations?id=` with their `personId`), and the server keeps only that event's sessions. `useSessionPicks` turns an event's registrations into per-session "going" counts (people who declined are skipped). The event's `participants` stays the single expected number for the whole event; events may have no sessions.
 - **Stamps at the booth**: the scanner lists the event's stamp sessions (live ones first). *Approve stamp* reuses `sessionService` — it creates the stamp if the attendee never requested it, then approves it with the officer's id — and notifies the attendee.
 - **Verification**: every certificate carries a QR code to `…/#/verify/<certificateId>` (built from `APP_URL` or the request host). `GET /api/registrations?action=verify&certificateId=` is public and returns only what is printed on the certificate (name, event, dates, venue, issue date) plus `valid` / `revoked` / `not-found`.
@@ -329,7 +330,7 @@ erDiagram
 | **public (signed out)** | Welcome, sign-in, sign-up, and **certificate verification** (`/verify/:id`). |
 | **any signed-in account with a temporary password** | Only **Set your own password** (`/change-password`) until it's changed. |
 | **`attendee`** | View schedule, request stamps, edit personal bio/socials, view own stamp card, show the QR event pass, add events to a calendar, download own certificate after check-in, read own notifications, view the **leaderboard** and own badges. |
-| **`officer`** | All attendee privileges + `OfficerDashboardPage`: see and complete assigned tasks, approve/decline stamp requests and check attendees in (with the **Check-in Scanner**, `/officer/scan`) **only at events where an admin put them on the staff list for that duty**, update their **Content Tracker** items (status, file link, notes). |
+| **`officer`** | All attendee privileges + `OfficerDashboardPage`: see and complete assigned tasks, approve/decline stamp requests and check attendees in (in the **Event Desk**, `/officer/scan` — stamps only after check-in) **only at events where an admin put them on the staff list for that duty**, update their **Content Tracker** items (status, file link, notes). |
 | **`admin`** | All officer privileges + approve/decline sign-ups (optional reason), change roles and delete accounts (`/admin`), monitor attendees and stamp finishers with Excel export (`/admin/attendees`), officer achievements, archive batches (`/admin/officers`), assign officer tasks (`/admin/tasks`), edit events, assign officers and set the **event staff list** (who can approve stamps / check in), **award officer badges**, send reminders. |
 
 The built-in admin is `awsapc.admin` (password from `ADMIN_PASSWORD`). There are no demo accounts. Admin actions — and check-ins (`/api/registrations?action=checkin`, officer or admin) — are checked on the server against the acting account's role; the app does not yet use signed sessions (see ADR-008). A certificate can only be downloaded by its owner or by an officer/admin.

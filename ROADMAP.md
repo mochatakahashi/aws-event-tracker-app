@@ -101,6 +101,11 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 
 ---
 
+### ✅ Version 0.6.9 — Event Desk
+- [x] **Event Desk**: scanner, stamp requests and attendee list for each event in one page; stamps approved after check-in (**Check in & approve**).
+
+---
+
 ## 🔮 Upcoming Milestones & Next Steps
 
 ### 🚧 Version 0.6.5 — On-site Extras & Email Notification Delivery
@@ -167,6 +172,7 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 | Session Picks & Real "Going" Counts | v0.6.8 | ✅ Completed | Medium |
 | Event Staff Permissions (stamps / check-in) | v0.6.8 | ✅ Completed | High |
 | Officer Badges (automatic + awarded) | v0.6.8 | ✅ Completed | Medium |
+| Event Desk (scan · stamp requests · attendees) | v0.6.9 | ✅ Completed | High |
 | Certificate of Completion (100% stamps) | v1.0.0 | ⏳ Planned | Low |
 
 ---

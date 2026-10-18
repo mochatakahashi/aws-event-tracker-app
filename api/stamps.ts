@@ -57,6 +57,28 @@ async function stampApprover(client: DynamoDBDocumentClient, tableName: string, 
   return Array.isArray(allowed) && allowed.includes(actor.id) ? actor : null;
 }
 
+/** Stamps are approved after check-in: the attendee must be checked in to the session's event. */
+async function checkedInForSession(client: DynamoDBDocumentClient, tableName: string, attendeeId: string, sessionId: string) {
+  const session = (await client.send(new GetCommand({ TableName: tableName, Key: { id: sessionId } }))).Item;
+  if (!session?.eventId) return false;
+  let ExclusiveStartKey: Record<string, any> | undefined;
+  do {
+    const page = await client.send(
+      new ScanCommand({
+        TableName: tableName,
+        FilterExpression: 'entityType = :t',
+        ExpressionAttributeValues: { ':t': 'registration' },
+        ExclusiveStartKey,
+      })
+    );
+    if ((page.Items || []).some((r: any) => r.eventId === session.eventId && r.personId === attendeeId && r.checkedIn)) return true;
+    ExclusiveStartKey = page.LastEvaluatedKey;
+  } while (ExclusiveStartKey);
+  return false;
+}
+
+const NOT_CHECKED_IN = 'Check this attendee in first — stamps are approved after check-in.';
+
 const NOT_ON_STAFF =
   'You are not on the stamp team for this event. Ask an admin to tick "Approve stamps" for you on the event page.';
 
@@ -155,7 +177,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(201).json(itemToSave);
     }
 
-    // PUT /api/stamps?id=… { actorId, status } (stamp team approves; status 'pending' un-approves)
+    // PUT /api/stamps?id=… { actorId, status } (stamp team approves — attendee must be checked in; status 'pending' un-approves)
     if (req.method === 'PUT') {
       const { id } = req.query;
       const updates = req.body;
@@ -182,6 +204,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const actor = await stampApprover(client, tableName, updates?.actorId || updates?.approvedBy, existing.Item.sessionId);
       if (!actor) return res.status(403).json({ error: NOT_ON_STAFF });
       const approve = (updates?.status ?? 'approved') === 'approved';
+      if (approve && existing.Item.status !== 'approved' && !(await checkedInForSession(client, tableName, existing.Item.attendeeId, existing.Item.sessionId))) {
+        return res.status(409).json({ error: NOT_CHECKED_IN, code: 'NOT_CHECKED_IN' });
+      }
       const merged = approve
         ? { ...existing.Item, id: stampId, entityType: 'stamp', status: 'approved', approvedBy: actor.id, approvedAt: new Date().toISOString() }
         : { ...existing.Item, id: stampId, entityType: 'stamp', status: 'pending', approvedBy: undefined, approvedAt: undefined };

@@ -37,6 +37,8 @@ import EventOrganizerLogo from './EventOrganizerLogo';
 import { useUnreadNotifications } from '../hooks/useUnreadNotifications';
 import QrCode2RoundedIcon from '@mui/icons-material/QrCode2Rounded';
 import LeaderboardRoundedIcon from '@mui/icons-material/LeaderboardRounded';
+import QrCodeScannerRoundedIcon from '@mui/icons-material/QrCodeScannerRounded';
+import { useDeskCounts } from '../hooks/useDeskCounts';
 
 const DRAWER_WIDTH = 260;
 
@@ -61,6 +63,7 @@ export default function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const unread = useUnreadNotifications(user?.personId);
+  const desk = useDeskCounts(user);
   const unreadLabel = unread > 0 ? `${unread} unread notification${unread === 1 ? '' : 's'}` : 'notifications';
 
   // Profile menu anchor
@@ -164,11 +167,24 @@ export default function AppLayout() {
             />
           </ListItemButton>
         )}
+        {desk.hasDesk && (
+          <ListItemButton component={RouterLink} to="/officer/scan" selected={location.pathname.startsWith('/officer/scan')}>
+            <ListItemIcon sx={{ minWidth: 40 }}>
+              <Badge badgeContent={desk.pendingStamps} color="error" max={99}>
+                <QrCodeScannerRoundedIcon />
+              </Badge>
+            </ListItemIcon>
+            <ListItemText
+              primary="Event Desk"
+              primaryTypographyProps={{ fontWeight: location.pathname.startsWith('/officer/scan') ? 600 : 400, fontSize: '0.9rem' }}
+            />
+          </ListItemButton>
+        )}
         {(user?.role === 'officer' || (user?.personId && selectedEvent?.officerIds?.includes(user.personId))) && (
           <ListItemButton
             component={RouterLink}
             to="/officer"
-            selected={isActive('/officer')}
+            selected={isActive('/officer') && !location.pathname.startsWith('/officer/scan')}
           >
             <ListItemIcon sx={{ minWidth: 40 }}><VerifiedUserIcon /></ListItemIcon>
             <ListItemText

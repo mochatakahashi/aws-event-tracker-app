@@ -217,7 +217,7 @@ export default function SessionDetailPage() {
                   Complete this session's activity to earn your stamp.
                   {canApprove
                     ? ' You are on the stamp team for this event, so you can approve stamps.'
-                    : ' Ask an officer on the stamp team to verify your completion.'}
+                    : ' Request it here; an officer approves it once you’re checked in at the event.'}
                 </Typography>
               </Box>
             </Stack>

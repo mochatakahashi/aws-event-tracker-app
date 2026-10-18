@@ -20,6 +20,7 @@ import { alpha } from '@mui/material/styles';
 import { brand } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
 import { getUsers } from '../services/authService';
+import { useDeskCounts } from '../hooks/useDeskCounts';
 import { getTasks } from '../services/taskService';
 import { notifyQuietly } from '../services/notifyService';
 import Button from '@mui/material/Button';
@@ -39,6 +40,7 @@ interface Item {
 export default function AdminHome() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const desk = useDeskCounts(user);
   const [pending, setPending] = useState(0);
   const [openTasks, setOpenTasks] = useState(0);
   const [reminderNote, setReminderNote] = useState<string | null>(null);
@@ -134,10 +136,12 @@ export default function AdminHome() {
       icon: <LeaderboardRoundedIcon sx={{ fontSize: 28 }} />,
     },
     {
-      title: 'Check-in Scanner',
-      description: 'Scan QR passes at the door; certificates are issued on check-in',
+      title: 'Event Desk',
+      description: 'Check-in scanner, stamp requests and the attendee list for each event, in one place',
       to: '/officer/scan',
       icon: <QrCodeScannerRoundedIcon sx={{ fontSize: 28 }} />,
+      badge: desk.pendingStamps,
+      badgeLabel: 'stamp requests',
     },
   ];
 

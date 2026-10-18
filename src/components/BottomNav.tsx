@@ -7,6 +7,7 @@ import EventIcon from '@mui/icons-material/CalendarMonth';
 import ConnectIcon from '@mui/icons-material/PeopleAlt';
 import AchievementsIcon from '@mui/icons-material/EmojiEventsRounded';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
+import QrCodeScannerRoundedIcon from '@mui/icons-material/QrCodeScannerRounded';
 import { brand } from '../theme/theme';
 
 import { useAuth } from '../context/AuthContext';
@@ -34,7 +35,9 @@ export default function BottomNav() {
   });
 
   const isOfficer = user?.role === 'officer' || (user?.personId && selectedEvent?.officerIds?.includes(user.personId));
-  if (isOfficer) {
+  if (user?.role === 'admin') {
+    navItems.push({ label: 'Event Desk', icon: <QrCodeScannerRoundedIcon />, path: '/officer/scan' });
+  } else if (isOfficer) {
     navItems.push({ label: 'Officer', icon: <VerifiedUserIcon />, path: '/officer' });
   }
 

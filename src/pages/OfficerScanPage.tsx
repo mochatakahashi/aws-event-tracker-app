@@ -30,7 +30,12 @@ import { useAuth } from '../context/AuthContext';
 import { useEvent } from '../context/EventContext';
 import { getEvents } from '../services/eventService';
 import { checkIn, getPeople, getRegistration, getRegistrationsByEvent } from '../services/registrationService';
-import { approveStamp, createStamp, getSessionsByEvent, getStampsByAttendee } from '../services/sessionService';
+import { approveStamp, createStamp, getSessionsByEvent, getStamps, getStampsByAttendee } from '../services/sessionService';
+import Tabs from '@mui/material/Tabs';
+import Tab from '@mui/material/Tab';
+import Badge from '@mui/material/Badge';
+import StampRequestsPanel from '../components/StampRequestsPanel';
+import EventAttendeesPanel from '../components/EventAttendeesPanel';
 import { canDo, staffEvents } from '../utils/eventStaff';
 import { notifyInApp } from '../services/notificationService';
 import { affiliation, memberLabel } from '../utils/people';
@@ -98,6 +103,12 @@ export default function OfficerScanPage() {
   const [stampJustApproved, setStampJustApproved] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [loaded, setLoaded] = useState(false);
+  const [deskSessions, setDeskSessions] = useState<Session[]>([]);
+  const [deskStamps, setDeskStamps] = useState<Stamp[]>([]);
+  const tabParam = params.get('tab');
+  const [tab, setTab] = useState<'scan' | 'stamps' | 'attendees'>(
+    tabParam === 'stamps' || tabParam === 'attendees' ? tabParam : 'scan',
+  );
   const lastCode = useRef<{ text: string; at: number }>({ text: '', at: 0 });
 
   const isStaff = user?.role === 'officer' || user?.role === 'admin';
@@ -114,18 +125,33 @@ export default function OfficerScanPage() {
         const open = staffEvents(user, evts.filter((e) => e.status !== 'cancelled'));
         setEvents(open);
         setPeople(ppl);
-        setDoorEventId((cur) => cur || defaultEvent(open, selectedEvent?.id));
+        const asked = params.get('event');
+        setDoorEventId((cur) => cur || (asked && open.some((e) => e.id === asked) ? asked : defaultEvent(open, selectedEvent?.id)));
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Could not load events.'))
       .finally(() => setLoaded(true));
   }, [selectedEvent?.id, user]);
 
-  useEffect(() => {
+  /** Everything the desk shows for the selected event: registrations, sessions, stamps. */
+  const refreshDesk = useCallback(async () => {
     if (!doorEventId) return;
-    getRegistrationsByEvent(doorEventId)
-      .then(setEventRegs)
-      .catch(() => setEventRegs([]));
-  }, [doorEventId, scanned?.reg.checkedIn]);
+    const [regs, sess, all] = await Promise.all([
+      getRegistrationsByEvent(doorEventId).catch(() => [] as Registration[]),
+      getSessionsByEvent(doorEventId).catch(() => [] as Session[]),
+      getStamps().catch(() => [] as Stamp[]),
+    ]);
+    const ids = new Set(sess.map((x) => x.id));
+    setEventRegs(regs);
+    setDeskSessions(sess);
+    setDeskStamps(all.filter((x) => ids.has(x.sessionId)));
+  }, [doorEventId]);
+
+  useEffect(() => {
+    void refreshDesk();
+    // New stamp requests and check-ins by other staff show up without reloading
+    const t = window.setInterval(() => void refreshDesk(), 20000);
+    return () => window.clearInterval(t);
+  }, [refreshDesk, scanned?.reg.checkedIn]);
 
   const open = useCallback(
     async (registrationId: string) => {
@@ -165,10 +191,17 @@ export default function OfficerScanPage() {
   useEffect(() => {
     const pass = params.get('pass');
     if (pass && isStaff) {
+      setTab('scan');
       void open(pass);
       setParams({}, { replace: true });
+      return;
     }
-  }, [params, isStaff, open, setParams]);
+    // Links like ?tab=stamps&event=… (from the Officer Dashboard) while the desk is open
+    const t = params.get('tab');
+    if (t === 'scan' || t === 'stamps' || t === 'attendees') setTab(t);
+    const ev = params.get('event');
+    if (ev && events.some((e) => e.id === ev)) setDoorEventId(ev);
+  }, [params, isStaff, open, setParams, events]);
 
   function onScan(text: string) {
     const now = Date.now();
@@ -219,6 +252,7 @@ export default function OfficerScanPage() {
         cur && { ...cur, stamps: [...cur.stamps.filter((x) => x.sessionId !== session.id), approved] },
       );
       setStampJustApproved(session.id);
+      void refreshDesk();
       void notifyInApp({
         personIds: [scanned.reg.personId],
         kind: 'stamp-approved',
@@ -253,6 +287,7 @@ export default function OfficerScanPage() {
   }, [q, eventRegs, peopleById]);
 
   const checkedCount = eventRegs.filter((r) => r.checkedIn).length;
+  const pendingCount = deskStamps.filter((x) => x.status === 'pending').length;
   const doorEvent = events.find((e) => e.id === doorEventId);
 
   const mayCheckIn = canDo(user, scanned?.event, 'checkin');
@@ -362,6 +397,10 @@ export default function OfficerScanPage() {
                       <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
                         {st?.status === 'pending' ? 'Waiting for the stamp team' : 'Not claimed'}
                       </Typography>
+                    ) : !scanned.reg.checkedIn ? (
+                      <Typography variant="caption" color="warning.main" sx={{ flexShrink: 0, fontWeight: 600 }}>
+                        Check in first
+                      </Typography>
                     ) : (
                       <Button
                         size="small"
@@ -424,21 +463,26 @@ export default function OfficerScanPage() {
 
   return (
     <Box>
-      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/officer')} sx={{ mb: 1 }}>
-        Officer Dashboard
+      <Button
+        startIcon={<ArrowBackIcon />}
+        onClick={() => navigate(user?.role === 'admin' ? '/home' : '/officer')}
+        sx={{ mb: 1 }}
+      >
+        {user?.role === 'admin' ? 'Admin Dashboard' : 'Officer Dashboard'}
       </Button>
       <Typography variant="h1" sx={{ mb: 0.5 }}>
-        Check-in Scanner
+        Event Desk
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
-        Scan an attendee’s QR pass to check them in or approve the stamp for the session they just finished.
+        Everything for the event in one place: scan passes to check people in, then approve their stamps — from the scan or
+        the stamp request list — and see who’s here.
       </Typography>
 
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ sm: 'center' }} sx={{ mb: 2.5 }}>
         <TextField
           select
           size="small"
-          label="Event at the door"
+          label="Event"
           value={doorEventId}
           onChange={(e) => setDoorEventId(e.target.value)}
           sx={{ minWidth: { sm: 340 } }}
@@ -471,11 +515,62 @@ export default function OfficerScanPage() {
         </Alert>
       )}
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 1fr) minmax(0, 1fr)' }, gap: 3, alignItems: 'start' }}>
+      {doorEvent && (
+        <Tabs
+          value={tab}
+          onChange={(_e, v) => setTab(v)}
+          variant="scrollable"
+          allowScrollButtonsMobile
+          sx={{ mb: 2.5, borderBottom: `1px solid ${alpha(brand.primary, 0.12)}` }}
+        >
+          <Tab value="scan" icon={<QrCodeScannerRoundedIcon />} iconPosition="start" label="Scan" />
+          <Tab
+            value="stamps"
+            icon={<StarsRoundedIcon />}
+            iconPosition="start"
+            label={
+              <Badge color="error" badgeContent={pendingCount} sx={{ '& .MuiBadge-badge': { right: -12 } }}>
+                Stamp requests
+              </Badge>
+            }
+            sx={{ pr: pendingCount ? 3 : 2 }}
+          />
+          <Tab value="attendees" icon={<HowToRegRoundedIcon />} iconPosition="start" label={`Attendees ${checkedCount}/${eventRegs.filter((r) => r.rsvp !== 'declined').length}`} />
+        </Tabs>
+      )}
+
+      {doorEvent && tab === 'stamps' && user && (
+        <StampRequestsPanel
+          event={doorEvent}
+          sessions={deskSessions}
+          stamps={deskStamps}
+          regs={eventRegs}
+          people={peopleById}
+          actor={user}
+          onChanged={refreshDesk}
+        />
+      )}
+      {doorEvent && tab === 'attendees' && user && (
+        <EventAttendeesPanel
+          event={doorEvent}
+          sessions={deskSessions}
+          stamps={deskStamps}
+          regs={eventRegs}
+          people={peopleById}
+          actor={user}
+          onOpen={(id) => {
+            setTab('scan');
+            void open(id);
+          }}
+          onChanged={refreshDesk}
+        />
+      )}
+
+      <Box sx={{ display: tab === 'scan' || !doorEvent ? 'grid' : 'none', gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 1fr) minmax(0, 1fr)' }, gap: 3, alignItems: 'start' }}>
         <Box>
           {/* On phones the result replaces the camera so it's visible without scrolling */}
           <Box sx={{ display: !wide && scanned ? 'none' : 'block', position: 'relative' }}>
-            <QrScanner onResult={onScan} paused={Boolean(scanned) || looking} />
+            {tab === 'scan' && <QrScanner onResult={onScan} paused={Boolean(scanned) || looking} />}
             {looking && (
               <Box sx={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', bgcolor: alpha('#000', 0.4), borderRadius: '20px' }}>
                 <CircularProgress sx={{ color: '#fff' }} />

@@ -8,10 +8,8 @@ import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import CancelIcon from '@mui/icons-material/Cancel';
-import { getStamps, getSessions, approveStamp, declineStamp } from '../services/sessionService';
+import { getStamps, getSessions } from '../services/sessionService';
 import { getPeople } from '../services/registrationService';
-import { notifyInApp } from '../services/notificationService';
 import { getTasksForOfficer, updateTask } from '../services/taskService';
 import { getUsers } from '../services/authService';
 import ContentTracker from '../components/ContentTracker';
@@ -71,28 +69,6 @@ export default function OfficerDashboardPage() {
       .finally(() => setLoading(false));
   }, [user, navigate]);
 
-  async function handleApprove(stampId: string) {
-    if (!user?.personId) return;
-    try {
-      const stamp = pendingStamps.find(s => s.id === stampId);
-      await approveStamp(stampId, user.personId);
-      setPendingStamps(prev => prev.filter(s => s.id !== stampId));
-      setError('');
-      if (stamp) {
-        const session = sessions.find(s => s.id === stamp.sessionId);
-        void notifyInApp({
-          personIds: [stamp.attendeeId],
-          kind: 'stamp-approved',
-          title: 'Stamp collected! ⭐',
-          message: `Your stamp for "${session?.title || 'a session'}" was approved by ${user.name}.`,
-          link: '/achievements',
-        });
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not approve the stamp.');
-    }
-  }
-
   async function setTaskStatus(task: OfficerTask, status: TaskStatus) {
     if (!user) return;
     try {
@@ -100,26 +76,6 @@ export default function OfficerDashboardPage() {
       setTasks(prev => prev.map(t => (t.id === updated.id ? updated : t)));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not update the task.');
-    }
-  }
-
-  async function handleDecline(stampId: string) {
-    try {
-      const stamp = pendingStamps.find(s => s.id === stampId);
-      await declineStamp(stampId, user?.personId);
-      setPendingStamps(prev => prev.filter(s => s.id !== stampId));
-      if (stamp) {
-        const session = sessions.find(s => s.id === stamp.sessionId);
-        void notifyInApp({
-          personIds: [stamp.attendeeId],
-          kind: 'stamp-declined',
-          title: 'Stamp request not approved',
-          message: `Your stamp request for "${session?.title || 'a session'}" was declined. Finish the activity and request it again, or ask an officer at the booth.`,
-          link: '/achievements',
-        });
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not decline the stamp.');
     }
   }
 
@@ -152,9 +108,9 @@ export default function OfficerDashboardPage() {
             <QrCodeScannerRoundedIcon />
           </Box>
           <Box sx={{ flex: 1, minWidth: 200 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>On-site check-in</Typography>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Event Desk</Typography>
             <Typography variant="body2" color="text.secondary">
-              Scan an attendee’s QR pass at the door to check them in, or at a booth to approve their stamp.
+              Check people in with the QR scanner, approve their stamps after check-in, and see who’s here — all in one place.
             </Typography>
             {user?.role === 'officer' && (
               myDutyEvents.length === 0 ? (
@@ -177,7 +133,7 @@ export default function OfficerDashboardPage() {
             )}
           </Box>
           <Button variant="contained" startIcon={<QrCodeScannerRoundedIcon />} onClick={() => navigate('/officer/scan')}>
-            Open scanner
+            Open Event Desk
           </Button>
         </CardContent>
       </Card>
@@ -313,44 +269,32 @@ export default function OfficerDashboardPage() {
         Stamp requests
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        {user?.role === 'admin'
-          ? 'Review and approve pending stamp requests from attendees.'
-          : 'Requests for events where you’re on the stamp team.'}
+        Stamps are approved in the Event Desk, after the attendee is checked in.
       </Typography>
 
       {myStampRequests.length === 0 ? (
         <Typography color="text.secondary">No pending stamp requests.</Typography>
       ) : (
-        <Stack spacing={2}>
-          {myStampRequests.map(stamp => {
-            const session = sessions.find(s => s.id === stamp.sessionId);
-            const attendee = people.find(p => p.id === stamp.attendeeId);
-
+        <Stack spacing={1.5} data-testid="stamp-summary">
+          {[...new Set(myStampRequests.map(st => eventOfSession.get(st.sessionId)?.id))].map(eid => {
+            const ev = events.find(e => e.id === eid);
+            const n = myStampRequests.filter(st => eventOfSession.get(st.sessionId)?.id === eid).length;
             return (
-              <Card key={stamp.id} variant="outlined">
-                <CardContent>
-                  <Typography variant="h6">{session?.title || 'Unknown Session'}</Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    Requested by: <strong>{attendee?.name || stamp.attendeeId}</strong>
-                  </Typography>
-                  <Stack direction="row" spacing={1}>
-                    <Button 
-                      variant="contained" 
-                      color="success" 
-                      startIcon={<CheckCircleIcon />}
-                      onClick={() => handleApprove(stamp.id)}
-                    >
-                      Approve
-                    </Button>
-                    <Button 
-                      variant="outlined" 
-                      color="error"
-                      startIcon={<CancelIcon />}
-                      onClick={() => handleDecline(stamp.id)}
-                    >
-                      Decline
-                    </Button>
-                  </Stack>
+              <Card key={eid ?? 'none'} variant="outlined">
+                <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', '&:last-child': { pb: 2 } }}>
+                  <Box sx={{ flex: 1, minWidth: 180 }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{ev?.title ?? 'Event'}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {n} stamp request{n === 1 ? '' : 's'} waiting
+                    </Typography>
+                  </Box>
+                  <Button
+                    variant="contained"
+                    startIcon={<CheckCircleIcon />}
+                    onClick={() => navigate(`/officer/scan?tab=stamps&event=${eid}`)}
+                  >
+                    Review in Event Desk
+                  </Button>
                 </CardContent>
               </Card>
             );

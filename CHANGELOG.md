@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.9] - 2026-10-18
+
+### Added
+- **Event Desk** (`/officer/scan`, replaces the Check-in Scanner page): one place per event with tabs **Scan** (QR check-in + booth stamps), **Stamp requests** (approve / decline, with a waiting count) and **Attendees** (check-in list with search, filters, stamps and session picks, one-tap check-in). Opens on a tab/event from links (`?tab=stamps&event=…`). Admin sidebar, Admin Home and the phone bottom bar link to it with the number of stamp requests waiting.
+- **Check in & approve**: approve a stamp for someone who isn't checked in yet in one tap (check-in team only).
+
+### Changed
+- **Stamps are approved after check-in**: the server refuses to approve a stamp until the attendee is checked in to that event (`409 NOT_CHECKED_IN`); the scan result shows *Check in first*.
+- The Officer Dashboard no longer approves stamps itself; it shows how many requests are waiting per event and links to the Event Desk.
+
+### Fixed
+- Opening a pass link while the Event Desk was on another tab didn't show the scanned attendee.
+
+---
+
 ## [0.6.8] - 2026-10-18
 
 ### Added
