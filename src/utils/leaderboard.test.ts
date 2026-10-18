@@ -23,9 +23,9 @@ const data: BoardData = {
     { id: '5', sessionId: 's1', attendeeId: 'off2', status: 'approved', approvedBy: 'off' },
   ],
   registrations: [
-    { id: 'r1', eventId: 'E1', personId: 'a1', rsvp: 'going', checkedIn: true, checkedInBy: 'off', registeredAt: '' },
-    { id: 'r2', eventId: 'E2', personId: 'a2', rsvp: 'going', checkedIn: true, checkedInBy: 'off2', registeredAt: '' },
-    { id: 'r3', eventId: 'E1', personId: 'a3', rsvp: 'going', checkedIn: false, registeredAt: '' },
+    { id: 'r1', eventId: 'E1', personId: 'a1', rsvp: 'approved', checkedIn: true, checkedInBy: 'off', registeredAt: '' },
+    { id: 'r2', eventId: 'E2', personId: 'a2', rsvp: 'approved', checkedIn: true, checkedInBy: 'off2', registeredAt: '' },
+    { id: 'r3', eventId: 'E1', personId: 'a3', rsvp: 'approved', checkedIn: false, registeredAt: '' },
   ],
   tasks: [
     { id: 't1', title: 't', assigneeIds: ['off2'], status: 'done', createdBy: 'adm', createdAt: '', eventId: 'E2' },

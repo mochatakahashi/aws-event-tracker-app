@@ -1,0 +1,115 @@
+import type { UserRole } from '../types/auth';
+
+/** One stop of the app tour. `target` matches a `data-tour` attribute; no target = a centered card. */
+export interface TourStep {
+  target?: string;
+  emoji?: string;
+  title: string;
+  text: string;
+}
+
+const dashboard: TourStep = {
+  target: 'nav-dashboard',
+  emoji: '🏠',
+  title: 'Dashboard',
+  text: 'What’s happening now: the event that’s live, your next event, your registrations and the latest updates.',
+};
+const events: TourStep = {
+  target: 'nav-events',
+  emoji: '📅',
+  title: 'Events',
+  text: 'Find events and register. An officer approves your registration, then you can pick the sessions you’ll attend. Events with ⭐ Stamps have a stamp passport.',
+};
+const pass: TourStep = {
+  target: 'nav-pass',
+  emoji: '🎟️',
+  title: 'My Event Pass',
+  text: 'Your QR pass for approved registrations. Show it at the registration booth to check in. After the event ends, your certificate appears here — view it, download it or share its link.',
+};
+const achievements: TourStep = {
+  target: 'nav-achievements',
+  emoji: '🏆',
+  title: 'Achievements',
+  text: 'Your stamp passport and badges. Request a stamp after a session; an officer approves it once you’re checked in.',
+};
+const connect: TourStep = {
+  target: 'nav-connect',
+  emoji: '🤝',
+  title: 'Connect',
+  text: 'Share your QR profile card, scan other people’s cards and see your connections.',
+};
+const bell: TourStep = {
+  target: 'nav-notifications',
+  emoji: '🔔',
+  title: 'Notifications',
+  text: 'Approvals, check-ins, stamps, tasks and “your certificate is ready” show up here.',
+};
+const profile: TourStep = {
+  target: 'profile',
+  emoji: '👤',
+  title: 'Your profile',
+  text: 'Edit your photo, bio and links, change your password, and take this tour again any time.',
+};
+
+/** Steps for each role. */
+export function tourSteps(role: UserRole | undefined): TourStep[] {
+  const welcome: TourStep = {
+    emoji: '✨',
+    title: 'AWS SBG-APC Event Tracker',
+    text:
+      role === 'admin'
+        ? 'This quick tour shows where you manage accounts, events, staff and the event day.'
+        : 'This quick tour shows where to find events, your pass, stamps and certificates.',
+  };
+  const done: TourStep = {
+    emoji: '🎉',
+    title: 'You’re all set!',
+    text: 'That’s the tour. You can take it again from your profile.',
+  };
+
+  if (role === 'admin') {
+    return [
+      welcome,
+      {
+        target: 'nav-dashboard',
+        emoji: '🛠️',
+        title: 'Admin Dashboard',
+        text: 'Manage accounts (approve sign-ups, add accounts), edit events, attendees, officers, tasks and the content tracker. On an event’s page you add sessions and set the event staff.',
+      },
+      {
+        target: 'nav-event-desk',
+        emoji: '🧭',
+        title: 'Event Desk',
+        text: 'Event day in one place: approve registrations, check people in with the QR scanner, and approve stamps after check-in.',
+      },
+      {
+        target: 'nav-leaderboard',
+        emoji: '📊',
+        title: 'Leaderboard',
+        text: 'Rankings and progress of attendees and officers, for monitoring.',
+      },
+      bell,
+      profile,
+      done,
+    ];
+  }
+
+  const base = [welcome, dashboard, events, pass, achievements, connect, bell];
+  if (role === 'officer') {
+    base.push(
+      {
+        target: 'nav-officer-dashboard',
+        emoji: '🛡️',
+        title: 'Officer Dashboard',
+        text: 'Your tasks with deadlines, your pubmats in the Content Tracker, and your event duties.',
+      },
+      {
+        target: 'nav-event-desk',
+        emoji: '🧭',
+        title: 'Event Desk',
+        text: 'When an admin puts you on an event’s staff, check people in and approve their stamps here.',
+      },
+    );
+  }
+  return [...base, profile, done];
+}

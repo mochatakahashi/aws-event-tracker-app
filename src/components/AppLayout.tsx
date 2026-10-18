@@ -39,6 +39,8 @@ import QrCode2RoundedIcon from '@mui/icons-material/QrCode2Rounded';
 import LeaderboardRoundedIcon from '@mui/icons-material/LeaderboardRounded';
 import QrCodeScannerRoundedIcon from '@mui/icons-material/QrCodeScannerRounded';
 import { useDeskCounts } from '../hooks/useDeskCounts';
+import TutorialTour, { startTour } from './TutorialTour';
+import SchoolRoundedIcon from '@mui/icons-material/SchoolRounded';
 
 const DRAWER_WIDTH = 260;
 
@@ -142,6 +144,7 @@ export default function AppLayout() {
             component={RouterLink}
             to={item.to}
             selected={isActive(item.to)}
+            data-tour={item.to === '/home' ? 'nav-dashboard' : `nav-${item.label.toLowerCase()}`}
           >
             <ListItemIcon sx={{ minWidth: 40 }}>
               {item.to === '/notifications' ? (
@@ -159,7 +162,7 @@ export default function AppLayout() {
           </ListItemButton>
         ))}
         {user?.role !== 'admin' && (
-          <ListItemButton component={RouterLink} to="/pass" selected={isActive('/pass')}>
+          <ListItemButton component={RouterLink} to="/pass" selected={isActive('/pass')} data-tour="nav-pass">
             <ListItemIcon sx={{ minWidth: 40 }}><QrCode2RoundedIcon /></ListItemIcon>
             <ListItemText
               primary="My Event Pass"
@@ -168,7 +171,12 @@ export default function AppLayout() {
           </ListItemButton>
         )}
         {desk.hasDesk && (
-          <ListItemButton component={RouterLink} to="/officer/scan" selected={location.pathname.startsWith('/officer/scan')}>
+          <ListItemButton
+            component={RouterLink}
+            to="/officer/scan"
+            selected={location.pathname.startsWith('/officer/scan')}
+            data-tour="nav-event-desk"
+          >
             <ListItemIcon sx={{ minWidth: 40 }}>
               <Badge badgeContent={desk.pendingStamps} color="error" max={99}>
                 <QrCodeScannerRoundedIcon />
@@ -185,6 +193,7 @@ export default function AppLayout() {
             component={RouterLink}
             to="/officer"
             selected={isActive('/officer') && !location.pathname.startsWith('/officer/scan')}
+            data-tour="nav-officer-dashboard"
           >
             <ListItemIcon sx={{ minWidth: 40 }}><VerifiedUserIcon /></ListItemIcon>
             <ListItemText
@@ -198,7 +207,7 @@ export default function AppLayout() {
       <Divider sx={{ mx: 2 }} />
 
       {/* User section */}
-      <Box sx={{ p: 2 }}>
+      <Box sx={{ p: 2 }} data-tour="profile">
         <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1.5 }}>
           <Avatar src={user?.avatarUrl || undefined} sx={{ width: 36, height: 36, fontSize: '0.85rem' }}>{initials}</Avatar>
           <Box sx={{ minWidth: 0, flex: 1 }}>
@@ -210,6 +219,15 @@ export default function AppLayout() {
             </Typography>
           </Box>
         </Stack>
+        <Button
+          size="small"
+          fullWidth
+          startIcon={<SchoolRoundedIcon />}
+          onClick={startTour}
+          sx={{ mb: 1, justifyContent: 'flex-start', fontSize: '0.75rem' }}
+        >
+          Take the app tour
+        </Button>
         <Stack direction="row" spacing={1}>
           <Button
             size="small"
@@ -259,6 +277,7 @@ export default function AppLayout() {
             onClick={() => navigate('/notifications')}
             sx={{ mr: 0.5 }}
             aria-label={unreadLabel}
+            data-tour="nav-notifications"
           >
             <Badge badgeContent={unread} color="error" max={99}>
               <NotificationsNoneRoundedIcon />
@@ -270,6 +289,7 @@ export default function AppLayout() {
             onClick={(e) => setProfileAnchor(e.currentTarget)}
             sx={{ p: 0.5 }}
             aria-label="account menu"
+            data-tour="profile"
           >
             <Avatar src={user?.avatarUrl || undefined} sx={{ width: 32, height: 32, fontSize: '0.75rem' }}>
               {initials}
@@ -314,6 +334,10 @@ export default function AppLayout() {
             <MenuItem onClick={() => { setProfileAnchor(null); navigate('/change-password'); }} sx={{ py: 1.2 }}>
               <ListItemIcon><LockResetIcon fontSize="small" /></ListItemIcon>
               <ListItemText primary="Change password" />
+            </MenuItem>
+            <MenuItem onClick={() => { setProfileAnchor(null); startTour(); }} sx={{ py: 1.2 }}>
+              <ListItemIcon><SchoolRoundedIcon fontSize="small" /></ListItemIcon>
+              <ListItemText primary="App tour" />
             </MenuItem>
             {user?.role !== 'admin' && (
               <MenuItem onClick={() => { setProfileAnchor(null); navigate('/pass'); }} sx={{ py: 1.2 }}>
@@ -376,6 +400,7 @@ export default function AppLayout() {
         {/* Page content */}
         <Box sx={{ p: { xs: 2, md: 3, lg: 4 }, pb: { xs: 10, md: 4 }, maxWidth: 1280, mx: 'auto', width: '100%' }}>
           <Outlet />
+          <TutorialTour />
         </Box>
       </Box>
 

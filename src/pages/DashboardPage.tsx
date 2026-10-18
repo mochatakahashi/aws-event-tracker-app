@@ -199,7 +199,11 @@ export default function DashboardPage() {
                   {event.title}
                 </Typography>
                 <Typography sx={{ color: alpha('#fff', 0.9), mt: 0.5 }}>
-                  {reg.checkedIn ? "You're checked in — enjoy the event!" : `Show your event pass at the registration booth · ${event.venue}`}
+                  {reg.checkedIn
+                    ? "You're checked in — enjoy the event!"
+                    : reg.rsvp === 'pending'
+                      ? `Your registration is waiting for approval — ask at the registration booth · ${event.venue}`
+                      : `Show your event pass at the registration booth · ${event.venue}`}
                 </Typography>
                 <Button
                   variant="contained"
@@ -237,7 +241,9 @@ export default function DashboardPage() {
                 </Stack>
               </Stack>
               <Typography sx={{ mt: 1.5 }}>
-                See you there, {user?.firstName || user?.name?.split(' ')[0]}! 🎉 Your event pass is on the event page.
+                {nextRegs[0].reg.rsvp === 'pending'
+                  ? 'Your registration is waiting for an officer’s approval. Your pass will appear on the event page once it’s approved.'
+                  : `See you there, ${user?.firstName || user?.name?.split(' ')[0]}! 🎉 Your event pass is on the event page.`}
               </Typography>
               <Button sx={{ mt: 1 }} endIcon={<ArrowForwardRoundedIcon />} onClick={() => navigate(`/events/${nextRegs[0].event.id}`)}>
                 Event details & pass
@@ -339,9 +345,11 @@ export default function DashboardPage() {
                             ? 'Attended'
                             : event.status === 'accomplished'
                               ? 'Ended'
-                              : reg.rsvp === 'interested'
-                                ? 'Interested'
-                                : 'Registered'
+                              : reg.rsvp === 'pending'
+                                ? 'Pending approval'
+                                : reg.rsvp === 'declined'
+                                  ? 'Declined'
+                                  : 'Approved'
                         }
                       />
                     </Stack>

@@ -7,6 +7,8 @@ import {
   PutCommand,
   DeleteCommand,
 } from '@aws-sdk/lib-dynamodb';
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 function isUploadRecord(item: any): boolean {
   return Boolean(item) && (item.entityType === 'upload' || (!item.entityType && String(item.id || '').startsWith('upl-')));
@@ -39,6 +41,27 @@ function getDynamoDocClient() {
   };
 }
 
+/**
+ * GET /api/uploads?action=image&key=events/…  → redirect to a short-lived signed S3 link.
+ * Pictures show even when the bucket is private (public S3 links give "Access Denied").
+ */
+async function serveImage(req: VercelRequest, res: VercelResponse) {
+  const key = typeof req.query.key === 'string' ? req.query.key : '';
+  if (!/^events\/[\w.-]{1,200}$/.test(key)) return res.status(400).json({ error: 'Invalid image key' });
+  const bucket = process.env.AWS_S3_BUCKET_NAME;
+  const accessKeyId = process.env.APP_AWS_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.APP_AWS_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
+  if (!bucket || !accessKeyId || !secretAccessKey) return res.status(404).json({ error: 'Image storage is not set up' });
+  const s3 = new S3Client({
+    region: process.env.APP_AWS_REGION || process.env.AWS_REGION || 'ap-southeast-1',
+    credentials: { accessKeyId: accessKeyId.trim(), secretAccessKey: secretAccessKey.trim() },
+  });
+  const url = await getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn: 3600 });
+  res.setHeader('Cache-Control', 'private, max-age=3000');
+  res.setHeader('Location', url);
+  return res.status(302).end();
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -46,6 +69,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
+  }
+
+  if (req.method === 'GET' && req.query.action === 'image') {
+    try {
+      return await serveImage(req, res);
+    } catch (err: any) {
+      return res.status(500).json({ error: err?.message || 'Could not load the image' });
+    }
   }
 
   try {

@@ -50,6 +50,8 @@ const KIND: Record<NotificationKind, { icon: ReactNode; color: string }> = {
   'stamp-declined': { icon: <BlockIcon />, color: brand.error },
   'checked-in': { icon: <VerifiedIcon />, color: brand.success },
   certificate: { icon: <WorkspacePremiumRoundedIcon />, color: brand.primary },
+  'registration-approved': { icon: <HowToRegIcon />, color: brand.success },
+  'registration-declined': { icon: <BlockIcon />, color: brand.error },
   announcement: { icon: <CampaignIcon />, color: brand.primary },
 };
 

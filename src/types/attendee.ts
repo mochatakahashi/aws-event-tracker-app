@@ -1,9 +1,19 @@
 import type { Committee, MemberType, OfficerPosition, SocialLinks, Subcommittee, UserRole } from './auth';
 
-/** RSVP state for a registration. */
-export type RsvpStatus = 'going' | 'interested' | 'declined';
+/**
+ * Registration status. Attendees register (pending); an admin or the event's
+ * check-in team approves or declines. Checking in also approves.
+ */
+export type RsvpStatus = 'pending' | 'approved' | 'declined';
 
-export const RSVP_STATUSES: RsvpStatus[] = ['going', 'interested', 'declined'];
+export const RSVP_STATUSES: RsvpStatus[] = ['pending', 'approved', 'declined'];
+
+export const RSVP_LABELS: Record<RsvpStatus, string> = { pending: 'Pending', approved: 'Approved', declined: 'Declined' };
+
+/** Older records used going / interested. */
+export function normalizeRsvp(v: unknown): RsvpStatus {
+  return v === 'going' ? 'approved' : v === 'interested' ? 'pending' : v === 'approved' || v === 'declined' ? v : 'pending';
+}
 
 /**
  * A person in the shared directory (built from approved accounts). A person

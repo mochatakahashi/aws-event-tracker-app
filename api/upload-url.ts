@@ -62,7 +62,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     const uploadUrl = await getSignedUrl(client, command, { expiresIn: 300 });
-    const publicUrl = `https://${bucketName}.s3.${region}.amazonaws.com/${key}`;
+    // Served through /api/uploads?action=image so it works with a private bucket
+    const publicUrl = `/api/uploads?action=image&key=${encodeURIComponent(key)}`;
+    void region;
 
     return res.status(200).json({
       uploadUrl,

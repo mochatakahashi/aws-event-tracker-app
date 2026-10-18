@@ -174,6 +174,7 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 | Officer Badges (automatic + awarded) | v0.6.8 | ✅ Completed | Medium |
 | Event Desk (scan · stamp requests · attendees) | v0.6.9 | ✅ Completed | High |
 | Certificates after the event (code, link, view/download) | v0.6.10 | ✅ Completed | High |
+| Registration approval, sessions editor, app tour | v0.6.11 | ✅ Completed | High |
 | Certificate of Completion (100% stamps) | v1.0.0 | ⏳ Planned | Low |
 
 ---

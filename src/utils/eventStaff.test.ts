@@ -40,7 +40,7 @@ describe('event staff list', () => {
 
 describe('session going counts', () => {
   it('counts each person once per session and skips people who can’t go', () => {
-    const reg = (personId: string, sessionIds: string[], rsvp: Registration['rsvp'] = 'going') =>
+    const reg = (personId: string, sessionIds: string[], rsvp: Registration['rsvp'] = 'approved') =>
       ({ id: personId, eventId: 'E', personId, rsvp, checkedIn: false, registeredAt: '', sessionIds }) as Registration;
     const counts = goingCounts([reg('a', ['s1', 's2', 's1']), reg('b', ['s1']), reg('c', ['s2'], 'declined'), reg('d', [])]);
     expect(counts.get('s1')).toBe(2);

@@ -215,7 +215,18 @@ export default function EventPassPage() {
                   justifyContent: 'center',
                 }}
               >
-                {qr ? (
+                {reg.rsvp !== 'approved' && !reg.checkedIn ? (
+                  <Box sx={{ px: 2 }} data-testid="pass-not-approved">
+                    <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                      {reg.rsvp === 'declined' ? 'Registration declined' : 'Waiting for approval'}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {reg.rsvp === 'declined'
+                        ? 'Your registration for this event was declined, so there is no pass.'
+                        : 'Your QR pass appears here once an officer approves your registration.'}
+                    </Typography>
+                  </Box>
+                ) : qr ? (
                   <Box component="img" src={qr} alt={`QR code pass for ${user.name}`} sx={{ width: '100%', height: '100%' }} />
                 ) : (
                   <CircularProgress size={28} />

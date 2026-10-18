@@ -219,13 +219,48 @@ export async function deleteUploadRecord(id: string): Promise<void> {
 }
 
 /** Helper: Convert File to base64 Data URL for local file storage */
-function fileToDataUrl(file: File): Promise<string> {
+function readAsDataUrl(file: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(file);
   });
+}
+
+/**
+ * Without S3 the picture is saved inside the event record, and a database
+ * record must stay small (DynamoDB items max out at 400 KB). Shrink and
+ * re-encode as JPEG until the text form is under ~250 KB.
+ */
+async function fileToDataUrl(file: File): Promise<string> {
+  const original = await readAsDataUrl(file);
+  const LIMIT = 250_000;
+  if (original.length <= LIMIT || typeof document === 'undefined') return original;
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error('Could not read the picture.'));
+      el.src = original;
+    });
+    let width = Math.min(img.naturalWidth, 1280);
+    let quality = 0.82;
+    for (let i = 0; i < 8; i++) {
+      const height = Math.round((img.naturalHeight / img.naturalWidth) * width);
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      canvas.getContext('2d')?.drawImage(img, 0, 0, width, height);
+      const out = canvas.toDataURL('image/jpeg', quality);
+      if (out.length <= LIMIT) return out;
+      if (quality > 0.55) quality -= 0.1;
+      else width = Math.round(width * 0.8);
+    }
+  } catch {
+    /* fall through */
+  }
+  throw new Error('This picture is too large to save without cloud storage. Try a smaller image.');
 }
 
 /**

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -12,7 +12,13 @@ import EventAvailableRoundedIcon from '@mui/icons-material/EventAvailableRounded
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import { alpha } from '@mui/material/styles';
 import { brand } from '../theme/theme';
-import { getSessionsByEvent } from '../services/sessionService';
+import { deleteSession, getSessionsByEvent } from '../services/sessionService';
+import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
+import EditRoundedIcon from '@mui/icons-material/EditRounded';
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
+import { useAuth } from '../context/AuthContext';
+import SessionEditor from './SessionEditor';
 import { useSessionPicks } from '../hooks/useSessionPicks';
 import type { AppEvent } from '../types/event';
 import type { Session } from '../types/session';
@@ -21,6 +27,8 @@ const time = (iso: string) =>
   iso
     ? new Date(iso).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Manila' })
     : '';
+const day = (iso: string) =>
+  iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'Asia/Manila' }) : '';
 
 /**
  * Sessions on the event page. The expected participants number is for the
@@ -41,12 +49,32 @@ export default function SessionsSection({
   const [sessions, setSessions] = useState<Session[] | null>(null);
   const picks = useSessionPicks(event.id);
   const { reload } = picks;
+  const { user } = useAuth();
+  const [editing, setEditing] = useState<string | null>(null); // 'new' or a session id
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [adminError, setAdminError] = useState('');
 
-  useEffect(() => {
+  const loadSessions = useCallback(() => {
     getSessionsByEvent(event.id)
       .then((list) => setSessions([...list].sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''))))
       .catch(() => setSessions([]));
   }, [event.id]);
+
+  useEffect(() => {
+    loadSessions();
+  }, [loadSessions]);
+
+  async function remove(id: string) {
+    if (!user) return;
+    setAdminError('');
+    try {
+      await deleteSession(id, user.personId);
+      setConfirmDelete(null);
+      loadSessions();
+    } catch (e) {
+      setAdminError(e instanceof Error ? e.message : 'Could not delete the session.');
+    }
+  }
 
   useEffect(() => {
     void reload();
@@ -61,6 +89,22 @@ export default function SessionsSection({
           Sessions
         </Typography>
         {sessions && sessions.length > 0 && <Chip size="small" label={sessions.length} />}
+        {sessions && (
+          <Chip
+            size="small"
+            data-testid="event-stamps-info"
+            label={
+              sessions.some((x) => x.requiresStamp)
+                ? `⭐ Stamp passport · ${sessions.filter((x) => x.requiresStamp).length} stamp${sessions.filter((x) => x.requiresStamp).length === 1 ? '' : 's'}`
+                : 'No stamps at this event'
+            }
+            sx={
+              sessions.some((x) => x.requiresStamp)
+                ? { backgroundColor: '#FEF3C7', color: '#92400E', fontWeight: 700 }
+                : { fontWeight: 600 }
+            }
+          />
+        )}
       </Stack>
       {event.participants > 0 && (
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
@@ -70,10 +114,39 @@ export default function SessionsSection({
         </Typography>
       )}
 
+      {isAdmin && user && (
+        <Box sx={{ mb: 1.5 }}>
+          {adminError && (
+            <Alert severity="error" sx={{ mb: 1 }} onClose={() => setAdminError('')}>
+              {adminError}
+            </Alert>
+          )}
+          {editing === 'new' ? (
+            <SessionEditor
+              event={event}
+              actorId={user.personId}
+              onCancel={() => setEditing(null)}
+              onSaved={() => {
+                setEditing(null);
+                loadSessions();
+              }}
+            />
+          ) : (
+            <Button variant="outlined" startIcon={<AddRoundedIcon />} onClick={() => setEditing('new')} sx={{ borderRadius: '10px' }}>
+              Add session
+            </Button>
+          )}
+        </Box>
+      )}
+
       {sessions === null ? (
         <Skeleton variant="rounded" height={72} sx={{ borderRadius: '12px' }} />
       ) : sessions.length === 0 ? (
-        <Typography color="text.secondary">This event has no separate sessions — it’s one program. Your registration covers all of it.</Typography>
+        <Typography color="text.secondary">
+          {isAdmin
+            ? 'No sessions yet. Add sessions if the event has several parts (talks, workshops); leave it empty for a single program.'
+            : 'This event has no separate sessions — it’s one program. Your registration covers all of it.'}
+        </Typography>
       ) : (
         <>
           {picks.canPick ? (
@@ -99,6 +172,21 @@ export default function SessionsSection({
             {sessions.map((s) => {
               const going = picks.counts.get(s.id) ?? 0;
               const mine = picks.mine.has(s.id);
+              if (editing === s.id && user) {
+                return (
+                  <SessionEditor
+                    key={s.id}
+                    event={event}
+                    session={s}
+                    actorId={user.personId}
+                    onCancel={() => setEditing(null)}
+                    onSaved={() => {
+                      setEditing(null);
+                      loadSessions();
+                    }}
+                  />
+                );
+              }
               return (
                 <Stack
                   key={s.id}
@@ -118,7 +206,7 @@ export default function SessionsSection({
                       {s.title}
                     </Typography>
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                      {[time(s.startTime) && `${time(s.startTime)}–${time(s.endTime)}`, s.room, s.type].filter(Boolean).join(' · ')}
+                      {[time(s.startTime) && `${day(s.startTime)}, ${time(s.startTime)}–${time(s.endTime)}`, s.room, s.type].filter(Boolean).join(' · ')}
                       {s.requiresStamp ? ' · ⭐ stamp' : ''}
                     </Typography>
                     <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 0.25 }}>
@@ -128,6 +216,36 @@ export default function SessionsSection({
                       </Typography>
                     </Stack>
                   </Box>
+                  {isAdmin && user && (
+                    <Stack direction="row" spacing={0.5} alignItems="center" sx={{ flexShrink: 0 }}>
+                      {confirmDelete === s.id ? (
+                        <>
+                          <Typography variant="caption" color="error">
+                            Delete this session?
+                          </Typography>
+                          <Button size="small" color="error" variant="contained" onClick={() => void remove(s.id)}>
+                            Delete
+                          </Button>
+                          <Button size="small" onClick={() => setConfirmDelete(null)}>
+                            Keep
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Tooltip title="Edit session">
+                            <IconButton size="small" aria-label={`Edit ${s.title}`} onClick={() => setEditing(s.id)}>
+                              <EditRoundedIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Delete session">
+                            <IconButton size="small" color="error" aria-label={`Delete ${s.title}`} onClick={() => setConfirmDelete(s.id)}>
+                              <DeleteOutlineRoundedIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </>
+                      )}
+                    </Stack>
+                  )}
                   {picks.canPick && (
                     <Button
                       size="small"

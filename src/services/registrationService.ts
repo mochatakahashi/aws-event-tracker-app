@@ -1,4 +1,5 @@
-import type { Person, Registration, RsvpStatus } from '../types/attendee';
+import { imageSrc } from '../utils/imageUrl';
+import { normalizeRsvp, type Person, type Registration, type RsvpStatus } from '../types/attendee';
 import type { User } from '../types/auth';
 import { seedPeople, seedRegistrations } from './seedData';
 import { getUsers } from './authService';
@@ -14,9 +15,13 @@ import { apiJson, delay, generateId, isRemoteAvailable, localCollection } from '
 
 const API = '/api/registrations';
 
-const local = localCollection<Registration>('aws-event-tracker.registrations.v1', () =>
+const rawLocal = localCollection<Registration>('aws-event-tracker.registrations.v1', () =>
   seedRegistrations.map((r) => ({ ...r })),
 );
+/** Registrations with the current status names (older ones said going / interested). */
+const norm = (r: Registration): Registration => ({ ...r, rsvp: normalizeRsvp(r.rsvp) });
+const normAll = (list: Registration[]) => list.map(norm);
+const local = { load: () => normAll(rawLocal.load()), save: rawLocal.save, reset: rawLocal.reset };
 
 function toPerson(u: User): Person {
   const seed = seedPeople.find((p) => p.id === u.personId);
@@ -26,7 +31,7 @@ function toPerson(u: User): Person {
     name: u.name,
     email: u.email || seed?.email || u.username,
     studentId: u.studentId ?? seed?.studentId,
-    avatarUrl: u.avatarUrl ?? seed?.avatarUrl,
+    avatarUrl: imageSrc(u.avatarUrl ?? seed?.avatarUrl),
     bio: u.bio ?? seed?.bio,
     socials: u.socials ?? seed?.socials,
     role: u.role,
@@ -58,14 +63,14 @@ export async function getPeopleByIds(ids: string[]): Promise<Person[]> {
 
 /** Every registration (admin monitoring). */
 export async function getAllRegistrations(): Promise<Registration[]> {
-  if (await isRemoteAvailable(API)) return apiJson<Registration[]>(API);
+  if (await isRemoteAvailable(API)) return normAll(await apiJson<Registration[]>(API));
   return delay(local.load());
 }
 
 /** Registrations for a given event. */
 export async function getRegistrationsByEvent(eventId: string): Promise<Registration[]> {
   if (await isRemoteAvailable(API)) {
-    return apiJson<Registration[]>(`${API}?eventId=${encodeURIComponent(eventId)}`);
+    return normAll(await apiJson<Registration[]>(`${API}?eventId=${encodeURIComponent(eventId)}`));
   }
   return delay(local.load().filter((r) => r.eventId === eventId));
 }
@@ -73,7 +78,7 @@ export async function getRegistrationsByEvent(eventId: string): Promise<Registra
 /** Registrations for a given person (their "tickets"). */
 export async function getRegistrationsByPerson(personId: string): Promise<Registration[]> {
   if (await isRemoteAvailable(API)) {
-    return apiJson<Registration[]>(`${API}?personId=${encodeURIComponent(personId)}`);
+    return normAll(await apiJson<Registration[]>(`${API}?personId=${encodeURIComponent(personId)}`));
   }
   return delay(local.load().filter((r) => r.personId === personId));
 }
@@ -85,23 +90,22 @@ export async function findRegistration(eventId: string, personId: string): Promi
 }
 
 /**
- * Register a person for an event (or update their RSVP if already registered).
+ * Register a person for an event. New registrations are *pending* until an
+ * admin or the event's check-in team approves them.
  */
-export async function registerForEvent(
-  eventId: string,
-  personId: string,
-  rsvp: RsvpStatus = 'going',
-): Promise<Registration> {
+export async function registerForEvent(eventId: string, personId: string): Promise<Registration> {
   if (await isRemoteAvailable(API)) {
-    return apiJson<Registration>(API, {
-      method: 'POST',
-      body: JSON.stringify({ eventId, personId, rsvp }),
-    });
+    return norm(
+      await apiJson<Registration>(API, {
+        method: 'POST',
+        body: JSON.stringify({ eventId, personId }),
+      }),
+    );
   }
   const regs = local.load();
   const existing = regs.find((r) => r.eventId === eventId && r.personId === personId);
   if (existing) {
-    existing.rsvp = rsvp;
+    if (existing.rsvp === 'declined') existing.rsvp = 'pending';
     local.save(regs);
     return delay({ ...existing });
   }
@@ -109,12 +113,32 @@ export async function registerForEvent(
     id: generateId('reg'),
     eventId,
     personId,
-    rsvp,
+    rsvp: 'pending',
     checkedIn: false,
     registeredAt: new Date().toISOString(),
   };
   local.save([...regs, created]);
   return delay({ ...created });
+}
+
+/** Admins / check-in team: approve, decline or reset registrations. */
+export async function reviewRegistrations(ids: string[], rsvp: RsvpStatus, actorId: string): Promise<Registration[]> {
+  if (await isRemoteAvailable(API)) {
+    const res = await apiJson<{ updated: Registration[] }>(`${API}?action=review`, {
+      method: 'POST',
+      body: JSON.stringify({ actorId, ids, rsvp }),
+    });
+    return normAll(res.updated);
+  }
+  const regs = local.load();
+  const out: Registration[] = [];
+  for (const r of regs) {
+    if (!ids.includes(r.id) || (r.checkedIn && rsvp !== 'approved')) continue;
+    r.rsvp = rsvp;
+    out.push({ ...r });
+  }
+  local.save(regs);
+  return delay(out);
 }
 
 /** Cancel a person's registration for an event. Returns true if removed. */
@@ -127,6 +151,9 @@ export async function cancelRegistration(eventId: string, personId: string): Pro
     return res.removed;
   }
   const regs = local.load();
+  if (regs.some((r) => r.eventId === eventId && r.personId === personId && r.checkedIn)) {
+    throw new Error('You are already checked in, so this registration can no longer be cancelled.');
+  }
   const kept = regs.filter((r) => !(r.eventId === eventId && r.personId === personId));
   local.save(kept);
   return delay(kept.length < regs.length);
@@ -151,10 +178,6 @@ async function updateRegistration(
   return delay({ ...reg });
 }
 
-/** Update the RSVP of an existing registration by id; rejects if unknown. */
-export function setRsvp(registrationId: string, rsvp: RsvpStatus): Promise<Registration> {
-  return updateRegistration(registrationId, () => ({ rsvp }));
-}
 
 /** Save which sessions the attendee plans to attend (their own registration only). */
 export async function setSessionPicks(registrationId: string, personId: string, sessionIds: string[]): Promise<Registration> {
@@ -214,7 +237,7 @@ export async function checkIn(registrationId: string, actorId: string): Promise<
     checkedIn: true,
     checkedInAt: now,
     checkedInBy: actorId,
-    rsvp: reg.rsvp === 'declined' ? 'going' : reg.rsvp,
+    rsvp: 'approved',
     certificateId: reg.certificateId || localCertificateId(),
     certificateIssuedAt: reg.certificateIssuedAt || now,
   });

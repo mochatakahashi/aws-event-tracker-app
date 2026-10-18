@@ -40,6 +40,33 @@ function getDynamoDocClient() {
   };
 }
 
+/** Only admins add, change or delete sessions. */
+async function isAdmin(client: DynamoDBDocumentClient, tableName: string, actorId: unknown) {
+  if (typeof actorId !== 'string' || !actorId) return false;
+  const actor = (await client.send(new GetCommand({ TableName: tableName, Key: { id: actorId } }))).Item;
+  return actor?.entityType === 'user' && actor.role === 'admin' && (actor.status ?? 'approved') === 'approved';
+}
+
+const TYPES = ['keynote', 'talk', 'workshop', 'break', 'networking', 'panel'];
+
+/** Keep only session fields, with sane values. */
+function sessionFields(body: any) {
+  const out: Record<string, any> = {};
+  const str = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : undefined);
+  if (body.eventId !== undefined) out.eventId = str(body.eventId, 100);
+  if (body.title !== undefined) out.title = str(body.title, 200);
+  if (body.description !== undefined) out.description = str(body.description, 4000) ?? '';
+  if (body.room !== undefined) out.room = str(body.room, 120) ?? '';
+  if (body.startTime !== undefined) out.startTime = str(body.startTime, 40);
+  if (body.endTime !== undefined) out.endTime = str(body.endTime, 40);
+  if (body.imageUrl !== undefined) out.imageUrl = str(body.imageUrl, 1000);
+  if (body.type !== undefined) out.type = TYPES.includes(body.type) ? body.type : 'talk';
+  if (body.requiresStamp !== undefined) out.requiresStamp = Boolean(body.requiresStamp);
+  if (body.speakerIds !== undefined) out.speakerIds = Array.isArray(body.speakerIds) ? body.speakerIds.filter((x: unknown) => typeof x === 'string').slice(0, 50) : [];
+  if (body.status !== undefined) out.status = ['not-started', 'ongoing', 'completed'].includes(body.status) ? body.status : 'not-started';
+  return out;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -88,16 +115,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // POST /api/sessions (Create)
     if (req.method === 'POST') {
       const session = req.body;
+      if (!(await isAdmin(client, tableName, session?.actorId))) {
+        return res.status(403).json({ error: 'Only an admin can add sessions.' });
+      }
       if (!session || !session.title || !session.eventId) {
         return res.status(400).json({ error: 'title and eventId are required' });
       }
+      const fields = sessionFields(session);
+      if (fields.startTime && fields.endTime && fields.endTime <= fields.startTime) {
+        return res.status(400).json({ error: 'The session must end after it starts.' });
+      }
 
-      const id = session.id || `ses-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+      const id = typeof session.id === 'string' && /^ses-[\w-]{1,60}$/.test(session.id) ? session.id : `ses-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
       const itemToSave = {
-        ...session,
+        description: '',
+        room: '',
+        speakerIds: [],
+        type: 'talk',
+        status: 'not-started',
+        requiresStamp: false,
+        ...fields,
         id,
         entityType: 'session',
-        createdAt: session.createdAt || new Date().toISOString(),
+        createdAt: new Date().toISOString(),
       };
 
       await client.send(
@@ -129,13 +169,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(409).json({ error: 'This id belongs to another kind of record' });
       }
 
-      const merged = {
-        ...(existing.Item || {}),
-        ...updates,
+      if (!(await isAdmin(client, tableName, updates?.actorId))) {
+        return res.status(403).json({ error: 'Only an admin can change sessions.' });
+      }
+      if (!existing.Item) return res.status(404).json({ error: 'Session not found' });
+      const merged: Record<string, any> = {
+        ...existing.Item,
+        ...sessionFields(updates || {}),
         id: sessionId,
         entityType: 'session',
         updatedAt: new Date().toISOString(),
       };
+      if (merged.startTime && merged.endTime && merged.endTime <= merged.startTime) {
+        return res.status(400).json({ error: 'The session must end after it starts.' });
+      }
 
       await client.send(
         new PutCommand({
@@ -153,6 +200,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ error: 'Session ID is required for deletion' });
       }
 
+      if (!(await isAdmin(client, tableName, req.query.actorId))) {
+        return res.status(403).json({ error: 'Only an admin can delete sessions.' });
+      }
       const toDelete = await client.send(new GetCommand({ TableName: tableName, Key: { id } }));
       if (!isOwnRecord(toDelete.Item)) {
         return res.status(404).json({ error: 'Session not found' });

@@ -361,7 +361,7 @@ async function runReminders(client: DynamoDBDocumentClient, tableName: string, a
 
     const officerIds: string[] = ev.officerIds || [];
     const attendeeIds = regs
-      .filter((r) => r.eventId === ev.id && r.rsvp !== 'declined')
+      .filter((r) => r.eventId === ev.id && (r.rsvp === 'approved' || r.rsvp === 'going'))
       .map((r) => r.personId)
       .filter((id) => !officerIds.includes(id));
     for (const id of officerIds) {

@@ -20,7 +20,6 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { alpha } from '@mui/material/styles';
 import { brand } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
-import { useEvent } from '../context/EventContext';
 import { useBoardData } from '../hooks/useBoardData';
 import { affiliation, memberLabel, officerTitle } from '../utils/people';
 import { BADGES, type BadgeId } from '../utils/badges';
@@ -88,7 +87,6 @@ function BadgeRow({ ids }: { ids: BadgeId[] }) {
 
 export default function LeaderboardPage() {
   const { user } = useAuth();
-  const { selectedEvent } = useEvent();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const { data, error, loading } = useBoardData();
@@ -375,11 +373,6 @@ export default function LeaderboardPage() {
               );
             })}
           </Paper>
-          {selectedEvent && eventId === 'all' && events.some((e) => e.id === selectedEvent.id) && (
-            <Button size="small" sx={{ mt: 1.5 }} onClick={() => setEventId(selectedEvent.id)}>
-              Show only {selectedEvent.title}
-            </Button>
-          )}
         </>
       )}
     </Box>

@@ -16,8 +16,10 @@ import QRCode from 'qrcode';
  * Event registrations (single-table DynamoDB, entityType = 'registration').
  *
  * GET    /api/registrations[?eventId=&personId=&id=]
- * POST   /api/registrations            { eventId, personId, rsvp } (upsert)
- * PUT    /api/registrations?id=reg-1   { rsvp? } | { personId, sessionIds } (sessions the attendee will go to)
+ * POST   /api/registrations            { eventId, personId } → status `pending` (re-registering after a decline asks again)
+ * POST   /api/registrations?action=review { actorId, ids, rsvp: approved|declined|pending } (admins / check-in team)
+ * PUT    /api/registrations?id=reg-1   { rsvp, actorId } (admins / check-in team) | { personId, sessionIds } (the attendee's sessions)
+ * DELETE refuses a registration that is already checked in.
  * DELETE /api/registrations?id=reg-1 | ?eventId=&personId=
  *
  * Check-in (admins, and officers on the event's check-in staff list; verified by actorId):
@@ -79,14 +81,18 @@ async function scanType(client: DynamoDBDocumentClient, tableName: string, type:
   return items;
 }
 
+/** Registration status. Older records used going/interested. */
+const STATUSES = ['pending', 'approved', 'declined'];
+function normStatus(v: unknown): string {
+  return v === 'going' ? 'approved' : v === 'interested' ? 'pending' : STATUSES.includes(v as string) ? (v as string) : 'pending';
+}
+
 function clean(item: any) {
   if (!item) return item;
   const { entityType: _t, ...rest } = item;
   void _t;
-  return rest;
+  return { ...rest, rsvp: normStatus(rest.rsvp) };
 }
-
-const RSVPS = ['going', 'interested', 'declined'];
 
 // ─── Certificates ─────────────────────────────────────────────────────────────
 
@@ -424,6 +430,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).send(Buffer.from(bytes));
     }
 
+    // Approve / decline registrations in bulk: { actorId, ids, rsvp }
+    if (req.method === 'POST' && action === 'review') {
+      const { actorId, ids, rsvp } = req.body || {};
+      if (!STATUSES.includes(rsvp)) return res.status(400).json({ error: 'Invalid status' });
+      const list: string[] = Array.isArray(ids) ? ids.filter((x: unknown) => typeof x === 'string').slice(0, 500) : [];
+      const updated: any[] = [];
+      for (const rid of list) {
+        const reg = (await client.send(new GetCommand({ TableName: tableName, Key: { id: rid } }))).Item;
+        if (!reg || reg.entityType !== 'registration') continue;
+        if (!(await requireCheckinStaff(client, tableName, actorId, reg.eventId))) {
+          return res.status(403).json({ error: 'Only admins and the check-in team can approve or decline registrations.' });
+        }
+        if (reg.checkedIn && rsvp !== 'approved') continue;
+        const now = new Date().toISOString();
+        const merged = { ...reg, rsvp, reviewedBy: actorId, reviewedAt: now, updatedAt: now };
+        await client.send(new PutCommand({ TableName: tableName, Item: merged }));
+        updated.push(clean(merged));
+      }
+      return res.status(200).json({ updated });
+    }
+
     // Check in / undo check-in (officers and admins)
     if (req.method === 'POST' && (action === 'checkin' || action === 'checkout')) {
       const { id, actorId } = req.body || {};
@@ -449,7 +476,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       const checked = {
         ...reg,
-        rsvp: reg.rsvp === 'declined' ? 'going' : reg.rsvp,
+        // Checking someone in at the door also approves their registration
+        rsvp: 'approved',
         checkedIn: true,
         checkedInAt: now,
         checkedInBy: actor.id,
@@ -485,12 +513,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === 'POST') {
-      const { eventId, personId, rsvp = 'going' } = req.body || {};
+      // Attendees register; an admin or the event's check-in team approves (status starts pending)
+      const { eventId, personId } = req.body || {};
       if (!eventId || !personId) return res.status(400).json({ error: 'eventId and personId are required' });
-      if (!RSVPS.includes(rsvp)) return res.status(400).json({ error: 'Invalid RSVP' });
+      const rsvp = 'pending';
 
       const regs = await scanType(client, tableName, 'registration');
       const existing = regs.find((r) => r.eventId === eventId && r.personId === personId);
+      if (existing && normStatus(existing.rsvp) === 'approved') {
+        return res.status(200).json(clean(existing));
+      }
       const item = existing
         ? { ...existing, rsvp, updatedAt: new Date().toISOString() }
         : {
@@ -516,8 +548,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const body = req.body || {};
       const updates: Record<string, any> = {};
       if (body.rsvp !== undefined) {
-        if (!RSVPS.includes(body.rsvp)) return res.status(400).json({ error: 'Invalid RSVP' });
+        if (!STATUSES.includes(body.rsvp)) return res.status(400).json({ error: 'Invalid status' });
+        if (!(await requireCheckinStaff(client, tableName, body.actorId, result.Item.eventId))) {
+          return res.status(403).json({ error: 'Only admins and the check-in team can approve or decline registrations.' });
+        }
+        if (result.Item.checkedIn && body.rsvp !== 'approved') {
+          return res.status(409).json({ error: 'This person is already checked in.' });
+        }
         updates.rsvp = body.rsvp;
+        updates.reviewedBy = body.actorId;
+        updates.reviewedAt = new Date().toISOString();
       }
       // Which sessions the attendee plans to go to (only they can change it)
       if (body.sessionIds !== undefined) {
@@ -554,6 +594,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ids = regs.filter((r) => r.eventId === eventId && r.personId === personId).map((r) => r.id);
       } else {
         return res.status(400).json({ error: 'id, or eventId and personId, are required' });
+      }
+      for (const key of ids) {
+        const reg = (await client.send(new GetCommand({ TableName: tableName, Key: { id: key } }))).Item;
+        if (reg?.checkedIn) {
+          return res.status(409).json({ error: 'You are already checked in, so this registration can no longer be cancelled.' });
+        }
       }
       for (const key of ids) {
         await client.send(new DeleteCommand({ TableName: tableName, Key: { id: key } }));

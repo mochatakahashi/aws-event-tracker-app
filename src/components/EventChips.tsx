@@ -50,6 +50,6 @@ export function TagChip({ tag }: { tag: EventTag }) {
 
 export function RsvpChip({ rsvp }: { rsvp: RsvpStatus }) {
   return (
-    <Chip size="small" color={rsvpColor(rsvp)} label={capitalize(rsvp)} />
+    <Chip size="small" color={rsvpColor(rsvp)} label={capitalize(rsvp)} data-testid="rsvp-chip" />
   );
 }

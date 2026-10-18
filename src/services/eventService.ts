@@ -20,6 +20,9 @@ let localEvents: AppEvent[] = seedEvents.map((e) => ({
 
 let useRemoteApi: boolean | null = null;
 
+/** The live API answered with an error (not offline): show it instead of saving locally. */
+class RemoteError extends Error {}
+
 function clone(event: AppEvent): AppEvent {
   return { ...event, speakerIds: [...event.speakerIds], tags: [...event.tags] };
 }
@@ -101,10 +104,14 @@ export async function createEvent(input: NewEventInput): Promise<AppEvent> {
         body: JSON.stringify(input),
       });
       if (res.ok) {
-        return await res.json();
+        return withLiveStatus(await res.json());
       }
+      // Don't pretend it saved: show why (e.g. the picture is too large)
+      const data = await res.json().catch(() => ({}));
+      throw new RemoteError(data?.error || `Could not save the event (HTTP ${res.status}).`);
     }
   } catch (err) {
+    if (err instanceof RemoteError) throw err;
     console.warn('Falling back to local createEvent:', err);
   }
 
@@ -132,10 +139,13 @@ export async function updateEvent(
         body: JSON.stringify(changes),
       });
       if (res.ok) {
-        return await res.json();
+        return withLiveStatus(await res.json());
       }
+      const data = await res.json().catch(() => ({}));
+      throw new RemoteError(data?.error || `Could not save the event (HTTP ${res.status}).`);
     }
   } catch (err) {
+    if (err instanceof RemoteError) throw err;
     console.warn('Falling back to local updateEvent:', err);
   }
 

@@ -86,6 +86,7 @@ const PROFILE_FIELDS = [
   'subcommittee',
   'connections',
   'savedEventIds',
+  'tutorialSeen',
 ];
 /** Badges only an admin can give (see src/utils/officerBadges.ts). */
 const AWARD_BADGES = ['best-host', 'best-pubmat', 'mvp', 'team-player', 'rising-star'];
@@ -437,6 +438,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       if ('connections' in updates) updates.connections = idList(updates.connections).filter((x) => x !== id);
       if ('savedEventIds' in updates) updates.savedEventIds = idList(updates.savedEventIds);
+      if ('tutorialSeen' in updates) updates.tutorialSeen = Boolean(updates.tutorialSeen);
       if (updates.status === 'approved' && target.status !== 'approved') {
         updates.approvedAt = new Date().toISOString();
         updates.approvedBy = actorId;

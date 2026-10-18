@@ -69,6 +69,15 @@ export default function BottomNav() {
             key={item.label}
             label={item.label}
             icon={item.icon}
+            data-tour={
+              item.path === '/home'
+                ? 'nav-dashboard'
+                : item.path === '/officer'
+                  ? 'nav-officer-dashboard'
+                  : item.path === '/officer/scan'
+                    ? 'nav-event-desk'
+                    : `nav-${item.label.toLowerCase()}`
+            }
             sx={
               index === 2
                 ? {

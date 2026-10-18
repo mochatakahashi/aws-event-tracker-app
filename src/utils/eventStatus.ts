@@ -1,4 +1,5 @@
 import type { AppEvent, EventStatus } from '../types/event';
+import { imageSrc } from './imageUrl';
 
 /**
  * The status an event should show right now, from its dates: anything that
@@ -16,7 +17,9 @@ export function liveStatus(event: Pick<AppEvent, 'status' | 'startAt' | 'endAt'>
   return event.status === 'accomplished' ? 'accomplished' : 'upcoming';
 }
 
+/** The event with its date-based status (and a picture link that works with a private bucket). */
 export function withLiveStatus<T extends AppEvent>(event: T, now = Date.now()): T {
   const status = liveStatus(event, now);
-  return status === event.status ? event : { ...event, status };
+  const imageUrl = imageSrc(event.imageUrl);
+  return status === event.status && imageUrl === event.imageUrl ? event : { ...event, status, imageUrl };
 }

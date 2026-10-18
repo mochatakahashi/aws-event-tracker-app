@@ -25,6 +25,7 @@ import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import ImageNotSupportedOutlinedIcon from '@mui/icons-material/ImageNotSupportedOutlined';
 import { alpha } from '@mui/material/styles';
 import { getEvents } from '../services/eventService';
+import { getSessions } from '../services/sessionService';
 import { getRegistrationsByEvent } from '../services/registrationService';
 import { useAuth } from '../context/AuthContext';
 import { brand } from '../theme/theme';
@@ -66,6 +67,14 @@ export default function EventsPage() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState(0);
   const { saved, isSaved, toggle } = useSavedEvents();
+  // Events with stamp activities (only those show the ⭐ Stamps badge)
+  const [stampEvents, setStampEvents] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    getSessions()
+      .then((all) => setStampEvents(new Set(all.filter((x) => x.requiresStamp).map((x) => x.eventId))))
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     getEvents()
@@ -387,6 +396,14 @@ export default function EventsPage() {
                           fontSize: '0.7rem',
                         }}
                       />
+                      {stampEvents.has(event.id) && (
+                        <Chip
+                          label="⭐ Stamps"
+                          size="small"
+                          data-testid="stamps-badge"
+                          sx={{ backgroundColor: '#FEF3C7', color: '#92400E', fontWeight: 700, fontSize: '0.7rem' }}
+                        />
+                      )}
                     </Stack>
                   </CardContent>
                 </CardActionArea>

@@ -15,8 +15,6 @@ import ListItemAvatar from '@mui/material/ListItemAvatar';
 import ListItemText from '@mui/material/ListItemText';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
-import ToggleButton from '@mui/material/ToggleButton';
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import IconButton from '@mui/material/IconButton';
 
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -46,8 +44,8 @@ import {
 import { compareOfficers } from '../utils/people';
 import type { AppEvent } from '../types/event';
 import type { Speaker } from '../types/speaker';
-import type { Registration, RsvpStatus, Person } from '../types/attendee';
-import { ModalityChip, StatusChip, TagChip } from '../components/EventChips';
+import type { Registration, Person } from '../types/attendee';
+import { ModalityChip, RsvpChip, StatusChip, TagChip } from '../components/EventChips';
 import AddToCalendarButton from '../components/AddToCalendarButton';
 import CertificateButton from '../components/CertificateButton';
 import RecentUploadsShelf from '../components/RecentUploadsShelf';
@@ -86,6 +84,7 @@ export default function EventDetailPage() {
   const [working, setWorking] = useState(false);
   const [showAllSpeakers, setShowAllSpeakers] = useState(false);
   const [allPeople, setAllPeople] = useState<Person[]>([]);
+  const [regError, setRegError] = useState('');
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -117,11 +116,11 @@ export default function EventDetailPage() {
     void load();
   }, [load]);
 
-  async function handleRegister(rsvp: RsvpStatus) {
+  async function handleRegister() {
     if (!id || !personId) return;
     setWorking(true);
     try {
-      await registerForEvent(id, personId, rsvp);
+      await registerForEvent(id, personId);
       const [regs, mine] = await Promise.all([
         getRegistrationsByEvent(id),
         findRegistration(id, personId),
@@ -136,11 +135,14 @@ export default function EventDetailPage() {
   async function handleCancel() {
     if (!id || !personId) return;
     setWorking(true);
+    setRegError('');
     try {
       await cancelRegistration(id, personId);
       const regs = await getRegistrationsByEvent(id);
       setRegistrations(regs);
       setMyReg(null);
+    } catch (e) {
+      setRegError(e instanceof Error ? e.message : 'Could not cancel the registration.');
     } finally {
       setWorking(false);
     }
@@ -460,7 +462,8 @@ export default function EventDetailPage() {
 
             <Divider sx={{ my: 3 }} />
 
-            {/* Event Photos & Recent Uploads */}
+            {/* Event Photos & Recent Uploads (admins only) */}
+            {user?.role === 'admin' && (
             <Box sx={{ mb: 4 }}>
               <RecentUploadsShelf
                 currentUrl={event.imageUrl}
@@ -473,6 +476,7 @@ export default function EventDetailPage() {
                 title="Event Photos & Recent Uploads"
               />
             </Box>
+            )}
 
             {/* Organizer Card */}
             <Box
@@ -589,7 +593,13 @@ export default function EventDetailPage() {
         <Grid size={{ xs: 12, md: 4 }}>
           <Paper sx={{ p: 3, borderRadius: '15px', position: { md: 'sticky' }, top: 88 }}>
             <Typography variant="h3" sx={{ fontWeight: 800, mb: 2 }}>
-              {myReg ? 'You are registered 🎉' : 'Event Registration'}
+              {!myReg
+                ? 'Event Registration'
+                : myReg.rsvp === 'approved'
+                  ? 'You are registered 🎉'
+                  : myReg.rsvp === 'pending'
+                    ? 'Registration sent ⏳'
+                    : 'Registration declined'}
             </Typography>
 
             {closed && (
@@ -610,40 +620,65 @@ export default function EventDetailPage() {
                     You're checked in. Enjoy the event!
                   </Alert>
                 )}
-                <Stack spacing={1} sx={{ mb: 2.5 }}>
-                  <InlinePass registration={myReg} onOpen={() => navigate(`/pass?event=${event.id}`)} />
-                  {!closed && <AddToCalendarButton event={event} fullWidth />}
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
+                  <Typography color="text.secondary" variant="caption" sx={{ fontWeight: 700 }}>
+                    REGISTRATION STATUS
+                  </Typography>
+                  <RsvpChip rsvp={myReg.rsvp} />
                 </Stack>
-                {personId && (
+                {myReg.rsvp === 'pending' && !myReg.checkedIn && (
+                  <Alert severity="info" sx={{ mb: 2, borderRadius: '12px' }}>
+                    An officer will review your registration. You'll be notified once it's approved, and your event pass
+                    will appear here.
+                  </Alert>
+                )}
+                {myReg.rsvp === 'declined' && (
+                  <Alert
+                    severity="warning"
+                    sx={{ mb: 2, borderRadius: '12px' }}
+                    action={
+                      !closed && (
+                        <Button color="inherit" size="small" onClick={() => void handleRegister()} disabled={working}>
+                          Ask again
+                        </Button>
+                      )
+                    }
+                  >
+                    Your registration for this event was declined.
+                  </Alert>
+                )}
+                <Stack spacing={1} sx={{ mb: 2.5 }}>
+                  {(myReg.rsvp === 'approved' || myReg.checkedIn) && (
+                    <InlinePass registration={myReg} onOpen={() => navigate(`/pass?event=${event.id}`)} />
+                  )}
+                  {!closed && myReg.rsvp !== 'declined' && <AddToCalendarButton event={event} fullWidth />}
+                </Stack>
+                {personId && myReg.rsvp !== 'declined' && (
                   <Box sx={{ mb: 2.5 }}>
                     <CertificateButton registration={myReg} personId={personId} event={event} />
                   </Box>
                 )}
-                <Typography color="text.secondary" variant="caption" sx={{ mb: 1, display: 'block' }}>
-                  YOUR RSVP STATUS
-                </Typography>
-                <ToggleButtonGroup
-                  exclusive
-                  value={myReg.rsvp}
-                  onChange={(_e, val) => val && handleRegister(val as RsvpStatus)}
-                  size="small"
-                  sx={{ mb: 2, width: '100%' }}
-                  disabled={working}
-                >
-                  <ToggleButton value="going" sx={{ flex: 1, fontWeight: 700 }}>Going</ToggleButton>
-                  <ToggleButton value="interested" sx={{ flex: 1, fontWeight: 700 }}>Interested</ToggleButton>
-                  <ToggleButton value="declined" sx={{ flex: 1 }}>Declined</ToggleButton>
-                </ToggleButtonGroup>
-                <Button
-                  fullWidth
-                  color="error"
-                  variant="outlined"
-                  onClick={handleCancel}
-                  disabled={working}
-                  sx={{ borderRadius: '12px' }}
-                >
-                  Cancel Registration
-                </Button>
+                {regError && (
+                  <Alert severity="error" sx={{ mb: 2, borderRadius: '12px' }}>
+                    {regError}
+                  </Alert>
+                )}
+                {myReg.checkedIn ? (
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }} data-testid="no-cancel">
+                    You're checked in, so this registration can no longer be cancelled.
+                  </Typography>
+                ) : (
+                  <Button
+                    fullWidth
+                    color="error"
+                    variant="outlined"
+                    onClick={handleCancel}
+                    disabled={working}
+                    sx={{ borderRadius: '12px' }}
+                  >
+                    Cancel Registration
+                  </Button>
+                )}
               </>
             ) : (
               <Stack spacing={1.5}>
@@ -651,22 +686,15 @@ export default function EventDetailPage() {
                   fullWidth
                   variant="contained"
                   size="large"
-                  onClick={() => handleRegister('going')}
+                  onClick={() => void handleRegister()}
                   disabled={!canRegister || working}
                   sx={{ borderRadius: '24px', py: 1.2, fontWeight: 800 }}
                 >
                   Register — I'm going
                 </Button>
-                <Button
-                  fullWidth
-                  variant="outlined"
-                  size="large"
-                  onClick={() => handleRegister('interested')}
-                  disabled={!canRegister || working}
-                  sx={{ borderRadius: '24px', py: 1.2, fontWeight: 700 }}
-                >
-                  I'm interested
-                </Button>
+                <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
+                  An officer reviews each registration; you'll be notified when it's approved.
+                </Typography>
               </Stack>
             )}
           </Paper>

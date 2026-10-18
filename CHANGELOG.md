@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.11] - 2026-10-18
+
+### Added
+- **First-time app tour** (skippable): animated highlight boxes and step cards for attendees, officers and admins; remembered on the account (`tutorialSeen`); replay from the profile menu, sidebar or Profile.
+- **Registration approval**: status **Pending → Approved / Declined**, set by admins or the event's check-in team in **Event Desk → Attendees** (Approve, Decline, **Approve all**); attendees are notified. API: `POST /api/registrations?action=review`, `PUT …{ rsvp, actorId }`.
+- **Sessions editor** on the event page (admins): add, edit and delete sessions, including whether each has a stamp.
+- **⭐ Stamps** badge on events with stamp activities; *No stamps at this event* on others.
+
+### Changed
+- Attendees can no longer edit their registration status (no Going / Interested / Declined buttons). Older `going` / `interested` records read as Approved / Pending.
+- **No cancelling after check-in** (hidden in the app and refused by the server).
+- The event pass appears once a registration is approved; checking in at the door also approves.
+- Event photos / uploads on the event page are admin-only.
+- Sessions API: only admins can add, change or delete sessions; only session fields are stored.
+- Event form: the "Officer IDs" text box is gone — officers, roles and duties are set under **Event staff** on the event page.
+
+### Fixed
+- **Uploaded event picture didn't show**: pictures now open through the app (`/api/uploads?action=image`, a signed link), so they work with a private S3 bucket; old public S3 links are converted automatically. Without S3, the picture is shrunk to fit the database instead of silently failing, and saving an event shows the real error instead of pretending it saved.
+- Speaker **Remove** button overlapped the speaker fields in the event form.
+- Removed the "Show only …" button under the leaderboard.
+- Sessions from the built-in sample data no longer appear when the live database has none.
+
+---
+
 ## [0.6.10] - 2026-10-18
 
 ### Changed

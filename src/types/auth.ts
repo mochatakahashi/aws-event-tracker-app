@@ -80,6 +80,8 @@ export interface User {
   connections?: string[];
   /** Event ids saved with the bookmark icon. */
   savedEventIds?: string[];
+  /** Finished or skipped the first-time app tour. */
+  tutorialSeen?: boolean;
   /** Badges an admin awarded (set through the admin-only award action). */
   awards?: Award[];
   /** Past officer terms (archived batches). */
@@ -128,7 +130,7 @@ export interface AdminCreateAccount extends SignUpData {
 export type ProfileChanges = Partial<
   Pick<
     User,
-    'avatarUrl' | 'bio' | 'socials' | 'personalEmail' | 'officerPosition' | 'committee' | 'subcommittee' | 'connections' | 'savedEventIds'
+    'avatarUrl' | 'bio' | 'socials' | 'personalEmail' | 'officerPosition' | 'committee' | 'subcommittee' | 'connections' | 'savedEventIds' | 'tutorialSeen'
   >
 >;
 

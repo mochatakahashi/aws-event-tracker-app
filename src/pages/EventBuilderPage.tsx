@@ -544,16 +544,10 @@ export default function EventBuilderPage() {
             />
           </Stack>
 
-          <TextField
-            label="Officer IDs (comma-separated person IDs)"
-            fullWidth
-            value={formData.officerIds ? formData.officerIds.join(', ') : ''}
-            onChange={(e) => {
-              const val = e.target.value;
-              setFormData(prev => ({ ...prev, officerIds: val.split(',').map(s => s.trim()).filter(Boolean) }));
-            }}
-            placeholder="per-1, per-2"
-          />
+          <Alert severity="info" sx={{ borderRadius: '12px' }}>
+            Officers, their role at the event and who can approve stamps or check people in are set on the event page
+            under <strong>Event staff</strong>{isEditing ? '' : ' after you save'}. Sessions are added there too.
+          </Alert>
 
           <Divider sx={{ my: 2 }} />
 
@@ -585,8 +579,22 @@ export default function EventBuilderPage() {
                 <Paper
                   key={idx}
                   variant="outlined"
-                  sx={{ p: 2, borderRadius: 2, position: 'relative' }}
+                  sx={{ p: 2, borderRadius: 2 }}
                 >
+                  <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1.5 }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
+                      SPEAKER {idx + 1}
+                    </Typography>
+                    <Button
+                      size="small"
+                      color="error"
+                      startIcon={<DeleteIcon fontSize="small" />}
+                      onClick={() => removeSpeaker(idx)}
+                      sx={{ textTransform: 'none' }}
+                    >
+                      Remove
+                    </Button>
+                  </Stack>
                   {/* Speaker avatar adjuster */}
                   {adjustingSpeakerIdx === idx && adjustingSpeakerSource ? (
                     <Box sx={{ mb: 2 }}>
@@ -686,17 +694,6 @@ export default function EventBuilderPage() {
                     </Stack>
                   )}
 
-                  {/* Remove speaker */}
-                  <Tooltip title="Remove speaker">
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={() => removeSpeaker(idx)}
-                      sx={{ position: 'absolute', top: 8, right: 8 }}
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
                 </Paper>
               ))}
             </Stack>

@@ -27,12 +27,12 @@ beforeEach(() => {
 
 describe('check-in', () => {
   it('checks in once, issues a certificate id, and reports repeats', async () => {
-    const reg = await registerForEvent('evt-1', 'per-77', 'declined');
+    const reg = await registerForEvent('evt-1', 'per-77');
     const first = await checkIn(reg.id, 'per-2');
     expect(first.alreadyCheckedIn).toBe(false);
     expect(first.registration.checkedIn).toBe(true);
     expect(first.registration.checkedInBy).toBe('per-2');
-    expect(first.registration.rsvp).toBe('going');
+    expect(first.registration.rsvp).toBe('approved');
     expect(first.registration.certificateId).toMatch(/^CERT-\d{4}-/);
     const again = await checkIn(reg.id, 'per-3');
     expect(again.alreadyCheckedIn).toBe(true);

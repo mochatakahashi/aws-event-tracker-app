@@ -1,3 +1,4 @@
+import { imageSrc } from '../utils/imageUrl';
 import type {
   Speaker,
   NewSpeakerInput,
@@ -24,7 +25,7 @@ async function loadAll(): Promise<Speaker[]> {
     const saved = await apiJson<Speaker[]>(API);
     const byId = new Map<string, Speaker>(seedSpeakers.map((s) => [s.id, { ...s }]));
     for (const sp of saved) byId.set(sp.id, sp);
-    return [...byId.values()];
+    return [...byId.values()].map((sp) => ({ ...sp, avatarUrl: imageSrc(sp.avatarUrl) }));
   }
   return delay(local.load());
 }

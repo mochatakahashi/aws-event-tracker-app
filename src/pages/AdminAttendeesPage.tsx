@@ -266,7 +266,7 @@ export default function AdminAttendeesPage() {
               }`}
               color={brand.primaryLight}
             />
-            <StatTile label="Going" value={eventRegs.filter((r) => r.rsvp === 'going').length} color={brand.warning} />
+            <StatTile label="Pending approval" value={eventRegs.filter((r) => r.rsvp === 'pending').length} color={brand.warning} />
           </StatRow>
 
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mb: 2 }}>
@@ -317,7 +317,7 @@ export default function AdminAttendeesPage() {
                           </Typography>
                           <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
                             <Chip size="small" label={p ? memberLabel(p) : 'Unknown'} />
-                            <Chip size="small" variant="outlined" label={`RSVP: ${r.rsvp}`} />
+                            <Chip size="small" variant="outlined" label={`Status: ${r.rsvp}`} />
                             {stampSessions.length > 0 && (
                               <Chip
                                 size="small"

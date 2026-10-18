@@ -23,6 +23,8 @@ const KINDS = [
   'stamp-declined',
   'checked-in',
   'certificate',
+  'registration-approved',
+  'registration-declined',
   'announcement',
 ];
 

@@ -75,12 +75,12 @@ export function tagLabel(tag: EventTag): string {
 /** Chip color for an RSVP status. */
 export function rsvpColor(rsvp: RsvpStatus): MuiColor {
   switch (rsvp) {
-    case 'going':
+    case 'approved':
       return 'success';
-    case 'interested':
+    case 'pending':
       return 'warning';
     case 'declined':
-      return 'default';
+      return 'error';
     default:
       return 'default';
   }

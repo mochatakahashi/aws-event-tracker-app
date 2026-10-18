@@ -333,7 +333,13 @@ export default function OfficerScanPage() {
 
       <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 2 }}>
         {scanned.event && <Chip size="small" label={scanned.event.title} sx={{ fontWeight: 600 }} />}
-        <Chip size="small" variant="outlined" label={`RSVP: ${scanned.reg.rsvp}`} sx={{ textTransform: 'capitalize' }} />
+        <Chip
+          size="small"
+          variant="outlined"
+          color={scanned.reg.rsvp === 'approved' ? 'success' : scanned.reg.rsvp === 'declined' ? 'error' : 'warning'}
+          label={`Registration: ${scanned.reg.rsvp}`}
+          sx={{ textTransform: 'capitalize' }}
+        />
       </Stack>
 
       {/* Stamp passport */}
@@ -457,7 +463,7 @@ export default function OfficerScanPage() {
             disabled={working}
             sx={{ py: 1.5, borderRadius: '14px', fontWeight: 800, fontSize: '1.05rem', mb: 1.5 }}
           >
-            {working ? 'Checking in…' : 'Check in'}
+            {working ? 'Checking in…' : scanned.reg.rsvp === 'approved' ? 'Check in' : 'Approve & check in'}
           </Button>
         )}
         <Button fullWidth variant="outlined" startIcon={<QrCodeScannerRoundedIcon />} onClick={scanNext} sx={{ borderRadius: '14px' }}>

@@ -28,6 +28,8 @@ import AlternateEmailIcon from '@mui/icons-material/AlternateEmail';
 import { uploadImageToS3 } from '../services/storageService';
 import { updateProfile } from '../services/authService';
 import ChangePasswordForm from '../components/ChangePasswordForm';
+import { startTour } from '../components/TutorialTour';
+import SchoolRoundedIcon from '@mui/icons-material/SchoolRounded';
 import { memberLabel, officerTitle } from '../utils/people';
 import AvatarImageAdjuster from '../components/AvatarImageAdjuster';
 
@@ -274,6 +276,25 @@ export default function ProfilePage() {
               <ChangePasswordForm onDone={() => setShowPassword(false)} />
             </Box>
           </Collapse>
+        </CardContent>
+      </Card>
+
+      {/* Replay the first-time tour */}
+      <Card variant="outlined" sx={{ borderRadius: 4, mt: 2 }}>
+        <CardContent sx={{ px: 3 }}>
+          <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+            <Box>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                App tour
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                A one-minute walkthrough of where everything is.
+              </Typography>
+            </Box>
+            <Button size="small" startIcon={<SchoolRoundedIcon />} onClick={startTour} sx={{ textTransform: 'none', flexShrink: 0 }}>
+              Take the tour
+            </Button>
+          </Stack>
         </CardContent>
       </Card>
       </Box>

@@ -59,8 +59,14 @@ function saveLocalStamps(stamps: Stamp[]) {
 }
 
 function ensureLocalSeeded() {
-  const currentSessions = loadLocalSessions();
-  if (currentSessions.length === 0 || currentSessions.some((s) => s.eventId !== 'evt-1')) {
+  // Seed the local (no-API) copy once; sessions an admin adds later are kept
+  let seeded = false;
+  try {
+    seeded = localStorage.getItem(SESSIONS_KEY) !== null;
+  } catch {
+    /* storage blocked */
+  }
+  if (!seeded) {
     saveLocalSessions(seedSessions);
     saveLocalStamps(seedStamps);
   }
@@ -74,10 +80,8 @@ export async function getSessions(): Promise<Session[]> {
       const res = await fetch('/api/sessions');
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
-          saveLocalSessions(data);
-          return data;
-        }
+        // The live database is the source of truth, even when it has no sessions
+        if (Array.isArray(data)) return data;
       }
     }
   } catch (err) {
@@ -94,9 +98,7 @@ export async function getSessionsByEvent(eventId: string): Promise<Session[]> {
       const res = await fetch(`/api/sessions?eventId=${encodeURIComponent(eventId)}`);
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
-          return data;
-        }
+        if (Array.isArray(data)) return data;
       }
     }
   } catch (err) {
@@ -123,6 +125,66 @@ export async function getSessionById(id: string): Promise<Session | undefined> {
   ensureLocalSeeded();
   const all = loadLocalSessions();
   return delay(all.find((s) => s.id === id));
+}
+
+export type SessionInput = Pick<
+  Session,
+  'eventId' | 'title' | 'description' | 'startTime' | 'endTime' | 'room' | 'type' | 'requiresStamp' | 'speakerIds'
+> & { imageUrl?: string };
+
+async function sessionError(res: Response, fallback: string): Promise<Error> {
+  const data = await res.json().catch(() => ({}));
+  return new Error((data as { error?: string })?.error || fallback);
+}
+
+/** Admin: add a session to an event. */
+export async function createSession(input: SessionInput, actorId: string): Promise<Session> {
+  if (await checkRemoteApi()) {
+    const res = await fetch('/api/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...input, actorId }),
+    });
+    if (!res.ok) throw await sessionError(res, 'Could not add the session.');
+    return res.json();
+  }
+  ensureLocalSeeded();
+  const created: Session = { ...input, id: `ses-${Date.now()}`, status: 'not-started' };
+  saveLocalSessions([...loadLocalSessions(), created]);
+  return delay(created);
+}
+
+/** Admin: change a session. */
+export async function updateSession(id: string, changes: Partial<SessionInput>, actorId: string): Promise<Session> {
+  if (await checkRemoteApi()) {
+    const res = await fetch(`/api/sessions?id=${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...changes, actorId }),
+    });
+    if (!res.ok) throw await sessionError(res, 'Could not save the session.');
+    return res.json();
+  }
+  ensureLocalSeeded();
+  const all = loadLocalSessions();
+  const idx = all.findIndex((x) => x.id === id);
+  if (idx === -1) throw new Error('Session not found');
+  all[idx] = { ...all[idx], ...changes };
+  saveLocalSessions(all);
+  return delay(all[idx]);
+}
+
+/** Admin: remove a session. */
+export async function deleteSession(id: string, actorId: string): Promise<void> {
+  if (await checkRemoteApi()) {
+    const res = await fetch(`/api/sessions?id=${encodeURIComponent(id)}&actorId=${encodeURIComponent(actorId)}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) throw await sessionError(res, 'Could not delete the session.');
+    return;
+  }
+  ensureLocalSeeded();
+  saveLocalSessions(loadLocalSessions().filter((x) => x.id !== id));
 }
 
 // ─── Stamp CRUD ───────────────────────────────────────────────────────────────
