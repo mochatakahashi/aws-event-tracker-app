@@ -40,6 +40,8 @@ export interface Person {
   subcommittee?: Subcommittee | null;
   /** Badges an admin awarded (officers). */
   awards?: Award[];
+  /** Co-organizer staff: the partner org they work for (set by an admin). */
+  partnerOrg?: string | null;
   /** How many AWS SBG-APC connections they have. */
   connectionCount?: number;
 }

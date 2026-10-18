@@ -39,6 +39,9 @@ import QrCode2RoundedIcon from '@mui/icons-material/QrCode2Rounded';
 import LeaderboardRoundedIcon from '@mui/icons-material/LeaderboardRounded';
 import QrCodeScannerRoundedIcon from '@mui/icons-material/QrCodeScannerRounded';
 import { useDeskCounts } from '../hooks/useDeskCounts';
+import { isPartnerStaff } from '../utils/eventStaff';
+import ButtonBase from '@mui/material/ButtonBase';
+import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded';
 import TutorialTour, { startTour } from './TutorialTour';
 import SchoolRoundedIcon from '@mui/icons-material/SchoolRounded';
 
@@ -71,6 +74,9 @@ export default function AppLayout() {
   // Profile menu anchor
   const [profileAnchor, setProfileAnchor] = useState<null | HTMLElement>(null);
   const profileMenuOpen = Boolean(profileAnchor);
+  // The sidebar avatar (laptops) opens the same menu, upwards
+  const [menuFromSidebar, setMenuFromSidebar] = useState(false);
+  const roleName = user?.role === 'admin' ? 'Admin' : user?.role === 'officer' ? 'Officer' : isPartnerStaff(user) ? `Co-organizer staff · ${user?.partnerOrg}` : 'Attendee';
 
   function handleLogout() {
     setProfileAnchor(null);
@@ -188,7 +194,7 @@ export default function AppLayout() {
             />
           </ListItemButton>
         )}
-        {(user?.role === 'officer' || (user?.personId && selectedEvent?.officerIds?.includes(user.personId))) && (
+        {user?.role === 'officer' && (
           <ListItemButton
             component={RouterLink}
             to="/officer"
@@ -208,17 +214,28 @@ export default function AppLayout() {
 
       {/* User section */}
       <Box sx={{ p: 2 }} data-tour="profile">
-        <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1.5 }}>
-          <Avatar src={user?.avatarUrl || undefined} sx={{ width: 36, height: 36, fontSize: '0.85rem' }}>{initials}</Avatar>
-          <Box sx={{ minWidth: 0, flex: 1 }}>
-            <Typography variant="body2" noWrap sx={{ fontWeight: 600 }}>
-              {user?.name}
-            </Typography>
-            <Typography variant="caption" noWrap sx={{ color: brand.textSecondary }}>
-              {user?.role === 'admin' ? 'Admin' : user?.role === 'officer' ? 'Officer' : 'Attendee'}
-            </Typography>
-          </Box>
-        </Stack>
+        <ButtonBase
+          onClick={(e) => {
+            setMenuFromSidebar(true);
+            setProfileAnchor(e.currentTarget);
+          }}
+          aria-label="account menu (sidebar)"
+          data-testid="sidebar-account"
+          sx={{ width: '100%', justifyContent: 'flex-start', textAlign: 'left', borderRadius: 2, p: 0.5, mb: 1, '&:hover': { bgcolor: alpha(brand.primary, 0.06) } }}
+        >
+          <Stack direction="row" alignItems="center" spacing={1.5} sx={{ minWidth: 0, flex: 1 }}>
+            <Avatar src={user?.avatarUrl || undefined} sx={{ width: 36, height: 36, fontSize: '0.85rem' }}>{initials}</Avatar>
+            <Box sx={{ minWidth: 0, flex: 1 }}>
+              <Typography variant="body2" noWrap sx={{ fontWeight: 600 }}>
+                {user?.name}
+              </Typography>
+              <Typography variant="caption" noWrap component="div" sx={{ color: brand.textSecondary }}>
+                {roleName}
+              </Typography>
+            </Box>
+            <ExpandMoreRoundedIcon fontSize="small" sx={{ color: brand.textSecondary, transform: 'rotate(180deg)' }} />
+          </Stack>
+        </ButtonBase>
         <Button
           size="small"
           fullWidth
@@ -286,7 +303,10 @@ export default function AppLayout() {
 
           {/* Profile avatar button → dropdown with name + profile + logout */}
           <IconButton
-            onClick={(e) => setProfileAnchor(e.currentTarget)}
+            onClick={(e) => {
+              setMenuFromSidebar(false);
+              setProfileAnchor(e.currentTarget);
+            }}
             sx={{ p: 0.5 }}
             aria-label="account menu"
             data-tour="profile"
@@ -301,8 +321,8 @@ export default function AppLayout() {
             anchorEl={profileAnchor}
             open={profileMenuOpen}
             onClose={() => setProfileAnchor(null)}
-            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            anchorOrigin={menuFromSidebar ? { vertical: 'top', horizontal: 'left' } : { vertical: 'bottom', horizontal: 'right' }}
+            transformOrigin={menuFromSidebar ? { vertical: 'bottom', horizontal: 'left' } : { vertical: 'top', horizontal: 'right' }}
             slotProps={{
               paper: {
                 sx: {
@@ -320,7 +340,7 @@ export default function AppLayout() {
                 {user?.name}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                {user?.role === 'admin' ? 'Administrator' : user?.role === 'officer' ? 'Officer' : 'Attendee'}
+                {user?.role === 'admin' ? 'Administrator' : roleName}
               </Typography>
             </Box>
             <Divider sx={{ my: 0.5 }} />
@@ -335,9 +355,9 @@ export default function AppLayout() {
               <ListItemIcon><LockResetIcon fontSize="small" /></ListItemIcon>
               <ListItemText primary="Change password" />
             </MenuItem>
-            <MenuItem onClick={() => { setProfileAnchor(null); startTour(); }} sx={{ py: 1.2 }}>
+            <MenuItem onClick={() => { setProfileAnchor(null); startTour(); }} sx={{ py: 1.2 }} data-testid="menu-replay-tour">
               <ListItemIcon><SchoolRoundedIcon fontSize="small" /></ListItemIcon>
-              <ListItemText primary="App tour" />
+              <ListItemText primary="Replay the app tour" secondary="Forgot where things are?" secondaryTypographyProps={{ fontSize: '0.7rem' }} />
             </MenuItem>
             {user?.role !== 'admin' && (
               <MenuItem onClick={() => { setProfileAnchor(null); navigate('/pass'); }} sx={{ py: 1.2 }}>

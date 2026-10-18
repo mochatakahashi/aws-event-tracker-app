@@ -19,7 +19,7 @@ import SchoolIcon from '@mui/icons-material/School';
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import { alpha } from '@mui/material/styles';
 import { useAuth } from '../context/AuthContext';
-import { brand } from '../theme/theme';
+import { brand, PARTNER } from '../theme/theme';
 import Collapse from '@mui/material/Collapse';
 import LockResetIcon from '@mui/icons-material/LockReset';
 import GroupsIcon from '@mui/icons-material/Groups';
@@ -32,12 +32,80 @@ import { startTour } from '../components/TutorialTour';
 import SchoolRoundedIcon from '@mui/icons-material/SchoolRounded';
 import { memberLabel, officerTitle } from '../utils/people';
 import AvatarImageAdjuster from '../components/AvatarImageAdjuster';
+import SocialLinksEditor from '../components/SocialLinksEditor';
+import SocialLinksRow from '../components/SocialLinksRow';
+import TextField from '@mui/material/TextField';
+import Alert from '@mui/material/Alert';
+import EditRoundedIcon from '@mui/icons-material/EditRounded';
+import HandshakeOutlinedIcon from '@mui/icons-material/HandshakeOutlined';
+import { isPartnerStaff } from '../utils/eventStaff';
+import type { SocialLinks } from '../types/auth';
 
 export default function ProfilePage() {
   const { user, setCurrentUser } = useAuth();
 
   // Change password
   const [showPassword, setShowPassword] = useState(false);
+
+  // Edit profile (name, school details, bio, links)
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState({
+    firstName: '',
+    middleInitial: '',
+    lastName: '',
+    studentId: '',
+    organization: '',
+    personalEmail: '',
+    bio: '',
+  });
+  const [socials, setSocials] = useState<SocialLinks>({});
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [saved, setSaved] = useState(false);
+  const outside = user?.memberType === 'outside';
+
+  function startEditing() {
+    if (!user) return;
+    const parts = (user.name || '').split(' ');
+    setForm({
+      firstName: user.firstName ?? parts[0] ?? '',
+      middleInitial: user.middleInitial ?? '',
+      lastName: user.lastName ?? parts.slice(1).join(' '),
+      studentId: user.studentId ?? '',
+      organization: user.organization ?? '',
+      personalEmail: user.personalEmail ?? '',
+      bio: user.bio ?? '',
+    });
+    setSocials({ ...(user.socials || {}) });
+    setSaveError('');
+    setSaved(false);
+    setEditing(true);
+  }
+
+  async function saveProfile() {
+    if (!user) return;
+    setSaving(true);
+    setSaveError('');
+    try {
+      const changes: Parameters<typeof updateProfile>[1] = {
+        firstName: form.firstName.trim(),
+        middleInitial: form.middleInitial.trim(),
+        lastName: form.lastName.trim(),
+        bio: form.bio.trim(),
+        socials,
+      };
+      if (outside) changes.organization = form.organization.trim();
+      else changes.studentId = form.studentId.trim();
+      if (user.role === 'officer' || user.personalEmail) changes.personalEmail = form.personalEmail.trim();
+      setCurrentUser(await updateProfile(user.personId, changes));
+      setEditing(false);
+      setSaved(true);
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Could not save your profile.');
+    } finally {
+      setSaving(false);
+    }
+  }
 
   // Profile photo state
   const [adjustSource, setAdjustSource] = useState<File | string | null>(null);
@@ -64,6 +132,7 @@ export default function ProfilePage() {
     user?.role === 'admin' ? 'Administrator' :
     user?.role === 'officer' ? 'Officer' :
     'Attendee';
+  const partner = isPartnerStaff(user);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -214,7 +283,7 @@ export default function ProfilePage() {
           <Typography variant="h2" sx={{ mb: 0.5 }}>
             {user?.name}
           </Typography>
-          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 3 }}>
+          <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: user?.bio ? 1.5 : 3 }}>
             <Chip
               icon={roleIcon}
               label={roleLabel}
@@ -225,14 +294,105 @@ export default function ProfilePage() {
                 fontWeight: 600,
               }}
             />
+            {partner && (
+              <Chip
+                icon={<HandshakeOutlinedIcon style={{ color: PARTNER }} />}
+                label={`Co-organizer staff · ${user?.partnerOrg}`}
+                size="small"
+                variant="outlined"
+                sx={{ color: PARTNER, borderColor: PARTNER, fontWeight: 600 }}
+              />
+            )}
           </Stack>
+          {user?.bio && !editing && (
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3, whiteSpace: 'pre-line' }}>
+              {user.bio}
+            </Typography>
+          )}
 
           <Divider sx={{ mb: 3 }} />
 
-          <Typography variant="h6" sx={{ color: brand.primary, fontSize: '0.75rem', mb: 2 }}>
-            ACCOUNT INFORMATION
-          </Typography>
+          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+            <Typography variant="h6" sx={{ color: brand.primary, fontSize: '0.75rem' }}>
+              ACCOUNT INFORMATION
+            </Typography>
+            {!editing && (
+              <Button size="small" variant="outlined" startIcon={<EditRoundedIcon />} onClick={startEditing} data-testid="edit-profile">
+                Edit profile
+              </Button>
+            )}
+          </Stack>
+          {saved && (
+            <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSaved(false)}>
+              Profile saved.
+            </Alert>
+          )}
 
+          {editing ? (
+            <Box data-testid="profile-form">
+              {saveError && (
+                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setSaveError('')}>
+                  {saveError}
+                </Alert>
+              )}
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'minmax(0, 2fr) 80px minmax(0, 2fr)' }, gap: 1.5, mb: 1.5 }}>
+                <TextField size="small" label="First name" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} required inputProps={{ maxLength: 50 }} />
+                <TextField size="small" label="M.I." value={form.middleInitial} onChange={(e) => setForm({ ...form, middleInitial: e.target.value })} inputProps={{ maxLength: 2 }} />
+                <TextField size="small" label="Last name" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} required inputProps={{ maxLength: 50 }} />
+              </Box>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'repeat(2, minmax(0, 1fr))' }, gap: 1.5, mb: 1.5 }}>
+                {outside ? (
+                  <TextField size="small" label="School / organization" value={form.organization} onChange={(e) => setForm({ ...form, organization: e.target.value })} required inputProps={{ maxLength: 100 }} />
+                ) : (
+                  <TextField size="small" label="Student ID" value={form.studentId} onChange={(e) => setForm({ ...form, studentId: e.target.value })} required inputProps={{ maxLength: 20 }} />
+                )}
+                {(user?.role === 'officer' || user?.personalEmail) && (
+                  <TextField size="small" label="Personal email (optional)" type="email" value={form.personalEmail} onChange={(e) => setForm({ ...form, personalEmail: e.target.value })} />
+                )}
+                <TextField
+                  size="small"
+                  label="Email (sign-in)"
+                  value={user?.email || user?.username || ''}
+                  disabled
+                  helperText="Ask an admin if this needs to change."
+                />
+              </Box>
+              <TextField
+                size="small"
+                fullWidth
+                multiline
+                minRows={2}
+                label="Bio"
+                placeholder="Tell others about yourself…"
+                value={form.bio}
+                onChange={(e) => setForm({ ...form, bio: e.target.value })}
+                inputProps={{ maxLength: 500 }}
+                sx={{ mb: 2 }}
+              />
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                Social links
+              </Typography>
+              <SocialLinksEditor value={socials} onChange={setSocials} />
+              {user?.role === 'officer' && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
+                  Your officer position and committee are set by an admin.
+                </Typography>
+              )}
+              <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ mt: 2 }}>
+                <Button onClick={() => setEditing(false)} disabled={saving}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={() => void saveProfile()}
+                  disabled={saving || !form.firstName.trim() || !form.lastName.trim()}
+                >
+                  {saving ? 'Saving…' : 'Save profile'}
+                </Button>
+              </Stack>
+            </Box>
+          ) : (
+          <>
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'repeat(2, minmax(0, 1fr))' }, gap: 2.5 }}>
             {infoRows.map((row) => (
               <Stack key={row.label} direction="row" spacing={2} alignItems="center">
@@ -250,6 +410,14 @@ export default function ProfilePage() {
               </Stack>
             ))}
           </Box>
+          <Box sx={{ mt: 3 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+              Social links
+            </Typography>
+            <SocialLinksRow socials={user?.socials} align="flex-start" empty="No links yet — tap Edit profile to add Facebook, Instagram, LinkedIn and more." />
+          </Box>
+          </>
+          )}
         </CardContent>
       </Card>
 

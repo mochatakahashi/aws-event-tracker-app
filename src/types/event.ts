@@ -72,6 +72,8 @@ export interface AppEvent {
   externalUrl?: string;
   /** Club / organization hosting the event. */
   club?: string;
+  /** Partner orgs co-organizing the event with AWS SBG-APC (shown on the event page). */
+  coOrganizers?: string[];
   /** Automatically assigned timestamp. */
   createdAt?: string;
 }

@@ -51,12 +51,13 @@ import CertificateButton from '../components/CertificateButton';
 import RecentUploadsShelf from '../components/RecentUploadsShelf';
 import InlinePass from '../components/InlinePass';
 import EventStaffPanel from '../components/EventStaffPanel';
+import HandshakeOutlinedIcon from '@mui/icons-material/HandshakeOutlined';
 import SessionsSection from '../components/SessionsSection';
 import EventStampCard from '../components/EventStampCard';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import { formatDateRange } from '../utils/eventDisplay';
 import { useAuth } from '../context/AuthContext';
-import { brand } from '../theme/theme';
+import { brand, PARTNER } from '../theme/theme';
 
 function initials(name: string): string {
   return name
@@ -108,8 +109,15 @@ export default function EventDetailPage() {
     setOfficers(team);
     setRegistrations(regs);
     setMyReg(mine);
-    // Only officers can be assigned, listed in hierarchy order
-    setAllPeople(people.filter((p) => p.role === 'officer' || p.role === 'admin').sort(compareOfficers));
+    // Officers (hierarchy order), then co-organizer staff — matching this event's co-organizers first
+    const partners = people
+      .filter((p) => p.role === 'attendee' && p.partnerOrg)
+      .sort(
+        (a, b) =>
+          Number(!(data.coOrganizers ?? []).includes(a.partnerOrg ?? '')) - Number(!(data.coOrganizers ?? []).includes(b.partnerOrg ?? '')) ||
+          a.name.localeCompare(b.name),
+      );
+    setAllPeople([...people.filter((p) => p.role === 'officer' || p.role === 'admin').sort(compareOfficers), ...partners]);
     setLoading(false);
   }, [id, personId]);
 
@@ -317,9 +325,17 @@ export default function EventDetailPage() {
               ))}
             </Stack>
 
-            <Typography variant="h1" sx={{ fontWeight: 800, mb: 2, lineHeight: 1.2 }}>
+            <Typography variant="h1" sx={{ fontWeight: 800, mb: event.coOrganizers?.length ? 1 : 2, lineHeight: 1.2 }}>
               {event.title}
             </Typography>
+            {!!event.coOrganizers?.length && (
+              <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap sx={{ mb: 2 }} data-testid="co-organizers">
+                <HandshakeOutlinedIcon sx={{ fontSize: 18, color: PARTNER }} />
+                <Typography variant="body2" color="text.secondary">
+                  Co-organized by AWS SBG-APC and <strong>{event.coOrganizers.join(', ')}</strong>
+                </Typography>
+              </Stack>
+            )}
 
             {/* Structured Info Cards (Inspired by reference mockup in Image 4) */}
             <Stack spacing={2} sx={{ my: 3 }}>

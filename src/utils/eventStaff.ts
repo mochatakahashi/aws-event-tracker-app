@@ -13,20 +13,36 @@ export const DUTY_LABELS: Record<StaffDuty, string> = {
   checkin: 'Check people in',
 };
 
-interface Actor {
+export interface StaffActor {
   role?: string;
   personId?: string;
+  /** Co-organizer staff: the partner org they work for (set by an admin). */
+  partnerOrg?: string | null;
+}
+type Actor = StaffActor;
+
+/** Co-organizer staff: an attendee account an admin marked as working for a partner org. */
+export function isPartnerStaff(user: Actor | null | undefined): boolean {
+  return Boolean(user && user.role === 'attendee' && user.partnerOrg && user.partnerOrg.trim());
+}
+
+/** Accounts that can be put on an event's staff list: officers and co-organizer staff. */
+export function mayWorkEvents(user: Actor | null | undefined): boolean {
+  return Boolean(user && (user.role === 'admin' || user.role === 'officer' || isPartnerStaff(user)));
 }
 
 export function dutyIds(event: Pick<AppEvent, 'stampOfficerIds' | 'checkinOfficerIds'>, duty: StaffDuty): string[] {
   return (duty === 'stamps' ? event.stampOfficerIds : event.checkinOfficerIds) ?? [];
 }
 
-/** Can this user do the duty at this event? */
+/**
+ * Can this user do the duty at this event? Admins always; officers and
+ * co-organizer staff only when an admin ticked them for that duty.
+ */
 export function canDo(user: Actor | null | undefined, event: AppEvent | null | undefined, duty: StaffDuty): boolean {
   if (!user || !event) return false;
   if (user.role === 'admin') return true;
-  if (user.role !== 'officer' || !user.personId) return false;
+  if (!user.personId || !(user.role === 'officer' || isPartnerStaff(user))) return false;
   return dutyIds(event, duty).includes(user.personId);
 }
 
@@ -44,7 +60,7 @@ export function staffEvents(user: Actor | null | undefined, events: AppEvent[]):
 export function defaultDutiesForRole(role: string): StaffDuty[] {
   const r = role.toLowerCase();
   if (r === 'lead') return ['stamps', 'checkin'];
-  if (r === 'registration booth') return ['checkin'];
+  if (r === 'registration booth' || r === 'co-organizer') return ['checkin'];
   if (r === 'usher') return ['stamps'];
   return [];
 }

@@ -48,11 +48,11 @@ const profile: TourStep = {
   target: 'profile',
   emoji: '👤',
   title: 'Your profile',
-  text: 'Edit your photo, bio and links, change your password, and take this tour again any time.',
+  text: 'Tap your picture to edit your profile (name, photo, bio, links), change your password, or replay this tour any time.',
 };
 
 /** Steps for each role. */
-export function tourSteps(role: UserRole | undefined): TourStep[] {
+export function tourSteps(role: UserRole | undefined, partnerStaff = false): TourStep[] {
   const welcome: TourStep = {
     emoji: '✨',
     title: 'AWS SBG-APC Event Tracker',
@@ -110,6 +110,14 @@ export function tourSteps(role: UserRole | undefined): TourStep[] {
         text: 'When an admin puts you on an event’s staff, check people in and approve their stamps here.',
       },
     );
+  }
+  if (partnerStaff) {
+    base.push({
+      target: 'nav-event-desk',
+      emoji: '🤝',
+      title: 'Event Desk (co-organizer staff)',
+      text: 'When an admin puts you on a co-organized event’s staff list, you check people in and/or approve stamps here — only the duties you were given.',
+    });
   }
   return [...base, profile, done];
 }

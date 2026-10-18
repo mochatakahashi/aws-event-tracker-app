@@ -21,6 +21,7 @@ import { brand } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
 import { getUsers } from '../services/authService';
 import { useDeskCounts } from '../hooks/useDeskCounts';
+import { isApprovedTask } from '../types/task';
 import { getTasks } from '../services/taskService';
 import { notifyQuietly } from '../services/notifyService';
 import Button from '@mui/material/Button';
@@ -43,6 +44,7 @@ export default function AdminHome() {
   const desk = useDeskCounts(user);
   const [pending, setPending] = useState(0);
   const [openTasks, setOpenTasks] = useState(0);
+  const [taskRequests, setTaskRequests] = useState(0);
   const [reminderNote, setReminderNote] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [missingEvents, setMissingEvents] = useState<{ id: string; title: string }[]>([]);
@@ -76,7 +78,10 @@ export default function AdminHome() {
       .then((users) => setPending(users.filter((u) => u.status === 'pending').length))
       .catch(() => undefined);
     getTasks()
-      .then((tasks) => setOpenTasks(tasks.filter((t) => t.status !== 'done').length))
+      .then((tasks) => {
+        setOpenTasks(tasks.filter((t) => t.status !== 'done' && isApprovedTask(t)).length);
+        setTaskRequests(tasks.filter((t) => t.approval === 'pending').length);
+      })
       .catch(() => undefined);
     getMissingClubEvents().then(setMissingEvents).catch(() => undefined);
     // Upcoming / live events where no officer may approve stamps or check people in
@@ -123,11 +128,13 @@ export default function AdminHome() {
     },
     {
       title: 'Officer Tasks',
-      description: 'Assign tasks that officers see on their dashboard',
+      description: taskRequests
+        ? `Assign tasks — ${taskRequests} added by officers waiting for your approval`
+        : 'Assign tasks that officers see on their dashboard',
       to: '/admin/tasks',
       icon: <AssignmentIcon sx={{ fontSize: 28 }} />,
-      badge: openTasks,
-      badgeLabel: 'open',
+      badge: taskRequests || openTasks,
+      badgeLabel: taskRequests ? 'to approve' : 'open',
     },
     {
       title: 'Leaderboard',

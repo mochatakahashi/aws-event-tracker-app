@@ -63,6 +63,60 @@ export async function updateTask(id: string, changes: UpdateTaskInput, actorId: 
   return delay(tasks[idx]);
 }
 
+/** What an officer fills in to add their own task. */
+export interface TaskProposal {
+  title: string;
+  description?: string;
+  eventId?: string;
+  dueAt?: string;
+  committee?: OfficerTask['committee'];
+  subcommittee?: OfficerTask['subcommittee'];
+}
+
+/**
+ * An officer adds their own task. It waits for an admin to approve it
+ * (admins' own are approved right away). Server-checked.
+ */
+export async function proposeTask(input: TaskProposal, actorId: string, isAdmin = false): Promise<OfficerTask> {
+  if (!input.title.trim()) throw new Error('Please enter a task title.');
+  if (await isRemoteAvailable(API)) {
+    return apiJson<OfficerTask>(`${API}?action=propose`, { method: 'POST', body: JSON.stringify({ ...input, actorId }) });
+  }
+  const task: OfficerTask = {
+    ...input,
+    title: input.title.trim(),
+    id: generateId('tsk'),
+    assigneeIds: [actorId],
+    status: 'todo',
+    kind: 'task',
+    createdBy: actorId,
+    proposedBy: actorId,
+    approval: isAdmin ? 'approved' : 'pending',
+    createdAt: new Date().toISOString(),
+  };
+  local.save([...local.load(), task]);
+  return delay(task);
+}
+
+/** Admin approves or declines an officer's task. */
+export async function reviewTask(id: string, approve: boolean, actorId: string, note?: string): Promise<OfficerTask> {
+  if (await isRemoteAvailable(API)) {
+    return apiJson<OfficerTask>(`${API}?action=review`, { method: 'POST', body: JSON.stringify({ id, approve, actorId, note }) });
+  }
+  const tasks = local.load();
+  const idx = tasks.findIndex((t) => t.id === id);
+  if (idx === -1) throw new Error('Task not found');
+  tasks[idx] = {
+    ...tasks[idx],
+    approval: approve ? 'approved' : 'declined',
+    reviewedBy: actorId,
+    reviewedAt: new Date().toISOString(),
+    reviewNote: approve ? undefined : note,
+  };
+  local.save(tasks);
+  return delay(tasks[idx]);
+}
+
 export async function deleteTask(id: string): Promise<void> {
   if (await isRemoteAvailable(API)) {
     await apiJson(`${API}?id=${encodeURIComponent(id)}`, { method: 'DELETE' });

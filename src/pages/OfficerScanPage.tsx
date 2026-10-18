@@ -36,7 +36,8 @@ import Tab from '@mui/material/Tab';
 import Badge from '@mui/material/Badge';
 import StampRequestsPanel from '../components/StampRequestsPanel';
 import EventAttendeesPanel from '../components/EventAttendeesPanel';
-import { canDo, staffEvents } from '../utils/eventStaff';
+import { canDo, mayWorkEvents, staffEvents } from '../utils/eventStaff';
+import { deskChanged, useDeskCounts } from '../hooks/useDeskCounts';
 import { notifyInApp } from '../services/notificationService';
 import { affiliation, memberLabel } from '../utils/people';
 import { parsePass } from '../utils/pass';
@@ -111,7 +112,8 @@ export default function OfficerScanPage() {
   );
   const lastCode = useRef<{ text: string; at: number }>({ text: '', at: 0 });
 
-  const isStaff = user?.role === 'officer' || user?.role === 'admin';
+  const isStaff = mayWorkEvents(user);
+  const desk = useDeskCounts(user);
   const wide = useMediaQuery(useTheme().breakpoints.up('lg'));
 
   useEffect(() => {
@@ -144,6 +146,8 @@ export default function OfficerScanPage() {
     setEventRegs(regs);
     setDeskSessions(sess);
     setDeskStamps(all.filter((x) => ids.has(x.sessionId)));
+    // Keep the menu badge in step with what the desk shows
+    deskChanged();
   }, [doorEventId]);
 
   useEffect(() => {
@@ -295,6 +299,10 @@ export default function OfficerScanPage() {
   const checkedCount = eventRegs.filter((r) => r.checkedIn).length;
   const pendingCount = deskStamps.filter((x) => x.status === 'pending').length;
   const doorEvent = events.find((e) => e.id === doorEventId);
+  // Tabs follow your duties at the selected event (admins: all)
+  const deskMayStamp = canDo(user, doorEvent, 'stamps');
+  const deskMayCheckIn = canDo(user, doorEvent, 'checkin');
+  const shownTab = (tab === 'stamps' && !deskMayStamp) || (tab === 'attendees' && !deskMayCheckIn) ? 'scan' : tab;
 
   const mayCheckIn = canDo(user, scanned?.event, 'checkin');
   const mayStamp = canDo(user, scanned?.event, 'stamps');
@@ -477,10 +485,10 @@ export default function OfficerScanPage() {
     <Box>
       <Button
         startIcon={<ArrowBackIcon />}
-        onClick={() => navigate(user?.role === 'admin' ? '/home' : '/officer')}
+        onClick={() => navigate(user?.role === 'officer' ? '/officer' : '/home')}
         sx={{ mb: 1 }}
       >
-        {user?.role === 'admin' ? 'Admin Dashboard' : 'Officer Dashboard'}
+        {user?.role === 'admin' ? 'Admin Dashboard' : user?.role === 'officer' ? 'Officer Dashboard' : 'Dashboard'}
       </Button>
       <Typography variant="h1" sx={{ mb: 0.5 }}>
         Event Desk
@@ -502,6 +510,7 @@ export default function OfficerScanPage() {
           {events.map((e) => (
             <MenuItem key={e.id} value={e.id}>
               {e.title}
+              {desk.pendingByEvent[e.id] ? ` · ${desk.pendingByEvent[e.id]} stamp request${desk.pendingByEvent[e.id] === 1 ? '' : 's'}` : ''}
             </MenuItem>
           ))}
         </TextField>
@@ -515,7 +524,7 @@ export default function OfficerScanPage() {
         )}
       </Stack>
 
-      {loaded && events.length === 0 && user?.role === 'officer' && (
+      {loaded && events.length === 0 && user?.role !== 'admin' && (
         <Alert severity="warning" sx={{ mb: 2 }} data-testid="no-staff-events">
           You’re not on the staff list of any event yet. An admin can tick you for “Approve stamps” or “Check people in” on
           the event page.
@@ -527,15 +536,41 @@ export default function OfficerScanPage() {
         </Alert>
       )}
 
+      {/* Stamp requests waiting at other events (the menu badge counts every event you work) */}
+      {doorEvent && events.some((e) => e.id !== doorEventId && desk.pendingByEvent[e.id]) && (
+        <Alert severity="info" sx={{ mb: 2 }} data-testid="other-event-requests">
+          Stamp requests are also waiting at{' '}
+          {events
+            .filter((e) => e.id !== doorEventId && desk.pendingByEvent[e.id])
+            .map((e, i, arr) => (
+              <span key={e.id}>
+                <Button
+                  size="small"
+                  onClick={() => {
+                    setDoorEventId(e.id);
+                    setTab('stamps');
+                  }}
+                  sx={{ p: 0, minWidth: 0, verticalAlign: 'baseline', fontWeight: 700, textTransform: 'none' }}
+                >
+                  {e.title} ({desk.pendingByEvent[e.id]})
+                </Button>
+                {i < arr.length - 1 ? ', ' : ''}
+              </span>
+            ))}
+          .
+        </Alert>
+      )}
+
       {doorEvent && (
         <Tabs
-          value={tab}
+          value={shownTab}
           onChange={(_e, v) => setTab(v)}
           variant="scrollable"
           allowScrollButtonsMobile
           sx={{ mb: 2.5, borderBottom: `1px solid ${alpha(brand.primary, 0.12)}` }}
         >
           <Tab value="scan" icon={<QrCodeScannerRoundedIcon />} iconPosition="start" label="Scan" />
+          {deskMayStamp && (
           <Tab
             value="stamps"
             icon={<StarsRoundedIcon />}
@@ -547,11 +582,14 @@ export default function OfficerScanPage() {
             }
             sx={{ pr: pendingCount ? 3 : 2 }}
           />
-          <Tab value="attendees" icon={<HowToRegRoundedIcon />} iconPosition="start" label={`Attendees ${checkedCount}/${eventRegs.filter((r) => r.rsvp !== 'declined').length}`} />
+          )}
+          {deskMayCheckIn && (
+            <Tab value="attendees" icon={<HowToRegRoundedIcon />} iconPosition="start" label={`Attendees ${checkedCount}/${eventRegs.filter((r) => r.rsvp !== 'declined').length}`} />
+          )}
         </Tabs>
       )}
 
-      {doorEvent && tab === 'stamps' && user && (
+      {doorEvent && shownTab === 'stamps' && user && (
         <StampRequestsPanel
           event={doorEvent}
           sessions={deskSessions}
@@ -562,7 +600,7 @@ export default function OfficerScanPage() {
           onChanged={refreshDesk}
         />
       )}
-      {doorEvent && tab === 'attendees' && user && (
+      {doorEvent && shownTab === 'attendees' && user && (
         <EventAttendeesPanel
           event={doorEvent}
           sessions={deskSessions}
@@ -578,11 +616,11 @@ export default function OfficerScanPage() {
         />
       )}
 
-      <Box sx={{ display: tab === 'scan' || !doorEvent ? 'grid' : 'none', gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 1fr) minmax(0, 1fr)' }, gap: 3, alignItems: 'start' }}>
+      <Box sx={{ display: shownTab === 'scan' || !doorEvent ? 'grid' : 'none', gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 1fr) minmax(0, 1fr)' }, gap: 3, alignItems: 'start' }}>
         <Box>
           {/* On phones the result replaces the camera so it's visible without scrolling */}
           <Box sx={{ display: !wide && scanned ? 'none' : 'block', position: 'relative' }}>
-            {tab === 'scan' && <QrScanner onResult={onScan} paused={Boolean(scanned) || looking} />}
+            {shownTab === 'scan' && <QrScanner onResult={onScan} paused={Boolean(scanned) || looking} />}
             {looking && (
               <Box sx={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', bgcolor: alpha('#000', 0.4), borderRadius: '20px' }}>
                 <CircularProgress sx={{ color: '#fff' }} />

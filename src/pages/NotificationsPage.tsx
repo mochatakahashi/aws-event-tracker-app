@@ -48,6 +48,8 @@ const KIND: Record<NotificationKind, { icon: ReactNode; color: string }> = {
   'signup-pending': { icon: <PersonAddAlt1Icon />, color: brand.warning },
   'event-assigned': { icon: <EventIcon />, color: brand.primary },
   'task-assigned': { icon: <AssignmentIcon />, color: brand.primary },
+  'task-proposed': { icon: <AssignmentIcon />, color: brand.warning },
+  'task-reviewed': { icon: <AssignmentIcon />, color: brand.success },
   'stamp-approved': { icon: <StarsIcon />, color: brand.success },
   'stamp-declined': { icon: <BlockIcon />, color: brand.error },
   'checked-in': { icon: <VerifiedIcon />, color: brand.success },

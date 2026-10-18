@@ -43,6 +43,7 @@ export default function AddAccountPanel({
   const [personalEmail, setPersonalEmail] = useState('');
   const [studentId, setStudentId] = useState('');
   const [organization, setOrganization] = useState('');
+  const [partnerOrg, setPartnerOrg] = useState('');
   const [officer, setOfficer] = useState<OfficerRoleValue>(EMPTY_ROLE);
   const [password, setPassword] = useState(generateTempPassword);
   const [error, setError] = useState('');
@@ -71,6 +72,7 @@ export default function AddAccountPanel({
           officerPosition: isOfficer ? officer.officerPosition || undefined : undefined,
           committee: isOfficer ? officer.committee || undefined : undefined,
           subcommittee: isOfficer ? officer.subcommittee || undefined : undefined,
+          partnerOrg: !isOfficer && role === 'attendee' && partnerOrg.trim() ? partnerOrg.trim() : undefined,
           password,
         },
         actorId,
@@ -195,6 +197,19 @@ export default function AddAccountPanel({
               </TextField>
             )}
           </Box>
+          {!isOfficer && role === 'attendee' && (
+            <TextField
+              size="small"
+              margin="dense"
+              fullWidth
+              label="Co-organizer staff for (optional)"
+              placeholder="Partner org, e.g. GDSC APC"
+              value={partnerOrg}
+              onChange={(e) => setPartnerOrg(e.target.value)}
+              helperText="For people from a partner org who'll help at a co-organized event. They can be put on an event's staff list for check-in or stamps only — no officer features."
+              inputProps={{ maxLength: 60 }}
+            />
+          )}
           {isOfficer && (
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'repeat(3, minmax(0, 1fr))' }, columnGap: 1.5 }}>
               <OfficerRoleFields value={officer} onChange={setOfficer} size="small" />

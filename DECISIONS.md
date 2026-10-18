@@ -347,6 +347,27 @@ Any officer could approve stamps and check people in at any event, and session c
 - **Positive**: Least privilege at events with one checkbox per officer; real attendance signals per session; recognition without new infrastructure.
 - **Negative**: Existing events start with empty duty lists, so only admins can approve/check in until staff are set (Admin Home warns). Server checks still trust the `actorId` sent by the app (ADR-008) until signed sessions arrive.
 
+
+---
+
+## ADR-018: One Event Desk, Approval Gates, and Co-organizer Staff as Marked Attendees
+
+### Status
+**Accepted** (v0.6.9 – v0.6.13)
+
+### Context
+Event-day work was spread over several pages; registrations, certificates, connections and officers' own tasks had no approval step; and a co-organized event needs people from a partner org (APC students, but not AWS SBG-APC officers) to help at the registration booth or stamp booths without getting officer tools.
+
+### Decision
+- **Event Desk** (`/officer/scan`) holds scan, stamp requests and attendees per event; stamps are approved only after check-in.
+- **Approval gates** everywhere it matters: registrations (Pending → Approved/Declined by admins or the check-in team), certificates (unlock after the event, checked-in people only), AWS SBG-APC connections (the other person approves), and **officer-added tasks** (an admin approves before they count).
+- **Co-organizer staff are attendee accounts with an admin-set `partnerOrg`**, not a new role. They reuse the existing per-event duty lists (ADR-017), so the same server checks apply; everything officer-only keeps checking `role === 'officer'`. Admins create them (or mark an existing attendee) — no self sign-up for staff.
+- New server features stay inside existing functions as `?action=` routes (12-function limit).
+
+### Consequences
+- **Positive**: least privilege for outside helpers with no new screens or role plumbing; one place for event-day work; nothing counts until a person with authority approves it.
+- **Negative**: co-organizer staff appear in the officers' *Event team* list on the event page (labelled with their org); the server still trusts `actorId` (ADR-008) until signed sessions arrive.
+
 ---
 
 *Last Updated: October 2026*

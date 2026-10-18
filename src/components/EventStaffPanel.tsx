@@ -26,7 +26,8 @@ import { formatDateRange } from '../utils/eventDisplay';
 import type { AppEvent } from '../types/event';
 import type { Person } from '../types/attendee';
 
-const ROLES = ['lead', 'host', 'usher', 'registration booth', 'creatives', 'media'];
+const ROLES = ['lead', 'host', 'usher', 'registration booth', 'creatives', 'media', 'co-organizer'];
+const isPartner = (p?: Person) => Boolean(p && p.role === 'attendee' && p.partnerOrg);
 const titleCase = (s: string) => s.replace(/\b\w/g, (c) => c.toUpperCase());
 const initials = (name = '?') =>
   name
@@ -72,7 +73,7 @@ export default function EventStaffPanel({
   event: AppEvent;
   /** Assigned officers (people records). */
   team: Person[];
-  /** Officers/admins who can be added. */
+  /** Officers/admins and co-organizer staff who can be added. */
   candidates: Person[];
   actor: { role?: string; personId?: string; name?: string } | null;
   onChange: (event: AppEvent) => void | Promise<void>;
@@ -137,7 +138,7 @@ export default function EventStaffPanel({
         kind: 'event-assigned',
         title: `New duty at ${event.title}`,
         message: `You can now ${DUTY_LABELS[duty].toLowerCase()} at this event.`,
-        link: duty === 'checkin' ? '/officer/scan' : '/officer',
+        link: duty === 'checkin' || isPartner(team.find((p) => p.id === personId)) ? '/officer/scan' : '/officer',
       });
     }
   }
@@ -159,7 +160,8 @@ export default function EventStaffPanel({
       </Typography>
       {isAdmin && (
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Only officers ticked here can approve stamps or check people in at this event. Admins can always do both.
+          Only officers and co-organizer staff ticked here can approve stamps or check people in at this event. Admins can
+          always do both. Co-organizer staff get only the duties you tick — no officer features.
         </Typography>
       )}
 
@@ -175,26 +177,33 @@ export default function EventStaffPanel({
           }}
         >
           <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700 }}>
-            Assign an officer
+            Assign an officer or co-organizer staff
           </Typography>
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'repeat(2, minmax(0, 1fr))' }, gap: 1 }}>
             <TextField
               select
               size="small"
-              label="Officer"
+              label="Person"
               value={newId}
-              onChange={(e) => setNewId(e.target.value)}
+              onChange={(e) => {
+                setNewId(e.target.value);
+                // Partner staff usually help at the registration booth
+                if (isPartner(candidates.find((p) => p.id === e.target.value)) && !newRole) {
+                  setNewRole('co-organizer');
+                  setNewDuties(['checkin']);
+                }
+              }}
               disabled={saving}
               sx={{ bgcolor: '#fff' }}
             >
               {available.length === 0 && (
                 <MenuItem value="" disabled>
-                  Every officer is already assigned
+                  Everyone is already assigned
                 </MenuItem>
               )}
               {available.map((p) => (
                 <MenuItem key={p.id} value={p.id}>
-                  {p.name} — {p.role === 'admin' ? 'Admin' : officerTitle(p)}
+                  {p.name} — {p.role === 'admin' ? 'Admin' : isPartner(p) ? `Co-organizer staff · ${p.partnerOrg}` : officerTitle(p)}
                 </MenuItem>
               ))}
             </TextField>
@@ -256,7 +265,7 @@ export default function EventStaffPanel({
       )}
 
       {team.length === 0 ? (
-        <Typography color="text.secondary">No officers assigned yet.</Typography>
+        <Typography color="text.secondary">No one assigned yet.</Typography>
       ) : (
         <Stack spacing={1.25}>
           {team.map((o) => {
@@ -285,7 +294,7 @@ export default function EventStaffPanel({
                       {me && ' (you)'}
                     </Typography>
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                      {o.role === 'officer' ? `${officerTitle(o)} · ` : ''}
+                      {o.role === 'officer' ? `${officerTitle(o)} · ` : isPartner(o) ? `Co-organizer staff · ${o.partnerOrg} · ` : ''}
                       {titleCase(event.officerRoles?.[o.id] || 'Officer')}
                     </Typography>
                     {!isAdmin && <DutyChips event={event} personId={o.id} />}

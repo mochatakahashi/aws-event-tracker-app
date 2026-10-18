@@ -127,6 +127,59 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json(tasks.map(clean));
     }
 
+    // Officers propose their own tasks; an admin approves or declines them.
+    //   POST ?action=propose { actorId, title, description?, eventId?, dueAt?, committee?, subcommittee? }
+    //   POST ?action=review  { actorId, id, approve: boolean, note? }   (admin)
+    if (req.method === 'POST' && (req.query.action === 'propose' || req.query.action === 'review')) {
+      const body = req.body || {};
+      const actor = typeof body.actorId === 'string' ? (await client.send(new GetCommand({ TableName: tableName, Key: { id: body.actorId } }))).Item : null;
+      const active = actor?.entityType === 'user' && (actor.status ?? 'approved') === 'approved';
+      if (req.query.action === 'propose') {
+        if (!active || (actor!.role !== 'officer' && actor!.role !== 'admin')) {
+          return res.status(403).json({ error: 'Only officers can add tasks.' });
+        }
+        const title = String(body.title || '').trim().slice(0, 140);
+        if (!title) return res.status(400).json({ error: 'Task title is required' });
+        const committee = COMMITTEES.includes(body.committee) ? body.committee : actor!.committee || undefined;
+        const isAdmin = actor!.role === 'admin';
+        const item = {
+          id: `tsk-${Date.now()}-${Math.floor(Math.random() * 100000)}`,
+          entityType: 'task',
+          title,
+          description: body.description ? String(body.description).slice(0, 2000) : undefined,
+          eventId: str(body.eventId),
+          assigneeIds: [actor!.id],
+          status: 'todo',
+          dueAt: str(body.dueAt),
+          committee,
+          subcommittee: committee && (SUBCOMMITTEES[committee] || []).includes(body.subcommittee) ? body.subcommittee : undefined,
+          kind: 'task',
+          createdBy: actor!.id,
+          proposedBy: actor!.id,
+          approval: isAdmin ? 'approved' : 'pending',
+          createdAt: new Date().toISOString(),
+        };
+        await client.send(new PutCommand({ TableName: tableName, Item: item }));
+        return res.status(201).json(clean(item));
+      }
+      // review
+      if (!active || actor!.role !== 'admin') return res.status(403).json({ error: 'Only an admin can approve tasks.' });
+      const id = str(body.id);
+      const found = id ? (await client.send(new GetCommand({ TableName: tableName, Key: { id } }))).Item : null;
+      if (!found || found.entityType !== 'task') return res.status(404).json({ error: 'Task not found' });
+      const approve = Boolean(body.approve);
+      const merged = {
+        ...found,
+        approval: approve ? 'approved' : 'declined',
+        reviewedBy: actor!.id,
+        reviewedAt: new Date().toISOString(),
+        reviewNote: !approve && body.note ? String(body.note).slice(0, 300) : undefined,
+        updatedAt: new Date().toISOString(),
+      };
+      await client.send(new PutCommand({ TableName: tableName, Item: merged }));
+      return res.status(200).json(clean(merged));
+    }
+
     if (req.method === 'POST') {
       const body = req.body || {};
       if (!String(body.title || '').trim()) return res.status(400).json({ error: 'Task title is required' });
@@ -163,6 +216,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const body = req.body || {};
       if (body.status !== undefined && !STATUSES.includes(body.status)) {
         return res.status(400).json({ error: 'Invalid status' });
+      }
+      // A proposed task can't be worked on until an admin approves it
+      if (body.status !== undefined && result.Item.approval && result.Item.approval !== 'approved' && body.status !== result.Item.status) {
+        return res.status(409).json({ error: 'This task is waiting for an admin to approve it.' });
       }
       const updates: Record<string, any> = {};
       for (const key of EDITABLE) if (key in body) updates[key] = body[key];

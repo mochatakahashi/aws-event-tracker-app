@@ -57,6 +57,12 @@ function pruneStaff(item: any) {
   for (const f of STAFF_FIELDS) {
     if (item[f] !== undefined) item[f] = idList(item[f]).filter((x) => assigned.has(x));
   }
+  // Partner orgs co-organizing the event: up to 5 short names
+  if (item.coOrganizers !== undefined) {
+    item.coOrganizers = Array.isArray(item.coOrganizers)
+      ? [...new Set(item.coOrganizers.filter((x: unknown) => typeof x === 'string').map((x: string) => x.trim().slice(0, 60)).filter(Boolean))].slice(0, 5)
+      : [];
+  }
   return item;
 }
 
@@ -118,13 +124,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { stampOfficerIds: _s, checkinOfficerIds: _c, ...fields } = event;
       void _s;
       void _c;
-      const itemToSave = {
+      const itemToSave = pruneStaff({
         ...fields,
         id,
         entityType: 'event',
         createdAt: event.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-      };
+      });
 
       await client.send(
         new PutCommand({

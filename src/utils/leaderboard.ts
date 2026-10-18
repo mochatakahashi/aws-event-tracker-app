@@ -4,6 +4,7 @@ import type { OfficerTask } from '../types/task';
 import type { AppEvent } from '../types/event';
 import { buildLeaderboard, type BadgeId } from './badges';
 import { officerBadgesFor, type EarnedOfficerBadge } from './officerBadges';
+import { isApprovedTask } from '../types/task';
 
 /**
  * Achievement points for the Builder Leaderboard. Everyone with an approved
@@ -122,7 +123,8 @@ export function officerBoard(d: BoardData, eventId?: string): OfficerRow[] {
       const checkInsDone = d.registrations.filter(
         (r) => r.checkedIn && r.checkedInBy === p.id && (!eventId || r.eventId === eventId),
       ).length;
-      const mine = d.tasks.filter((t) => t.assigneeIds.includes(p.id) && (!eventId || t.eventId === eventId));
+      // Officer-proposed tasks count once an admin approves them
+      const mine = d.tasks.filter((t) => isApprovedTask(t) && t.assigneeIds.includes(p.id) && (!eventId || t.eventId === eventId));
       const tasksDone = mine.filter((t) => t.status === 'done').length;
       const tasksAssigned = mine.length;
       const eventsVolunteered = d.events.filter(

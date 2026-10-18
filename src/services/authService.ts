@@ -342,7 +342,7 @@ export async function updateUser(
   const idx = users.findIndex((u) => u.personId === personId);
   if (idx === -1) throw new Error('User not found');
   const actor = users.find((u) => u.personId === actorId);
-  const adminOnly = ['role', 'status', 'requestedRole', 'officerHistory', 'rejectionReason'].some((k) => k in changes);
+  const adminOnly = ['role', 'status', 'requestedRole', 'officerHistory', 'rejectionReason', 'partnerOrg'].some((k) => k in changes);
   if (adminOnly && actor?.role !== 'admin') throw new Error('Only an admin can change roles or approve accounts.');
   if (!adminOnly && actorId !== personId && actor?.role !== 'admin') {
     throw new Error('You can only edit your own profile.');
@@ -351,12 +351,19 @@ export async function updateUser(
     changes.status === 'approved' && users[idx].status !== 'approved'
       ? { approvedAt: new Date().toISOString(), approvedBy: actorId }
       : {};
-  users[idx] = { ...users[idx], ...changes, ...stamped };
+  const next = { ...users[idx], ...changes, ...stamped };
+  // Keep the display name in step with name edits
+  if ('firstName' in changes || 'lastName' in changes || 'middleInitial' in changes) {
+    const mi = next.middleInitial ? `${next.middleInitial.replace(/\./g, '')}.` : '';
+    next.name = [next.firstName?.trim(), mi, next.lastName?.trim()].filter(Boolean).join(' ');
+  }
+  if (next.role !== 'attendee') next.partnerOrg = null;
+  users[idx] = next;
   local.save(users);
   return delay(strip(users[idx]));
 }
 
-/** Update your own profile (photo, bio, socials, personal email). */
+/** Update your own profile (name, school details, photo, bio, socials, personal email). */
 export function updateProfile(personId: string, changes: ProfileChanges): Promise<User> {
   return updateUser(personId, changes, personId);
 }

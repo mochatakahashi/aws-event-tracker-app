@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.13] - 2026-10-19
+
+### Added
+- **Co-organizer staff for co-organized events** (partner orgs that aren't AWS SBG-APC): events get **Co-organizer(s)** (shown as *Co-organized by AWS SBG-APC and …*); an admin marks an attendee account as **Co-organizer staff · <org>** (Add account → *Co-organizer staff for*, or the 🤝 button on any attendee) and puts them on an event's staff list (*Co-organizer* role, check-in pre-ticked). They get only the Event Desk for those events and only their duties' tabs, plus a Dashboard card — no officer features. Server-checked in the stamps and registrations APIs; `partnerOrg` is admin-only.
+- **Officers add their own tasks** → *Waiting for approval* → an admin approves (joins the board, counts on the leaderboard) or declines with a reason; both sides are notified. API: `POST /api/tasks?action=propose | review`. Pending tasks can't be marked done.
+- **Officer Dashboard request lists by duty**: *Stamp requests* (approve / decline inline) only for stamp-team officers, *Registration & check-in* (approve / decline waiting registrations) only for check-in-team officers.
+- **Edit profile** (Profile → Edit profile): name, M.I., student ID or school/organization, personal email, bio and social links; the display name follows. Email / sign-in stays locked.
+- **Replay the app tour from your profile picture** (top-bar avatar on phones, sidebar avatar on laptops → *Replay the app tour*).
+
+### Fixed
+- **Admin saw a stamp-request count with no requests on the Event Desk**: the menu badge counted every event while the desk showed one, and it only refreshed every minute. The badge now counts only what the desk can show, updates right after approving/declining, the event picker shows each event's count, and the desk links to requests waiting at another event.
+
+### Changed
+- Officer Dashboard link only for officers (being on an event's staff list no longer shows it). Event Desk tabs follow your duties.
+- Server: officer position/committee can only be changed by officers themselves or an admin; profile fields are length-checked; personal email must be valid.
+
+---
+
 ## [0.6.12] - 2026-10-18
 
 ### Added

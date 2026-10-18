@@ -1,5 +1,6 @@
 import type { Person } from '../types/attendee';
 import type { BoardData } from './leaderboard';
+import { isApprovedTask } from '../types/task';
 
 /**
  * Officer badges. Some are earned automatically from the work officers do;
@@ -54,7 +55,7 @@ export function officerBadge(id: string): OfficerBadge | undefined {
 export function autoOfficerBadges(personId: string, d: BoardData, now = Date.now()): AutoOfficerBadgeId[] {
   const stampsApproved = d.stamps.filter((s) => s.status === 'approved' && s.approvedBy === personId).length;
   const checkIns = d.registrations.filter((r) => r.checkedIn && r.checkedInBy === personId).length;
-  const tasksDone = d.tasks.filter((t) => t.assigneeIds.includes(personId) && t.status === 'done').length;
+  const tasksDone = d.tasks.filter((t) => isApprovedTask(t) && t.assigneeIds.includes(personId) && t.status === 'done').length;
   const postedPubmat = d.tasks.some(
     (t) =>
       t.kind === 'pubmat' &&

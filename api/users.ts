@@ -87,10 +87,22 @@ const PROFILE_FIELDS = [
   'subcommittee',
   'savedEventIds',
   'tutorialSeen',
+  // Name and school details (checked below; the email / login can't be changed here)
+  'firstName',
+  'middleInitial',
+  'lastName',
+  'organization',
+  'studentId',
 ];
+const OFFICER_FIELDS = ['officerPosition', 'committee', 'subcommittee'];
 /** Badges only an admin can give (see src/utils/officerBadges.ts). */
 const AWARD_BADGES = ['best-host', 'best-pubmat', 'mvp', 'team-player', 'rising-star'];
-const ADMIN_FIELDS = ['role', 'status', 'requestedRole', 'officerHistory', 'rejectionReason'];
+const ADMIN_FIELDS = ['role', 'status', 'requestedRole', 'officerHistory', 'rejectionReason', 'partnerOrg'];
+
+/** Co-organizer staff org name: trimmed, max 60 characters, or null to remove. */
+function cleanPartnerOrg(v: unknown): string | null {
+  return typeof v === 'string' && v.trim() ? v.trim().slice(0, 60) : null;
+}
 
 const isApcEmail = (email: string) => /^[^\s@]+@(student\.)?apc\.edu\.ph$/i.test(email);
 const isEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -360,6 +372,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         approvedBy: actorId,
         createdBy: actorId,
         mustChangePassword: true,
+        // Co-organizer staff (partner org) — attendee accounts only
+        partnerOrg: role === 'attendee' ? cleanPartnerOrg(account.partnerOrg) : null,
       };
       await client.send(new PutCommand({ TableName: tableName, Item: item }));
       return res.status(201).json(sanitize(item));
@@ -519,8 +533,55 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const allowed = actorIsAdmin ? [...PROFILE_FIELDS, ...ADMIN_FIELDS] : PROFILE_FIELDS;
       const updates: Record<string, any> = {};
       for (const key of allowed) {
+        // Officer details are only for officers (or set by an admin)
+        if (OFFICER_FIELDS.includes(key) && !actorIsAdmin && target.role !== 'officer') continue;
         if (key in changes) updates[key] = changes[key];
       }
+      // Name: both parts required, short; the display name follows
+      for (const k of ['firstName', 'lastName']) {
+        if (k in updates) {
+          const v = typeof updates[k] === 'string' ? updates[k].trim() : '';
+          if (!v || v.length > 50) return res.status(400).json({ error: 'First and last name are required (up to 50 characters).' });
+          updates[k] = v;
+        }
+      }
+      if ('middleInitial' in updates) {
+        const mi = typeof updates.middleInitial === 'string' ? updates.middleInitial.replace(/[^A-Za-z]/g, '').toUpperCase().slice(0, 2) : '';
+        updates.middleInitial = mi || undefined;
+      }
+      if (['firstName', 'middleInitial', 'lastName'].some((k) => k in updates)) {
+        const first = updates.firstName ?? target.firstName ?? String(target.name || '').split(' ')[0];
+        const last = updates.lastName ?? target.lastName ?? '';
+        const mi = 'middleInitial' in updates ? updates.middleInitial : target.middleInitial;
+        updates.name = formatName(first, mi, last);
+      }
+      // School / organization for outside attendees; student ID for APC accounts
+      const outside = (target.memberType ?? (target.signupType === 'outside' ? 'outside' : 'apc')) === 'outside';
+      if ('organization' in updates) {
+        if (!outside && !actorIsAdmin) delete updates.organization;
+        else {
+          const v = typeof updates.organization === 'string' ? updates.organization.trim().slice(0, 100) : '';
+          if (!v) return res.status(400).json({ error: 'School / organization is required.' });
+          updates.organization = v;
+        }
+      }
+      if ('studentId' in updates) {
+        if (outside && !actorIsAdmin) delete updates.studentId;
+        else {
+          const v = typeof updates.studentId === 'string' ? updates.studentId.trim().slice(0, 20) : '';
+          if (!v) return res.status(400).json({ error: 'Student ID is required.' });
+          updates.studentId = v;
+        }
+      }
+      if ('personalEmail' in updates) {
+        const v = typeof updates.personalEmail === 'string' ? updates.personalEmail.trim() : '';
+        if (v && !isEmail(v)) return res.status(400).json({ error: 'Enter a valid personal email.' });
+        updates.personalEmail = v || undefined;
+      }
+      if ('bio' in updates) updates.bio = typeof updates.bio === 'string' ? updates.bio.slice(0, 500) : '';
+      if ('partnerOrg' in updates) updates.partnerOrg = cleanPartnerOrg(updates.partnerOrg);
+      // Co-organizer staff are attendee accounts; moving someone to officer/admin drops it
+      if ((updates.role ?? target.role) !== 'attendee') updates.partnerOrg = null;
       if ('savedEventIds' in updates) updates.savedEventIds = idList(updates.savedEventIds);
       if ('tutorialSeen' in updates) updates.tutorialSeen = Boolean(updates.tutorialSeen);
       if ('socials' in updates) updates.socials = cleanSocials(updates.socials);

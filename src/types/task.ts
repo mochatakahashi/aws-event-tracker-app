@@ -2,6 +2,11 @@ import type { Committee, Subcommittee } from './auth';
 
 export type TaskStatus = 'todo' | 'in-progress' | 'done';
 
+export type TaskApproval = 'pending' | 'approved' | 'declined';
+
+/** Officer-proposed tasks count only once an admin approves them. */
+export const isApprovedTask = (t: { approval?: TaskApproval }) => !t.approval || t.approval === 'approved';
+
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   todo: 'To do',
   'in-progress': 'In progress',
@@ -57,8 +62,19 @@ export interface OfficerTask {
   /** 'pubmat' items appear in the Marketing Content Tracker. */
   kind?: 'task' | 'pubmat';
   pubmat?: Pubmat;
-  /** Person id of the admin who created it. */
+  /** Person id of the admin who created it (or the officer who proposed it). */
   createdBy: string;
+  /**
+   * Officer-proposed tasks wait for an admin: 'pending' → 'approved' / 'declined'.
+   * Missing means approved (tasks an admin made).
+   */
+  approval?: TaskApproval;
+  /** Officer who proposed the task (officer-added tasks only). */
+  proposedBy?: string;
+  /** Admin who approved or declined it, when, and why (declines). */
+  reviewedBy?: string;
+  reviewedAt?: string;
+  reviewNote?: string;
   createdAt: string;
   updatedAt?: string;
   completedAt?: string | null;

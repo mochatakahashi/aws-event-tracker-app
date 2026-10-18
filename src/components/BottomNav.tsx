@@ -11,7 +11,7 @@ import QrCodeScannerRoundedIcon from '@mui/icons-material/QrCodeScannerRounded';
 import { brand } from '../theme/theme';
 
 import { useAuth } from '../context/AuthContext';
-import { useEvent } from '../context/EventContext';
+import { useDeskCounts } from '../hooks/useDeskCounts';
 
 const ALL_NAV_ITEMS = [
   { label: 'Home', icon: <DashboardIcon />, path: '/home' },
@@ -22,7 +22,7 @@ const ALL_NAV_ITEMS = [
 
 export default function BottomNav() {
   const { user } = useAuth();
-  const { selectedEvent } = useEvent();
+  const desk = useDeskCounts(user);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -34,11 +34,14 @@ export default function BottomNav() {
     return item;
   });
 
-  const isOfficer = user?.role === 'officer' || (user?.personId && selectedEvent?.officerIds?.includes(user.personId));
+  const isOfficer = user?.role === 'officer';
   if (user?.role === 'admin') {
     navItems.push({ label: 'Event Desk', icon: <QrCodeScannerRoundedIcon />, path: '/officer/scan' });
   } else if (isOfficer) {
     navItems.push({ label: 'Officer', icon: <VerifiedUserIcon />, path: '/officer' });
+  } else if (desk.hasDesk) {
+    // Co-organizer staff on an event's staff list: Event Desk only
+    navItems.push({ label: 'Event Desk', icon: <QrCodeScannerRoundedIcon />, path: '/officer/scan' });
   }
 
   const currentIndex = navItems.findIndex((item) =>

@@ -36,7 +36,7 @@ import {
 } from '../services/speakerService';
 import { useAuth } from '../context/AuthContext';
 import { useEvent } from '../context/EventContext';
-import { brand } from '../theme/theme';
+import { brand, PARTNER } from '../theme/theme';
 import { EVENT_TAGS, type AppEvent } from '../types/event';
 import { tagColor, tagLabel } from '../utils/eventDisplay';
 
@@ -235,6 +235,7 @@ export default function EventBuilderPage() {
         participants: Number(formData.participants) || 0,
         speakerIds: await saveSpeakers(),
         officerIds: formData.officerIds || [],
+        coOrganizers: (formData.coOrganizers || []).map((o) => o.trim()).filter(Boolean),
         // Send '' (not undefined) so removing the banner is persisted too
         imageUrl: formData.imageUrl || '',
       };
@@ -352,6 +353,29 @@ export default function EventBuilderPage() {
             fullWidth
             value={formData.venue}
             onChange={handleChange('venue')}
+          />
+
+          {/* Partner orgs (not AWS) running the event with us */}
+          <Autocomplete
+            multiple
+            freeSolo
+            options={[] as string[]}
+            value={formData.coOrganizers || []}
+            onChange={(_e, value) =>
+              setFormData((prev) => ({ ...prev, coOrganizers: [...new Set(value.map((v) => String(v).trim()).filter(Boolean))].slice(0, 5) }))
+            }
+            renderTags={(value, getTagProps) =>
+              value.map((org, index) => <Chip {...getTagProps({ index })} key={org} label={org} size="small" variant="outlined" sx={{ color: PARTNER, borderColor: PARTNER }} />)
+            }
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Co-organizer(s)"
+                placeholder="Partner org, e.g. GDSC APC — press Enter"
+                helperText="Optional. Their staff can be put on this event's staff list for check-in or stamps (Manage Accounts → Co-organizer staff)."
+                inputProps={{ ...params.inputProps, 'data-testid': 'co-organizers-input' }}
+              />
+            )}
           />
 
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>

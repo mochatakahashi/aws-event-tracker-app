@@ -301,7 +301,7 @@ async function issueCertificate(client: DynamoDBDocumentClient, tableName: strin
 }
 
 /**
- * Who may check people in at an event: admins, and officers on the event's
+ * Who may check people in at an event: admins, and officers or co-organizer staff on the event's
  * staff list for check-in (event.checkinOfficerIds, set by an admin).
  */
 async function requireCheckinStaff(client: DynamoDBDocumentClient, tableName: string, actorId: unknown, eventId: unknown) {
@@ -309,7 +309,9 @@ async function requireCheckinStaff(client: DynamoDBDocumentClient, tableName: st
   const actor = (await client.send(new GetCommand({ TableName: tableName, Key: { id: actorId } }))).Item;
   if (actor?.entityType !== 'user' || (actor.status ?? 'approved') !== 'approved') return null;
   if (actor.role === 'admin') return actor;
-  if (actor.role !== 'officer' || typeof eventId !== 'string') return null;
+  // Officers and co-organizer staff (attendee accounts an admin linked to a partner org)
+  const partner = actor.role === 'attendee' && typeof actor.partnerOrg === 'string' && actor.partnerOrg.trim() !== '';
+  if ((actor.role !== 'officer' && !partner) || typeof eventId !== 'string') return null;
   const event = (await client.send(new GetCommand({ TableName: tableName, Key: { id: eventId } }))).Item;
   const allowed: unknown = event?.checkinOfficerIds;
   return Array.isArray(allowed) && allowed.includes(actor.id) ? actor : null;

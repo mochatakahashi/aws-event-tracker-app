@@ -93,6 +93,12 @@ export interface User {
   savedEventIds?: string[];
   /** Finished or skipped the first-time app tour. */
   tutorialSeen?: boolean;
+  /**
+   * Co-organizer staff: the partner org (not AWS SBG-APC) this person works for at
+   * co-organized events. Set by an admin; lets the account be put on an event's
+   * staff list for check-in / stamps only — no officer features.
+   */
+  partnerOrg?: string | null;
   /** Badges an admin awarded (set through the admin-only award action). */
   awards?: Award[];
   /** Past officer terms (archived batches). */
@@ -135,16 +141,31 @@ export interface SignUpData {
 /** Account an admin creates directly (approved, with a temporary password). */
 export interface AdminCreateAccount extends SignUpData {
   role: UserRole;
+  /** Co-organizer staff: the partner org they work for (attendee accounts only). */
+  partnerOrg?: string;
 }
 
 /** Fields a user (or an admin) can change on a profile. */
 export type ProfileChanges = Partial<
   Pick<
     User,
-    'avatarUrl' | 'bio' | 'socials' | 'personalEmail' | 'officerPosition' | 'committee' | 'subcommittee' | 'savedEventIds' | 'tutorialSeen'
+    | 'avatarUrl'
+    | 'bio'
+    | 'socials'
+    | 'personalEmail'
+    | 'officerPosition'
+    | 'committee'
+    | 'subcommittee'
+    | 'savedEventIds'
+    | 'tutorialSeen'
+    | 'firstName'
+    | 'middleInitial'
+    | 'lastName'
+    | 'organization'
+    | 'studentId'
   >
 >;
 
 /** Fields only an admin can change. */
 export type AdminUserChanges = ProfileChanges &
-  Partial<Pick<User, 'role' | 'status' | 'requestedRole' | 'officerHistory' | 'rejectionReason'>>;
+  Partial<Pick<User, 'role' | 'status' | 'requestedRole' | 'officerHistory' | 'rejectionReason' | 'partnerOrg'>>;

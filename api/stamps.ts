@@ -41,7 +41,7 @@ function getDynamoDocClient() {
 }
 
 /**
- * Who may approve or decline a stamp: admins, and officers on the event's
+ * Who may approve or decline a stamp: admins, and officers or co-organizer staff on the event's
  * staff list for stamps (event.stampOfficerIds, set by an admin).
  */
 async function stampApprover(client: DynamoDBDocumentClient, tableName: string, actorId: unknown, sessionId: unknown) {
@@ -49,7 +49,9 @@ async function stampApprover(client: DynamoDBDocumentClient, tableName: string, 
   const actor = (await client.send(new GetCommand({ TableName: tableName, Key: { id: actorId } }))).Item;
   if (actor?.entityType !== 'user' || (actor.status ?? 'approved') !== 'approved') return null;
   if (actor.role === 'admin') return actor;
-  if (actor.role !== 'officer') return null;
+  // Officers and co-organizer staff (attendee accounts an admin linked to a partner org)
+  const partner = actor.role === 'attendee' && typeof actor.partnerOrg === 'string' && actor.partnerOrg.trim() !== '';
+  if (actor.role !== 'officer' && !partner) return null;
   const session = (await client.send(new GetCommand({ TableName: tableName, Key: { id: sessionId } }))).Item;
   if (!session?.eventId) return null;
   const event = (await client.send(new GetCommand({ TableName: tableName, Key: { id: session.eventId } }))).Item;

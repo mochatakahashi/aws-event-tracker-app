@@ -19,6 +19,8 @@ const KINDS = [
   'signup-pending',
   'event-assigned',
   'task-assigned',
+  'task-proposed',
+  'task-reviewed',
   'stamp-approved',
   'stamp-declined',
   'checked-in',

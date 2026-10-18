@@ -28,7 +28,8 @@ import { notifyInApp } from '../services/notificationService';
 import { brand } from '../theme/theme';
 import type { User } from '../types/auth';
 import type { AppEvent } from '../types/event';
-import { TASK_STATUS_LABELS, type OfficerTask, type TaskStatus } from '../types/task';
+import { TASK_STATUS_LABELS, isApprovedTask, type OfficerTask, type TaskStatus } from '../types/task';
+import TaskRequestsPanel from '../components/TaskRequestsPanel';
 import { AdminHeader, EmptyNote, StatRow, StatTile, formatDateTime } from '../components/AdminUi';
 import {
   COMMITTEES,
@@ -171,7 +172,9 @@ export default function AdminTasksPage() {
     }
   }
 
-  const plainTasks = useMemo(() => tasks.filter((t) => t.kind !== 'pubmat'), [tasks]);
+  // Officer-added tasks wait in "Tasks officers added" until approved
+  const plainTasks = useMemo(() => tasks.filter((t) => t.kind !== 'pubmat' && isApprovedTask(t)), [tasks]);
+  const taskRequests = useMemo(() => tasks.filter((t) => t.approval === 'pending'), [tasks]);
   const pubmats = useMemo(() => tasks.filter((t) => t.kind === 'pubmat'), [tasks]);
   const inTab = useMemo(
     () =>
@@ -208,6 +211,16 @@ export default function AdminTasksPage() {
   return (
     <Box>
       <AdminHeader title="Officer Tasks" subtitle="Assign tasks by committee. Officers see them on their Officer Dashboard and get notified." />
+
+      {user && (
+        <TaskRequestsPanel
+          requests={taskRequests}
+          users={allUsers}
+          events={events}
+          actorId={user.personId}
+          onReviewed={(updated) => setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)))}
+        />
+      )}
 
       <Tabs
         value={tab}

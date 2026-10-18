@@ -26,6 +26,8 @@ import AdminHome from '../components/AdminHome';
 import { getEvents } from '../services/eventService';
 import { getRegistrationsByPerson } from '../services/registrationService';
 import { getSessions, getSessionsByEvent, getStampsByAttendee } from '../services/sessionService';
+import MyDutiesCard from '../components/MyDutiesCard';
+import { isPartnerStaff } from '../utils/eventStaff';
 import EventStampCard from '../components/EventStampCard';
 import { getNotifications } from '../services/notificationService';
 import { getTasksForOfficer } from '../services/taskService';
@@ -192,6 +194,8 @@ export default function DashboardPage() {
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
         {today} · Here's what's happening at AWS SBG-APC
       </Typography>
+
+      {user && isPartnerStaff(user) && <MyDutiesCard user={user} />}
 
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 3fr) minmax(0, 2fr)' }, gap: { xs: 0, lg: 3 }, alignItems: 'start' }}>
         <Box>

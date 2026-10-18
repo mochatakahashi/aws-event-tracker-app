@@ -23,6 +23,7 @@ import { approveUser, deleteUser, getUsers, rejectUser, resetPassword, updateUse
 import AddAccountPanel from '../components/AddAccountPanel';
 import PersonAddAlt1RoundedIcon from '@mui/icons-material/PersonAddAlt1Rounded';
 import LockResetIcon from '@mui/icons-material/LockReset';
+import HandshakeOutlinedIcon from '@mui/icons-material/HandshakeOutlined';
 import { notifyQuietly } from '../services/notifyService';
 import { notifyInApp } from '../services/notificationService';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
@@ -30,7 +31,7 @@ import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import { getStamps } from '../services/sessionService';
 import { useAuth } from '../context/AuthContext';
-import { brand } from '../theme/theme';
+import { brand, PARTNER } from '../theme/theme';
 import type { User, UserRole } from '../types/auth';
 import type { Stamp } from '../types/session';
 import { AdminHeader, EmptyNote, StatRow, StatTile, formatDateTime } from '../components/AdminUi';
@@ -43,7 +44,7 @@ function signedUpAs(u: User): string {
   return type === 'officer' && u.officerPosition ? `${base} — ${officerTitle(u)}` : base;
 }
 
-type Filter = 'all' | 'admin' | 'officer' | 'attendee' | 'rejected';
+type Filter = 'all' | 'admin' | 'officer' | 'attendee' | 'partner' | 'rejected';
 
 /** Quick picks for the optional decline reason. */
 const DECLINE_REASONS = [
@@ -93,6 +94,8 @@ export default function AdminDashboardPage() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [resetFor, setResetFor] = useState<{ id: string; password: string; done?: boolean } | null>(null);
+  /** Editing who is co-organizer staff (partner org) — attendee accounts only. */
+  const [partnerFor, setPartnerFor] = useState<{ id: string; org: string } | null>(null);
 
   useEffect(() => {
     if (user?.role !== 'admin') {
@@ -174,7 +177,10 @@ export default function AdminDashboardPage() {
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const base = filter === 'rejected' ? declined : approved.filter((u) => filter === 'all' || u.role === filter);
+    const base =
+      filter === 'rejected'
+        ? declined
+        : approved.filter((u) => filter === 'all' || (filter === 'partner' ? u.role === 'attendee' && Boolean(u.partnerOrg) : u.role === filter));
     return base
       .filter(
         (u) =>
@@ -368,6 +374,7 @@ export default function AdminDashboardPage() {
           <ToggleButton value="admin">Admins</ToggleButton>
           <ToggleButton value="officer">Officers</ToggleButton>
           <ToggleButton value="attendee">Attendees</ToggleButton>
+          <ToggleButton value="partner">Co-organizer staff</ToggleButton>
           <ToggleButton value="rejected">Declined ({declined.length})</ToggleButton>
         </ToggleButtonGroup>
       </Stack>
@@ -398,6 +405,16 @@ export default function AdminDashboardPage() {
                       )}
                       {affiliation(u) !== '—' && <Chip size="small" variant="outlined" label={affiliation(u)} />}
                       {u.role === 'attendee' && <Chip size="small" variant="outlined" label={`${stampCount} stamps`} />}
+                      {u.role === 'attendee' && u.partnerOrg && (
+                        <Chip
+                          size="small"
+                          variant="outlined"
+                          icon={<HandshakeOutlinedIcon style={{ color: PARTNER }} />}
+                          sx={{ color: PARTNER, borderColor: PARTNER, fontWeight: 600 }}
+                          label={`Co-organizer staff · ${u.partnerOrg}`}
+                          data-testid={`partner-chip-${u.personId}`}
+                        />
+                      )}
                       {!!u.officerHistory?.length && (
                         <Chip
                           size="small"
@@ -448,6 +465,62 @@ export default function AdminDashboardPage() {
                             </Stack>
                           </Stack>
                         )}
+                      </Box>
+                    )}
+                    {partnerFor?.id === u.personId && (
+                      <Box sx={{ mt: 1, p: 1.25, borderRadius: 2, bgcolor: alpha(brand.primary, 0.05) }} data-testid={`partner-editor-${u.personId}`}>
+                        <Typography variant="body2" sx={{ mb: 1 }}>
+                          Co-organizer staff can be put on a co-organized event’s staff list for <strong>check-in</strong> or{' '}
+                          <strong>stamps</strong> only — no officer tasks or other officer features.
+                        </Typography>
+                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }}>
+                          <TextField
+                            size="small"
+                            label="Partner org"
+                            placeholder="e.g. GDSC APC"
+                            value={partnerFor.org}
+                            onChange={(e) => setPartnerFor({ ...partnerFor, org: e.target.value })}
+                            inputProps={{ maxLength: 60 }}
+                            sx={{ flex: 1, bgcolor: '#fff' }}
+                          />
+                          <Stack direction="row" spacing={1}>
+                            <Button size="small" onClick={() => setPartnerFor(null)}>
+                              Cancel
+                            </Button>
+                            {u.partnerOrg && (
+                              <Button
+                                size="small"
+                                color="error"
+                                disabled={busyId === u.personId}
+                                onClick={() =>
+                                  user &&
+                                  run(u.personId, async () => {
+                                    const updated = await updateUser(u.personId, { partnerOrg: null }, user.personId);
+                                    setPartnerFor(null);
+                                    return updated;
+                                  })
+                                }
+                              >
+                                Remove
+                              </Button>
+                            )}
+                            <Button
+                              size="small"
+                              variant="contained"
+                              disabled={busyId === u.personId || !partnerFor.org.trim()}
+                              onClick={() =>
+                                user &&
+                                run(u.personId, async () => {
+                                  const updated = await updateUser(u.personId, { partnerOrg: partnerFor.org.trim() }, user.personId);
+                                  setPartnerFor(null);
+                                  return updated;
+                                })
+                              }
+                            >
+                              Save
+                            </Button>
+                          </Stack>
+                        </Stack>
                       </Box>
                     )}
                     {u.status === 'rejected' && (
@@ -502,6 +575,17 @@ export default function AdminDashboardPage() {
                       </Stack>
                     ) : (
                       <>
+                      {u.role === 'attendee' && u.status !== 'rejected' && (
+                        <Tooltip title="Co-organizer staff">
+                          <IconButton
+                            size="small"
+                            aria-label={`Co-organizer staff: ${u.name}`}
+                            onClick={() => setPartnerFor({ id: u.personId, org: u.partnerOrg || '' })}
+                          >
+                            <HandshakeOutlinedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
                       <Tooltip title="Reset password">
                         <IconButton
                           size="small"

@@ -6,6 +6,9 @@ import { createTheme, alpha } from '@mui/material/styles';
  */
 
 // ─── Design Tokens ───────────────────────────────────────────────────────────
+/** Accent for co-organizer (partner org) staff and co-organized events. */
+export const PARTNER = '#0E7490';
+
 export const brand = {
   primary: '#7B2D8E',
   primaryLight: '#A855C8',

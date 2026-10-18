@@ -10,6 +10,7 @@ import { brand } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
 import { updateProfile } from '../services/authService';
 import { tourSteps, type TourStep } from '../utils/tourSteps';
+import { isPartnerStaff } from '../utils/eventStaff';
 
 /** Ask any page to start the tour (profile menu, Profile page). */
 export const START_TOUR_EVENT = 'app-tour:start';
@@ -55,7 +56,7 @@ function findTarget(step: TourStep): HTMLElement | null {
  */
 export default function TutorialTour() {
   const { user, setCurrentUser } = useAuth();
-  const steps = useMemo(() => (user ? tourSteps(user.role) : []), [user]);
+  const steps = useMemo(() => (user ? tourSteps(user.role, isPartnerStaff(user)) : []), [user]);
   const [mode, setMode] = useState<'off' | 'offer' | 'tour'>('off');
   const [index, setIndex] = useState(0);
   const [rect, setRect] = useState<Rect | null>(null);
