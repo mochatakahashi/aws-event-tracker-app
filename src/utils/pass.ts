@@ -19,3 +19,17 @@ export function parsePass(text: string): string | null {
   const id = fromLink ? decodeURIComponent(fromLink[1]) : raw;
   return /^reg-[A-Za-z0-9_-]{1,80}$/.test(id) ? id : null;
 }
+
+/** Link to someone's profile summary (shown as the Connect QR code). */
+export function profileLink(personId: string): string {
+  const base = typeof window === 'undefined' ? '' : `${window.location.origin}${window.location.pathname}`;
+  return `${base}#/people/${encodeURIComponent(personId)}`;
+}
+
+/** Person id from a scanned profile QR, or null. */
+export function parseProfileLink(text: string): string | null {
+  const m = String(text || '').match(/#\/people\/([^?#\s/]+)/);
+  if (!m) return null;
+  const id = decodeURIComponent(m[1]);
+  return /^per-[A-Za-z0-9_-]{1,80}$/.test(id) ? id : null;
+}

@@ -1,4 +1,14 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import Paper from '@mui/material/Paper';
+import Alert from '@mui/material/Alert';
+import QrCodeScannerRoundedIcon from '@mui/icons-material/QrCodeScannerRounded';
+import QrScanner from '../components/QrScanner';
+import { useBoardData } from '../hooks/useBoardData';
+import { attendeeBoard } from '../utils/leaderboard';
+import { BADGES } from '../utils/badges';
+import { parseProfileLink } from '../utils/pass';
+import { memberLabel, officerTitle } from '../utils/people';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Avatar from '@mui/material/Avatar';
@@ -56,6 +66,28 @@ export default function ConnectPage() {
     }
   }
   const [showQR, setShowQR] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [scanMsg, setScanMsg] = useState('');
+  const navigate = useNavigate();
+  const { data } = useBoardData();
+  const connections = useMemo(() => {
+    if (!data || !user?.connections?.length) return [];
+    const rows = new Map(attendeeBoard(data).map((r) => [r.personId, r]));
+    return user.connections
+      .map((id) => data.people.find((p) => p.id === id))
+      .filter((p): p is NonNullable<typeof p> => Boolean(p))
+      .map((person) => ({ person, row: rows.get(person.id) }));
+  }, [data, user?.connections]);
+
+  function onScan(text: string) {
+    const id = parseProfileLink(text);
+    if (id) {
+      setScanning(false);
+      navigate(`/people/${id}`);
+    } else {
+      setScanMsg("That QR isn't an AWS SBG-APC networking card. Ask them to open Connect → QR Card.");
+    }
+  }
 
   const initials = user?.name
     ? user.name
@@ -98,7 +130,7 @@ export default function ConnectPage() {
             {initials}
           </Avatar>
 
-          <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+          <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ sm: 'flex-start' }} spacing={1}>
             <Box>
               <Typography variant="h2" sx={{ mb: 0.3 }}>
                 {user?.name}
@@ -117,6 +149,7 @@ export default function ConnectPage() {
                 }}
               />
             </Box>
+            <Stack direction="row" spacing={1}>
             <Button
               size="small"
               variant={showQR ? 'contained' : 'outlined'}
@@ -126,6 +159,16 @@ export default function ConnectPage() {
             >
               {showQR ? 'Hide QR Card' : 'QR Card'}
             </Button>
+            <Button
+              size="small"
+              variant={scanning ? 'contained' : 'outlined'}
+              startIcon={<QrCodeScannerRoundedIcon />}
+              onClick={() => setScanning((v) => !v)}
+              sx={{ mt: 1 }}
+            >
+              Scan QR
+            </Button>
+            </Stack>
           </Stack>
         </CardContent>
       </Card>
@@ -135,13 +178,94 @@ export default function ConnectPage() {
         <NetworkingCard
           open={showQR}
           onClose={() => setShowQR(false)}
+          personId={user?.personId ?? ''}
           name={user?.name ?? ''}
+          subtitle={user ? (user.role === 'officer' ? officerTitle(user) : memberLabel(user)) : ''}
+          bio={bio}
           socials={socials}
         />
       )}
 
+      {/* Scan someone's QR */}
+      {scanning && (
+        <Paper variant="outlined" sx={{ p: 2, mb: 3, borderRadius: '16px' }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+              Scan someone's networking QR
+            </Typography>
+            <Button size="small" onClick={() => setScanning(false)}>
+              Close
+            </Button>
+          </Stack>
+          {scanMsg && (
+            <Alert severity="warning" sx={{ mb: 1.5 }} onClose={() => setScanMsg('')}>
+              {scanMsg}
+            </Alert>
+          )}
+          <Box sx={{ maxWidth: 420, mx: 'auto' }}>
+            <QrScanner onResult={onScan} />
+          </Box>
+        </Paper>
+      )}
+
+      {/* My connections */}
+      <Paper sx={{ p: { xs: 2, sm: 2.5 }, mb: 3, borderRadius: '16px' }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
+          <Typography variant="h4" sx={{ fontWeight: 800 }}>
+            My connections {connections.length > 0 && `(${connections.length})`}
+          </Typography>
+          {!scanning && (
+            <Button size="small" startIcon={<QrCodeScannerRoundedIcon />} onClick={() => setScanning(true)}>
+              Scan QR
+            </Button>
+          )}
+        </Stack>
+        {connections.length === 0 ? (
+          <Typography variant="body2" color="text.secondary">
+            Scan another attendee's or officer's networking QR, then tap <strong>Add connection</strong>. You'll see their
+            achievements here.
+          </Typography>
+        ) : (
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'repeat(2, minmax(0, 1fr))' }, gap: 1 }}>
+            {connections.map(({ person, row }) => (
+              <Stack
+                key={person.id}
+                direction="row"
+                spacing={1.5}
+                alignItems="center"
+                onClick={() => navigate(`/people/${person.id}`)}
+                role="button"
+                sx={{
+                  p: 1.25,
+                  borderRadius: '12px',
+                  cursor: 'pointer',
+                  border: `1px solid ${alpha(brand.primary, 0.12)}`,
+                  '&:hover': { bgcolor: alpha(brand.primary, 0.04) },
+                }}
+              >
+                <Avatar src={person.avatarUrl || undefined} sx={{ width: 40, height: 40 }}>
+                  {person.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()}
+                </Avatar>
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 700 }} noWrap>
+                    {person.name}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
+                    {person.role === 'officer' ? officerTitle(person) : memberLabel(person)} · {row?.stamps ?? 0} stamps ·{' '}
+                    {row?.checkIns ?? 0} events
+                  </Typography>
+                </Box>
+                <Box sx={{ fontSize: 16, flexShrink: 0 }} aria-label={`${row?.badges.length ?? 0} badges`}>
+                  {BADGES.filter((b) => row?.badges.includes(b.id)).map((b) => b.emoji).join('')}
+                </Box>
+              </Stack>
+            ))}
+          </Box>
+        )}
+      </Paper>
+
       {/* Laptop: About and Social links side by side */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: { xs: 0, md: 3 }, alignItems: 'start' }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'repeat(2, minmax(0, 1fr))' }, gap: { xs: 0, md: 3 }, alignItems: 'start' }}>
       {/* Bio */}
       <Card sx={{ mb: 3 }}>
         <CardContent sx={{ p: 2.5 }}>

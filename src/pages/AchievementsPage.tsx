@@ -10,8 +10,6 @@ import CardContent from '@mui/material/CardContent';
 import LinearProgress from '@mui/material/LinearProgress';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
-import Button from '@mui/material/Button';
-import LeaderboardRoundedIcon from '@mui/icons-material/LeaderboardRounded';
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import WorkspacePremiumRoundedIcon from '@mui/icons-material/WorkspacePremiumRounded';
@@ -26,6 +24,8 @@ import type { Session } from '../types/session';
 import type { Stamp } from '../types/session';
 import type { AppEvent } from '../types/event';
 import EventStampCard from '../components/EventStampCard';
+import { getRegistrationsByPerson } from '../services/registrationService';
+import type { Registration } from '../types/attendee';
 import MyStandingCard from '../components/MyStandingCard';
 
 export default function AchievementsPage() {
@@ -36,6 +36,11 @@ export default function AchievementsPage() {
   const [stamps, setStamps] = useState<Stamp[]>([]);
   const [allEvents, setAllEvents] = useState<AppEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [myRegs, setMyRegs] = useState<Registration[]>([]);
+
+  useEffect(() => {
+    if (user?.personId) getRegistrationsByPerson(user.personId).then(setMyRegs).catch(() => undefined);
+  }, [user?.personId]);
 
   useEffect(() => {
     const promises: Promise<unknown>[] = [getEvents()];
@@ -57,14 +62,11 @@ export default function AchievementsPage() {
       .finally(() => setLoading(false));
   }, [selectedEvent, user?.personId]);
 
-  // Completed events (past events the user has stamps for)
+  // Events you actually attended (checked in at the venue)
   const attendedEvents = useMemo(() => {
-    const completedEventIds = new Set(
-      allEvents.filter((e) => e.status === 'accomplished').map((e) => e.id),
-    );
-    // For now, show completed events as "attended" (in a real app we'd check registration)
-    return allEvents.filter((e) => completedEventIds.has(e.id));
-  }, [allEvents]);
+    const ids = new Set(myRegs.filter((r) => r.checkedIn).map((r) => r.eventId));
+    return allEvents.filter((e) => ids.has(e.id));
+  }, [allEvents, myRegs]);
 
   // Stats
   const stampSessionCount = sessions.filter((s) => s.requiresStamp).length;
@@ -127,15 +129,6 @@ export default function AchievementsPage() {
             Track your stamps, sessions attended, and event milestones.
           </Typography>
         </Box>
-        <Button
-          size="small"
-          variant="outlined"
-          startIcon={<LeaderboardRoundedIcon />}
-          onClick={() => navigate('/leaderboard')}
-          sx={{ flexShrink: 0, ml: 1 }}
-        >
-          Leaderboard
-        </Button>
       </Stack>
 
       {/* Stats Row */}
@@ -254,7 +247,7 @@ export default function AchievementsPage() {
         </Card>
       )}
 
-      {/* Leaderboard standing and badges */}
+      {/* Progress and badges (rankings are admin-only) */}
       <MyStandingCard />
 
       {/* Stamp Passport Card */}
@@ -269,7 +262,7 @@ export default function AchievementsPage() {
           >
             ATTENDED EVENTS
           </Typography>
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, gap: 1.5, alignItems: 'start' }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'repeat(2, minmax(0, 1fr))' }, gap: 1.5, alignItems: 'start' }}>
             {attendedEvents.map((event) => (
               <Card
                 key={event.id}

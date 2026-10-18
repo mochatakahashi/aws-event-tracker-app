@@ -19,6 +19,8 @@ import AccessTimeIcon from '@mui/icons-material/AccessTimeRounded';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import BookmarkBorderRoundedIcon from '@mui/icons-material/BookmarkBorderRounded';
+import BookmarkRoundedIcon from '@mui/icons-material/BookmarkRounded';
+import { useSavedEvents } from '../hooks/useSavedEvents';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import ImageNotSupportedOutlinedIcon from '@mui/icons-material/ImageNotSupportedOutlined';
 import { alpha } from '@mui/material/styles';
@@ -63,6 +65,7 @@ export default function EventsPage() {
   const [events, setEvents] = useState<EventWithCount[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState(0);
+  const { saved, isSaved, toggle } = useSavedEvents();
 
   useEffect(() => {
     getEvents()
@@ -87,7 +90,8 @@ export default function EventsPage() {
     [events],
   );
 
-  const displayEvents = tab === 0 ? upcoming : past;
+  const savedEvents = useMemo(() => events.filter((e) => saved.includes(e.id)), [events, saved]);
+  const displayEvents = tab === 0 ? upcoming : tab === 1 ? past : savedEvents;
 
   if (loading) {
     return (
@@ -171,12 +175,13 @@ export default function EventsPage() {
       >
         <Tab label={`Upcoming (${upcoming.length})`} />
         <Tab label={`Past (${past.length})`} />
+        {user?.role !== 'admin' && <Tab label={`Saved (${savedEvents.length})`} />}
       </Tabs>
 
       {displayEvents.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 6 }}>
           <Typography color="text.secondary">
-            {tab === 0 ? 'No upcoming events.' : 'No past events.'}
+            {tab === 0 ? 'No upcoming events.' : tab === 1 ? 'No past events.' : 'Tap the bookmark on an event to save it here.'}
           </Typography>
         </Box>
       ) : (
@@ -184,7 +189,7 @@ export default function EventsPage() {
           sx={{
             display: 'grid',
             gridTemplateColumns: {
-              xs: '1fr',
+              xs: 'minmax(0, 1fr)',
               sm: 'repeat(2, 1fr)',
             },
             gap: 2.5,
@@ -202,6 +207,7 @@ export default function EventsPage() {
                 <Card
                   variant="outlined"
                 sx={{
+                  position: 'relative',
                   borderRadius: '15px',
                   overflow: 'hidden',
                   display: 'flex',
@@ -297,34 +303,7 @@ export default function EventsPage() {
                       </Typography>
                     </Box>
 
-                    {/* Bookmark or Edit Icon (Top Right) */}
-                    <IconButton
-                      size="small"
-                      sx={{
-                        position: 'absolute',
-                        top: 12,
-                        right: 12,
-                        bgcolor: 'rgba(255, 255, 255, 0.92)',
-                        backdropFilter: 'blur(6px)',
-                        color: user?.role === 'admin' ? brand.primary : '#EF4444',
-                        width: 32,
-                        height: 32,
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                        '&:hover': { bgcolor: '#fff' },
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (user?.role === 'admin') {
-                          navigate(`/admin/events/${event.id}/edit`);
-                        }
-                      }}
-                    >
-                      {user?.role === 'admin' ? (
-                        <EditRoundedIcon sx={{ fontSize: 18 }} />
-                      ) : (
-                        <BookmarkBorderRoundedIcon sx={{ fontSize: 18 }} />
-                      )}
-                    </IconButton>
+
                   </Box>
 
                   {/* Card Body */}
@@ -411,6 +390,40 @@ export default function EventsPage() {
                     </Stack>
                   </CardContent>
                 </CardActionArea>
+                    {/* Bookmark or Edit Icon (Top Right) — outside the card's click area so it doesn't open the event */}
+                    <IconButton
+                      size="small"
+                      sx={{
+                        position: 'absolute',
+                        top: 12,
+                        right: 12,
+                        bgcolor: 'rgba(255, 255, 255, 0.92)',
+                        backdropFilter: 'blur(6px)',
+                        color: user?.role === 'admin' ? brand.primary : '#EF4444',
+                        width: 32,
+                        height: 32,
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                        '&:hover': { bgcolor: '#fff' },
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (user?.role === 'admin') {
+                          navigate(`/admin/events/${event.id}/edit`);
+                        } else {
+                          void toggle(event.id);
+                        }
+                      }}
+                      aria-label={user?.role === 'admin' ? 'Edit event' : isSaved(event.id) ? 'Remove from saved' : 'Save event'}
+                      aria-pressed={user?.role === 'admin' ? undefined : isSaved(event.id)}
+                    >
+                      {user?.role === 'admin' ? (
+                        <EditRoundedIcon sx={{ fontSize: 18 }} />
+                      ) : isSaved(event.id) ? (
+                        <BookmarkRoundedIcon sx={{ fontSize: 18 }} />
+                      ) : (
+                        <BookmarkBorderRoundedIcon sx={{ fontSize: 18 }} />
+                      )}
+                    </IconButton>
               </Card>
 
             </Box>

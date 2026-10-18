@@ -309,5 +309,26 @@ Event organizers and officers frequently upload event banners and speaker photos
 
 ---
 
+## ADR-016: Admin-managed Accounts, Committee Work and Personal (not Ranked) Progress
+
+### Status
+**Accepted**
+
+### Context
+The club needed to onboard people directly (hand over an email and temporary password), enforce stronger passwords, run Marketing pubmats from the app instead of a Google Sheet, organise tasks by committee, and keep rankings for officers' monitoring only.
+
+### Decision
+- **Temporary passwords** are hashed like any password; the account is flagged `mustChangePassword` and the client route guard allows only the change-password page until it's cleared. Admins can reset to a new temporary password; there is no email-based reset yet.
+- **Pubmats are tasks** (`kind: 'pubmat'`) in the existing tasks API instead of a new function (the project is at Vercel Hobby's 12-function limit). Roles (designee, caption writer, poster) live in the `pubmat` object; their union is `assigneeIds`, so notifications, reminders and dashboards reuse task logic.
+- **Connections** are a one-way list on the user record (the other person is notified and can add back). Profile summaries show only public profile data and achievements — no email.
+- **Leaderboard admin-only**: attendees and officers see their own progress and badges; rankings are a monitoring tool.
+- **Event status is derived from dates** on read, so a forgotten status update can't hide a past event.
+
+### Consequences
+- **Positive**: No new infrastructure or functions; one task model; clear onboarding.
+- **Negative**: Server-side checks still trust the `actorId` sent by the app (see ADR-008); any signed-in user can update a pubmat through the API even though the UI limits it to assignees and admins.
+
+---
+
 *Last Updated: October 2026*
 

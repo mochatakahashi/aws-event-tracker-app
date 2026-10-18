@@ -8,11 +8,15 @@ import { useAuth } from '../context/AuthContext';
  * back after a successful sign-in.
  */
 export default function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const location = useLocation();
 
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+  // Accounts with a temporary password must set their own first
+  if (user?.mustChangePassword && location.pathname !== '/change-password') {
+    return <Navigate to="/change-password" replace />;
   }
   return <>{children}</>;
 }

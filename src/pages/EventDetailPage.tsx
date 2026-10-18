@@ -24,6 +24,9 @@ import FormControl from '@mui/material/FormControl';
 
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import BookmarkBorderRoundedIcon from '@mui/icons-material/BookmarkBorderRounded';
+import BookmarkRoundedIcon from '@mui/icons-material/BookmarkRounded';
+import Tooltip from '@mui/material/Tooltip';
+import { useSavedEvents } from '../hooks/useSavedEvents';
 import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded';
 import PlaceRoundedIcon from '@mui/icons-material/PlaceRounded';
 import ImageNotSupportedOutlinedIcon from '@mui/icons-material/ImageNotSupportedOutlined';
@@ -53,7 +56,7 @@ import { ModalityChip, StatusChip, TagChip } from '../components/EventChips';
 import AddToCalendarButton from '../components/AddToCalendarButton';
 import CertificateButton from '../components/CertificateButton';
 import RecentUploadsShelf from '../components/RecentUploadsShelf';
-import QrCode2RoundedIcon from '@mui/icons-material/QrCode2Rounded';
+import InlinePass from '../components/InlinePass';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import { formatDateRange } from '../utils/eventDisplay';
 import { useAuth } from '../context/AuthContext';
@@ -74,6 +77,7 @@ export default function EventDetailPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const personId = user?.personId;
+  const { isSaved, toggle } = useSavedEvents();
 
   const [event, setEvent] = useState<AppEvent | null>(null);
   const [speakers, setSpeakers] = useState<Speaker[]>([]);
@@ -309,7 +313,11 @@ export default function EventDetailPage() {
               </Button>
             )}
             {user?.role !== 'admin' && (
+              <Tooltip title={isSaved(event.id) ? 'Saved — tap to remove' : 'Save event'}>
               <IconButton
+                onClick={() => void toggle(event.id)}
+                aria-label={isSaved(event.id) ? 'Remove from saved' : 'Save event'}
+                aria-pressed={isSaved(event.id)}
                 sx={{
                   bgcolor: 'rgba(255, 255, 255, 0.9)',
                   backdropFilter: 'blur(8px)',
@@ -318,8 +326,9 @@ export default function EventDetailPage() {
                   '&:hover': { bgcolor: '#fff' },
                 }}
               >
-                <BookmarkBorderRoundedIcon />
+                {isSaved(event.id) ? <BookmarkRoundedIcon /> : <BookmarkBorderRoundedIcon />}
               </IconButton>
+              </Tooltip>
             )}
           </Stack>
         </Stack>
@@ -713,15 +722,7 @@ export default function EventDetailPage() {
                   </Alert>
                 )}
                 <Stack spacing={1} sx={{ mb: 2.5 }}>
-                  <Button
-                    fullWidth
-                    variant="contained"
-                    startIcon={<QrCode2RoundedIcon />}
-                    onClick={() => navigate(`/pass?event=${event.id}`)}
-                    sx={{ borderRadius: '12px', fontWeight: 700 }}
-                  >
-                    Show my event pass
-                  </Button>
+                  <InlinePass registration={myReg} onOpen={() => navigate(`/pass?event=${event.id}`)} />
                   {!closed && <AddToCalendarButton event={event} fullWidth />}
                 </Stack>
                 {(myReg.checkedIn || event.status === 'accomplished') && personId && (

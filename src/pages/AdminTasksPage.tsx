@@ -29,8 +29,19 @@ import { brand } from '../theme/theme';
 import type { User } from '../types/auth';
 import type { AppEvent } from '../types/event';
 import { TASK_STATUS_LABELS, type OfficerTask, type TaskStatus } from '../types/task';
-import { AdminHeader, EmptyNote, StatRow, StatTile, formatDate, formatDateTime } from '../components/AdminUi';
-import { compareOfficers, officerTitle } from '../utils/people';
+import { AdminHeader, EmptyNote, StatRow, StatTile, formatDateTime } from '../components/AdminUi';
+import {
+  COMMITTEES,
+  COMMITTEE_LABELS,
+  SUBCOMMITTEE_LABELS,
+  compareOfficers,
+  officerTitle,
+  subcommitteesOf,
+} from '../utils/people';
+import type { Committee, Subcommittee } from '../types/auth';
+import Tabs from '@mui/material/Tabs';
+import Tab from '@mui/material/Tab';
+import ContentTracker from '../components/ContentTracker';
 
 type Filter = 'open' | 'done' | 'all';
 
@@ -59,6 +70,14 @@ export default function AdminTasksPage() {
   const [eventId, setEventId] = useState('');
   const [assignees, setAssignees] = useState<User[]>([]);
   const [dueDate, setDueDate] = useState('');
+  const [dueTime, setDueTime] = useState('17:00');
+  const [committee, setCommittee] = useState<Committee | ''>('');
+  const [subcommittee, setSubcommittee] = useState<Subcommittee | ''>('');
+
+  // Committee board
+  const [tab, setTab] = useState<'all' | Committee>('all');
+  const [subFilter, setSubFilter] = useState<Subcommittee | ''>('');
+  const [marketingView, setMarketingView] = useState<'tasks' | 'content'>('tasks');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState('');
 
@@ -94,7 +113,10 @@ export default function AdminTasksPage() {
         eventId: eventId || undefined,
         assigneeIds: assignees.map((a) => a.personId),
         status: 'todo',
-        dueAt: dueDate ? new Date(`${dueDate}T23:59:00`).toISOString() : undefined,
+        dueAt: dueDate ? new Date(`${dueDate}T${dueTime || '23:59'}:00+08:00`).toISOString() : undefined,
+        committee: committee || undefined,
+        subcommittee: committee && subcommittee ? subcommittee : undefined,
+        kind: 'task',
         createdBy: user.personId,
       });
       setTasks((prev) => [task, ...prev]);
@@ -103,7 +125,13 @@ export default function AdminTasksPage() {
         personIds: task.assigneeIds,
         kind: 'task-assigned',
         title: `New task: ${task.title}`,
-        message: [forEvent ? `For ${forEvent.title}.` : '', task.dueAt ? `Due ${new Date(task.dueAt).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}.` : '']
+        message: [
+          task.committee ? `${COMMITTEE_LABELS[task.committee]}${task.subcommittee ? ` · ${SUBCOMMITTEE_LABELS[task.subcommittee]}` : ''}.` : '',
+          forEvent ? `For ${forEvent.title}.` : '',
+          task.dueAt
+            ? `Deadline ${new Date(task.dueAt).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Manila' })}.`
+            : '',
+        ]
           .filter(Boolean)
           .join(' ') || 'Open your Officer Dashboard to see the details.',
         link: '/officer',
@@ -115,6 +143,7 @@ export default function AdminTasksPage() {
       setEventId('');
       setAssignees([]);
       setDueDate('');
+      setSubcommittee('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not create the task.');
     } finally {
@@ -142,17 +171,88 @@ export default function AdminTasksPage() {
     }
   }
 
-  const visible = useMemo(
+  const plainTasks = useMemo(() => tasks.filter((t) => t.kind !== 'pubmat'), [tasks]);
+  const pubmats = useMemo(() => tasks.filter((t) => t.kind === 'pubmat'), [tasks]);
+  const inTab = useMemo(
     () =>
-      tasks.filter((t) => (filter === 'all' ? true : filter === 'done' ? t.status === 'done' : t.status !== 'done')),
-    [tasks, filter],
+      plainTasks.filter(
+        (t) => (tab === 'all' || t.committee === tab) && (!subFilter || t.subcommittee === subFilter),
+      ),
+    [plainTasks, tab, subFilter],
   );
+  const visible = useMemo(
+    () => inTab.filter((t) => (filter === 'all' ? true : filter === 'done' ? t.status === 'done' : t.status !== 'done')),
+    [inTab, filter],
+  );
+  // Officers of the chosen committee first in the picker
+  const formCommittee = committee || (tab !== 'all' ? tab : '');
+  const pickerOfficers = useMemo(
+    () =>
+      [...officers].sort(
+        (a, b) =>
+          Number(b.committee === formCommittee && !!formCommittee) - Number(a.committee === formCommittee && !!formCommittee) ||
+          compareOfficers(a, b),
+      ),
+    [officers, formCommittee],
+  );
+
+  function selectTab(next: 'all' | Committee) {
+    setTab(next);
+    setSubFilter('');
+    setCommittee(next === 'all' ? '' : next);
+    setSubcommittee('');
+  }
 
   if (loading) return <Box sx={{ p: 4, textAlign: 'center' }}><CircularProgress /></Box>;
 
   return (
     <Box>
-      <AdminHeader title="Officer Tasks" subtitle="Assign tasks to officers. They see them on their Officer Dashboard." />
+      <AdminHeader title="Officer Tasks" subtitle="Assign tasks by committee. Officers see them on their Officer Dashboard and get notified." />
+
+      <Tabs
+        value={tab}
+        onChange={(_e, v) => selectTab(v)}
+        variant="scrollable"
+        allowScrollButtonsMobile
+        sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}
+      >
+        <Tab value="all" label={`All (${plainTasks.filter((t) => t.status !== 'done').length} open)`} />
+        {COMMITTEES.map((c) => (
+          <Tab key={c} value={c} label={COMMITTEE_LABELS[c]} />
+        ))}
+      </Tabs>
+      {tab !== 'all' && (subcommitteesOf(tab).length > 0 || tab === 'marketing') && (
+        <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
+          {tab === 'marketing' && (
+            <ToggleButtonGroup
+              size="small"
+              exclusive
+              value={marketingView}
+              onChange={(_e, v) => v && setMarketingView(v)}
+              sx={{ mr: 1 }}
+            >
+              <ToggleButton value="tasks">Tasks</ToggleButton>
+              <ToggleButton value="content">Content Tracker ({pubmats.filter((p) => p.status !== 'done').length})</ToggleButton>
+            </ToggleButtonGroup>
+          )}
+          {!(tab === 'marketing' && marketingView === 'content') && (
+            <>
+              <Chip label="All sub-committees" color={!subFilter ? 'primary' : 'default'} onClick={() => setSubFilter('')} />
+              {subcommitteesOf(tab).map((sc) => (
+                <Chip
+                  key={sc}
+                  label={SUBCOMMITTEE_LABELS[sc]}
+                  color={subFilter === sc ? 'primary' : 'default'}
+                  onClick={() => {
+                    setSubFilter(sc);
+                    setSubcommittee(sc);
+                  }}
+                />
+              ))}
+            </>
+          )}
+        </Stack>
+      )}
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
@@ -160,17 +260,28 @@ export default function AdminTasksPage() {
         </Alert>
       )}
 
+      {!(tab === 'marketing' && marketingView === 'content') && (
       <StatRow>
-        <StatTile label="To do" value={tasks.filter((t) => t.status === 'todo').length} />
-        <StatTile label="In progress" value={tasks.filter((t) => t.status === 'in-progress').length} color={brand.warning} />
-        <StatTile label="Done" value={tasks.filter((t) => t.status === 'done').length} color={brand.success} />
+        <StatTile label="To do" value={inTab.filter((t) => t.status === 'todo').length} />
+        <StatTile label="In progress" value={inTab.filter((t) => t.status === 'in-progress').length} color={brand.warning} />
+        <StatTile label="Done" value={inTab.filter((t) => t.status === 'done').length} color={brand.success} />
       </StatRow>
+      )}
 
-      {/* Laptop: form on the left, task list on the right */}
+      {tab === 'marketing' && marketingView === 'content' && user ? (
+        <ContentTracker
+          items={pubmats}
+          officers={officers}
+          events={events}
+          me={user}
+          isAdmin
+          onChange={(next) => setTasks([...plainTasks, ...next])}
+        />
+      ) : (
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 5fr) minmax(0, 7fr)' },
+          gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 5fr) minmax(0, 7fr)' },
           gap: { xs: 0, lg: 4 },
           alignItems: 'start',
         }}
@@ -205,14 +316,57 @@ export default function AdminTasksPage() {
               multiline
               minRows={2}
             />
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+              <TextField
+                select
+                label="Committee"
+                value={committee}
+                onChange={(e) => {
+                  setCommittee(e.target.value as Committee | '');
+                  setSubcommittee('');
+                }}
+                size="small"
+                fullWidth
+              >
+                <MenuItem value="">Any / whole org</MenuItem>
+                {COMMITTEES.map((c) => (
+                  <MenuItem key={c} value={c}>
+                    {COMMITTEE_LABELS[c]}
+                  </MenuItem>
+                ))}
+              </TextField>
+              {subcommitteesOf(committee || undefined).length > 0 && (
+                <TextField
+                  select
+                  label="Sub-committee"
+                  value={subcommittee}
+                  onChange={(e) => setSubcommittee(e.target.value as Subcommittee | '')}
+                  size="small"
+                  fullWidth
+                >
+                  <MenuItem value="">Whole committee</MenuItem>
+                  {subcommitteesOf(committee || undefined).map((sc) => (
+                    <MenuItem key={sc} value={sc}>
+                      {SUBCOMMITTEE_LABELS[sc]}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              )}
+            </Stack>
             <Autocomplete
               multiple
-              options={officers}
+              options={pickerOfficers}
               value={assignees}
               onChange={(_e, v) => setAssignees(v)}
               getOptionLabel={(o) => o.name}
               isOptionEqualToValue={(a, b) => a.personId === b.personId}
-              groupBy={(o) => officerTitle(o).split(' — ')[0]}
+              groupBy={(o) =>
+                formCommittee && o.committee === formCommittee
+                  ? `${COMMITTEE_LABELS[formCommittee]} committee`
+                  : formCommittee
+                    ? 'Other officers'
+                    : officerTitle(o).split(' — ')[0]
+              }
               renderOption={(props, o) => (
                 <li {...props} key={o.personId}>
                   <Box>
@@ -246,14 +400,26 @@ export default function AdminTasksPage() {
                   </MenuItem>
                 ))}
               </TextField>
+            </Stack>
+            <Stack direction="row" spacing={1.5}>
               <TextField
-                label="Due date (optional)"
+                label="Deadline"
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
                 size="small"
+                required
                 InputLabelProps={{ shrink: true }}
-                sx={{ minWidth: { sm: 200 } }}
+                fullWidth
+              />
+              <TextField
+                label="Time"
+                type="time"
+                value={dueTime}
+                onChange={(e) => setDueTime(e.target.value)}
+                size="small"
+                InputLabelProps={{ shrink: true }}
+                sx={{ minWidth: 130 }}
               />
             </Stack>
             <Box>
@@ -261,7 +427,7 @@ export default function AdminTasksPage() {
                 type="submit"
                 variant="contained"
                 startIcon={<AddTaskIcon />}
-                disabled={saving || !title.trim() || assignees.length === 0}
+                disabled={saving || !title.trim() || assignees.length === 0 || !dueDate}
                 sx={{ background: brand.gradient }}
               >
                 {saving ? 'Assigning…' : 'Assign task'}
@@ -306,8 +472,23 @@ export default function AdminTasksPage() {
                       {t.assigneeIds.map((id) => (
                         <Chip key={id} size="small" label={nameOf(id)} />
                       ))}
+                      {t.committee && (
+                        <Chip
+                          size="small"
+                          color="primary"
+                          variant="outlined"
+                          label={`${COMMITTEE_LABELS[t.committee]}${t.subcommittee ? ` · ${SUBCOMMITTEE_LABELS[t.subcommittee]}` : ''}`}
+                        />
+                      )}
                       {t.eventId && <Chip size="small" variant="outlined" label={eventTitle(t.eventId) || t.eventId} />}
-                      {t.dueAt && <Chip size="small" variant="outlined" label={`Due ${formatDate(t.dueAt)}`} />}
+                      {t.dueAt && (
+                        <Chip
+                          size="small"
+                          variant="outlined"
+                          color={t.status !== 'done' && new Date(t.dueAt) < new Date() ? 'error' : 'default'}
+                          label={`Deadline ${formatDateTime(t.dueAt)}`}
+                        />
+                      )}
                     </Stack>
                     {t.status === 'done' && t.completedAt && (
                       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.75 }}>
@@ -360,6 +541,7 @@ export default function AdminTasksPage() {
       )}
       </Box>
       </Box>
+      )}
     </Box>
   );
 }

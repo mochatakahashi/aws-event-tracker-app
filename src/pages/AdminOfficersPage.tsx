@@ -24,7 +24,7 @@ import { getEvents } from '../services/eventService';
 import { getStamps } from '../services/sessionService';
 import { getTasks } from '../services/taskService';
 import { brand } from '../theme/theme';
-import type { Committee, OfficerPosition, User } from '../types/auth';
+import type { Committee, OfficerPosition, Subcommittee, User } from '../types/auth';
 import type { AppEvent } from '../types/event';
 import type { Stamp } from '../types/session';
 import { TASK_STATUS_LABELS, type OfficerTask } from '../types/task';
@@ -39,6 +39,8 @@ import {
   officerTitle,
   currentSchoolYear,
   positionNeedsCommittee,
+  SUBCOMMITTEE_LABELS,
+  subcommitteesOf,
 } from '../utils/people';
 import ArchiveOutlinedIcon from '@mui/icons-material/ArchiveOutlined';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
@@ -179,7 +181,12 @@ export default function AdminOfficersPage() {
       }));
   }, [users]);
 
-  async function savePosition(o: User, officerPosition: OfficerPosition | '', committee: Committee | '') {
+  async function savePosition(
+    o: User,
+    officerPosition: OfficerPosition | '',
+    committee: Committee | '',
+    subcommittee: Subcommittee | '' = '',
+  ) {
     if (!user) return;
     try {
       const updated = await updateUser(
@@ -187,6 +194,10 @@ export default function AdminOfficersPage() {
         {
           officerPosition: officerPosition || undefined,
           committee: positionNeedsCommittee(officerPosition || undefined) ? committee || undefined : undefined,
+          subcommittee:
+            positionNeedsCommittee(officerPosition || undefined) && subcommittee && subcommitteesOf(committee || undefined).includes(subcommittee)
+              ? subcommittee
+              : null,
         },
         user.personId,
       );
@@ -382,7 +393,7 @@ export default function AdminOfficersPage() {
                         size="small"
                         label="Position"
                         value={o.officerPosition || ''}
-                        onChange={(e) => savePosition(o, e.target.value as OfficerPosition, o.committee || '')}
+                        onChange={(e) => savePosition(o, e.target.value as OfficerPosition, o.committee || '', o.subcommittee || '')}
                         sx={{ minWidth: 200 }}
                       >
                         {OFFICER_POSITIONS.map((p) => (
@@ -403,6 +414,25 @@ export default function AdminOfficersPage() {
                           {COMMITTEES.map((c) => (
                             <MenuItem key={c} value={c}>
                               {COMMITTEE_LABELS[c]}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                      )}
+                      {positionNeedsCommittee(o.officerPosition) && subcommitteesOf(o.committee).length > 0 && (
+                        <TextField
+                          select
+                          size="small"
+                          label="Sub-committee"
+                          value={o.subcommittee || ''}
+                          onChange={(e) =>
+                            savePosition(o, o.officerPosition || '', o.committee || '', e.target.value as Subcommittee)
+                          }
+                          sx={{ minWidth: 170 }}
+                        >
+                          <MenuItem value="">None</MenuItem>
+                          {subcommitteesOf(o.committee).map((sc) => (
+                            <MenuItem key={sc} value={sc}>
+                              {SUBCOMMITTEE_LABELS[sc]}
                             </MenuItem>
                           ))}
                         </TextField>

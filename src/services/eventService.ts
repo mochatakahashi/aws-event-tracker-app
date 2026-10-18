@@ -4,6 +4,7 @@ import type {
   UpdateEventInput,
 } from '../types/event';
 import { seedEvents } from './seedData';
+import { withLiveStatus } from '../utils/eventStatus';
 
 /**
  * Event service with hybrid support:
@@ -55,10 +56,9 @@ export async function getEvents(): Promise<AppEvent[]> {
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
-          return data.sort(
-            (a: AppEvent, b: AppEvent) =>
-              new Date(a.startAt).getTime() - new Date(b.startAt).getTime()
-          );
+          return data
+            .map((e: AppEvent) => withLiveStatus(e))
+            .sort((a: AppEvent, b: AppEvent) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
         }
       }
     }
@@ -69,7 +69,7 @@ export async function getEvents(): Promise<AppEvent[]> {
   const sorted = [...localEvents].sort(
     (a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime()
   );
-  return cloneList(sorted);
+  return cloneList(sorted).map((e) => withLiveStatus(e));
 }
 
 /** Return a single event by id, or null if not found. */
@@ -79,7 +79,7 @@ export async function getEvent(id: string): Promise<AppEvent | null> {
     if (isRemote) {
       const res = await fetch(`/api/events?id=${encodeURIComponent(id)}`);
       if (res.ok) {
-        return await res.json();
+        return withLiveStatus(await res.json());
       }
     }
   } catch (err) {
@@ -87,7 +87,7 @@ export async function getEvent(id: string): Promise<AppEvent | null> {
   }
 
   const found = localEvents.find((e) => e.id === id);
-  return found ? clone(found) : null;
+  return found ? withLiveStatus(clone(found)) : null;
 }
 
 /** Create a new event and return the persisted record. */
@@ -203,4 +203,29 @@ export function __resetEvents(): void {
     speakerIds: [...e.speakerIds],
     tags: [...e.tags],
   }));
+}
+
+/** Club events from the built-in list that aren't in the database yet (deployed app only). */
+export async function getMissingClubEvents(): Promise<{ id: string; title: string; startAt: string }[]> {
+  if (!(await checkRemoteApi())) return [];
+  try {
+    const res = await fetch('/api/seed');
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data.missingEvents) ? data.missingEvents : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Add the missing club events (admin). Never overwrites existing events. */
+export async function importClubEvents(actorId: string): Promise<string> {
+  const res = await fetch('/api/seed', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ actorId }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Could not import the club events.');
+  return data.message as string;
 }

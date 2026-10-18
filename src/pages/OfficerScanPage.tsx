@@ -450,7 +450,7 @@ export default function OfficerScanPage() {
         </Alert>
       )}
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) minmax(0, 1fr)' }, gap: 3, alignItems: 'start' }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 1fr) minmax(0, 1fr)' }, gap: 3, alignItems: 'start' }}>
         <Box>
           {/* On phones the result replaces the camera so it's visible without scrolling */}
           <Box sx={{ display: !wide && scanned ? 'none' : 'block', position: 'relative' }}>

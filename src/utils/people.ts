@@ -2,6 +2,7 @@ import type {
   AccountType,
   Committee,
   MemberType,
+  Subcommittee,
   OfficerPosition,
   SignUpData,
   User,
@@ -42,6 +43,23 @@ export const COMMITTEE_LABELS: Record<Committee, string> = {
   relations: 'Relations',
 };
 
+/** Committees that have sub-committees. */
+export const SUBCOMMITTEES: Partial<Record<Committee, Subcommittee[]>> = {
+  marketing: ['creatives', 'media'],
+  secretariat: ['finance', 'documents'],
+};
+
+export const SUBCOMMITTEE_LABELS: Record<Subcommittee, string> = {
+  creatives: 'Creatives',
+  media: 'Media',
+  finance: 'Finance',
+  documents: 'Documents',
+};
+
+export function subcommitteesOf(committee?: Committee | null): Subcommittee[] {
+  return (committee && SUBCOMMITTEES[committee]) || [];
+}
+
 export const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = {
   'apc-student': 'APC Student',
   outside: 'Outside Attendee',
@@ -54,13 +72,48 @@ export function positionNeedsCommittee(position?: OfficerPosition | null): boole
 }
 
 /** "Director — Marketing", "VP Internal", or "Officer" when no position is set. */
-export function officerTitle(person: { officerPosition?: OfficerPosition | null; committee?: Committee | null }): string {
+export function officerTitle(person: {
+  officerPosition?: OfficerPosition | null;
+  committee?: Committee | null;
+  subcommittee?: Subcommittee | null;
+}): string {
   if (!person.officerPosition) return 'Officer';
   const position = POSITION_LABELS[person.officerPosition];
   if (positionNeedsCommittee(person.officerPosition) && person.committee) {
-    return `${position} — ${COMMITTEE_LABELS[person.committee]}`;
+    const sub = person.subcommittee && subcommitteesOf(person.committee).includes(person.subcommittee)
+      ? ` (${SUBCOMMITTEE_LABELS[person.subcommittee]})`
+      : '';
+    return `${position} — ${COMMITTEE_LABELS[person.committee]}${sub}`;
   }
   return position;
+}
+
+/** Password rules for every account. */
+export const PASSWORD_RULES: { id: string; label: string; test: (pw: string) => boolean }[] = [
+  { id: 'length', label: 'At least 6 characters', test: (pw) => pw.length >= 6 },
+  { id: 'upper', label: 'One capital letter (A–Z)', test: (pw) => /[A-Z]/.test(pw) },
+  { id: 'lower', label: 'One small letter (a–z)', test: (pw) => /[a-z]/.test(pw) },
+  { id: 'number', label: 'One number (0–9)', test: (pw) => /[0-9]/.test(pw) },
+  { id: 'symbol', label: 'One special symbol (e.g. ! @ # $ %)', test: (pw) => /[^A-Za-z0-9\s]/.test(pw) },
+];
+
+/** Error message for a password that breaks the rules, or null when it's fine. */
+export function passwordError(pw: string): string | null {
+  const missing = PASSWORD_RULES.filter((r) => !r.test(pw)).map((r) => r.label.toLowerCase());
+  return missing.length ? `Password needs: ${missing.join(', ')}.` : null;
+}
+
+/** A random temporary password that meets the rules (for admin-created accounts). */
+export function generateTempPassword(): string {
+  const pick = (set: string) => set[Math.floor(Math.random() * set.length)];
+  const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  const lower = 'abcdefghijkmnpqrstuvwxyz';
+  const digits = '23456789';
+  const symbols = '!@#$%&*?';
+  const chars = [pick(upper), pick(lower), pick(digits), pick(symbols)];
+  const all = upper + lower + digits;
+  while (chars.length < 10) chars.push(pick(all));
+  return chars.sort(() => Math.random() - 0.5).join('');
 }
 
 /**
@@ -138,7 +191,11 @@ export function validateSignUp(data: SignUpData, confirmPassword?: string): stri
     if (!data.officerPosition) return 'Please select your officer position.';
     if (positionNeedsCommittee(data.officerPosition) && !data.committee) return 'Please select your committee.';
   }
-  if (data.password.length < 6) return 'Password must be at least 6 characters.';
+  if (data.committee && data.subcommittee && !subcommitteesOf(data.committee).includes(data.subcommittee)) {
+    return 'Please pick a sub-committee that belongs to your committee.';
+  }
+  const pwError = passwordError(data.password);
+  if (pwError) return pwError;
   if (confirmPassword !== undefined && data.password !== confirmPassword) return 'Passwords do not match.';
   return null;
 }

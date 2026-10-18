@@ -8,6 +8,8 @@ import {
   updateUser,
   updateProfile,
   changePassword,
+  createAccount,
+  resetPassword,
   archiveOfficer,
   deleteUser,
   __resetUsers,
@@ -21,7 +23,7 @@ const officerSignUp: SignUpData = {
   lastName: 'Santos',
   email: 'maria.santos@student.apc.edu.ph',
   personalEmail: 'maria@gmail.com',
-  password: 'secret1',
+  password: 'Secret1!',
   studentId: '2024-100200',
   officerPosition: 'director',
   committee: 'marketing',
@@ -36,7 +38,7 @@ async function approvedStudent(email = 'sofia@student.apc.edu.ph') {
     firstName: 'Sofia',
     lastName: 'Rossi',
     email,
-    password: 'sofia123',
+    password: 'Sofia123!',
     studentId: '2024-042',
   });
   await approveUser(u.personId, 'per-1');
@@ -58,7 +60,7 @@ describe('authService', () => {
 
   it('logs in with an email (any case)', async () => {
     await approvedStudent();
-    expect((await login({ username: 'SOFIA@student.apc.edu.ph', password: 'sofia123' })).name).toBe('Sofia Rossi');
+    expect((await login({ username: 'SOFIA@student.apc.edu.ph', password: 'Sofia123!' })).name).toBe('Sofia Rossi');
   });
 
   it('creates new accounts as pending, and blocks login until approved', async () => {
@@ -68,14 +70,14 @@ describe('authService', () => {
     expect(created.requestedRole).toBe('officer');
     expect(created.role).toBe('attendee');
 
-    await expect(login({ username: officerSignUp.email, password: 'secret1' })).rejects.toThrow(/waiting for admin approval/i);
+    await expect(login({ username: officerSignUp.email, password: 'Secret1!' })).rejects.toThrow(/waiting for admin approval/i);
 
     const approved = await approveUser(created.personId, 'per-1');
     expect(approved.status).toBe('approved');
     expect(approved.role).toBe('officer');
     expect(approved.approvedBy).toBe('per-1');
 
-    const loggedIn = await login({ username: officerSignUp.email, password: 'secret1' });
+    const loggedIn = await login({ username: officerSignUp.email, password: 'Secret1!' });
     expect(loggedIn.officerPosition).toBe('director');
     expect(loggedIn.committee).toBe('marketing');
   });
@@ -87,7 +89,7 @@ describe('authService', () => {
       firstName: 'Ben',
       lastName: 'Cruz',
       email: 'ben@gmail.com',
-      password: 'secret1',
+      password: 'Secret1!',
       organization: 'Mapúa University',
     });
     expect(outsider.memberType).toBe('outside');
@@ -97,10 +99,10 @@ describe('authService', () => {
 
   it('asks outsiders for an organization and APC students for a student ID', async () => {
     await expect(
-      signUp({ accountType: 'outside', firstName: 'A', lastName: 'B', email: 'a@b.com', password: 'secret1' }),
+      signUp({ accountType: 'outside', firstName: 'A', lastName: 'B', email: 'a@b.com', password: 'Secret1!' }),
     ).rejects.toThrow(/organization/i);
     await expect(
-      signUp({ accountType: 'apc-student', firstName: 'A', lastName: 'B', email: 'a@apc.edu.ph', password: 'secret1' }),
+      signUp({ accountType: 'apc-student', firstName: 'A', lastName: 'B', email: 'a@apc.edu.ph', password: 'Secret1!' }),
     ).rejects.toThrow(/student ID/i);
   });
 
@@ -108,7 +110,7 @@ describe('authService', () => {
     const first = await signUp(officerSignUp);
     await expect(signUp(officerSignUp)).rejects.toThrow(/already exists/i);
     await rejectUser(first.personId, 'per-1', 'Wrong email address');
-    await expect(login({ username: officerSignUp.email, password: 'secret1' })).rejects.toThrow(
+    await expect(login({ username: officerSignUp.email, password: 'Secret1!' })).rejects.toThrow(
       /declined: Wrong email address/i,
     );
     const again = await signUp(officerSignUp);
@@ -131,10 +133,10 @@ describe('authService', () => {
   });
 
   it('changes a password (including the admin password)', async () => {
-    await expect(changePassword('per-1', 'wrong', 'newpass1')).rejects.toThrow(/incorrect/i);
-    await changePassword('per-1', ADMIN.password, 'a-new-admin-pass');
+    await expect(changePassword('per-1', 'wrong', 'Newpass1!')).rejects.toThrow(/incorrect/i);
+    await changePassword('per-1', ADMIN.password, 'A-new-admin-pass1');
     await expect(login(ADMIN)).rejects.toThrow();
-    expect((await login({ username: 'awsapc.admin', password: 'a-new-admin-pass' })).personId).toBe('per-1');
+    expect((await login({ username: 'awsapc.admin', password: 'A-new-admin-pass1' })).personId).toBe('per-1');
   });
 
   it('archives an officer as an alumni attendee and keeps the term', async () => {
@@ -147,7 +149,7 @@ describe('authService', () => {
       expect.objectContaining({ schoolYear: '2025–2026', officerPosition: 'director', committee: 'marketing' }),
     ]);
     // still able to sign in
-    expect((await login({ username: officerSignUp.email, password: 'secret1' })).role).toBe('attendee');
+    expect((await login({ username: officerSignUp.email, password: 'Secret1!' })).role).toBe('attendee');
   });
 
   it('lets only an admin delete accounts', async () => {
@@ -156,5 +158,48 @@ describe('authService', () => {
     await expect(deleteUser('per-1', 'per-1')).rejects.toThrow(/own account/i);
     await deleteUser(id, 'per-1');
     expect((await getUsers()).some((u) => u.personId === id)).toBe(false);
+  });
+});
+
+describe('account security', () => {
+  it('enforces the password rules on sign-up', async () => {
+    const base = { accountType: 'outside' as const, firstName: 'P', lastName: 'Q', email: 'pq@gmail.com', organization: 'X' };
+    await expect(signUp({ ...base, password: 'secret1' })).rejects.toThrow(/capital letter/);
+    await expect(signUp({ ...base, password: 'SECRET1!' })).rejects.toThrow(/small letter/);
+    await expect(signUp({ ...base, password: 'Secret!' })).rejects.toThrow(/number/);
+    await expect(signUp({ ...base, password: 'Secret1' })).rejects.toThrow(/special symbol/);
+    await expect(signUp({ ...base, password: 'S1!a' })).rejects.toThrow(/at least 6/);
+    expect((await signUp({ ...base, password: 'Secret1!' })).signupType).toBe('outside');
+  });
+
+  it('lets an admin create an account with a temporary password that must be changed', async () => {
+    const admin = await login(ADMIN);
+    const created = await createAccount(
+      {
+        accountType: 'officer',
+        role: 'officer',
+        firstName: 'Mika',
+        lastName: 'Reyes',
+        email: 'mika@student.apc.edu.ph',
+        studentId: '2024-9',
+        officerPosition: 'associate',
+        committee: 'marketing',
+        subcommittee: 'creatives',
+        password: 'Temp123!',
+      },
+      admin.personId,
+    );
+    expect(created.status).toBe('approved');
+    expect(created.role).toBe('officer');
+    expect(created.subcommittee).toBe('creatives');
+    const first = await login({ username: 'mika@student.apc.edu.ph', password: 'Temp123!' });
+    expect(first.mustChangePassword).toBe(true);
+    await expect(changePassword(first.personId, 'Temp123!', 'Temp123!')).rejects.toThrow(/different/);
+    await changePassword(first.personId, 'Temp123!', 'MyOwn123!');
+    expect((await login({ username: 'mika@student.apc.edu.ph', password: 'MyOwn123!' })).mustChangePassword).toBe(false);
+    // admin reset → must change again
+    await resetPassword(first.personId, 'Reset123!', admin.personId);
+    expect((await login({ username: 'mika@student.apc.edu.ph', password: 'Reset123!' })).mustChangePassword).toBe(true);
+    await expect(resetPassword(first.personId, 'Reset123!', first.personId)).rejects.toThrow(/only an admin/i);
   });
 });

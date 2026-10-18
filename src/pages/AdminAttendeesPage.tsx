@@ -298,7 +298,7 @@ export default function AdminAttendeesPage() {
           {eventRegs.length === 0 ? (
             <EmptyNote>No one has registered for this event yet.</EmptyNote>
           ) : (
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, gap: 1.5, alignItems: 'start' }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'repeat(2, minmax(0, 1fr))' }, gap: 1.5, alignItems: 'start' }}>
               {eventRegs
                 .filter((r) => matches(userById.get(r.personId)))
                 .map((r) => {

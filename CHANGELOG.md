@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.7] - 2026-10-18
+
+### Added
+- **Password rules for everyone**: at least 6 characters with a capital letter, a small letter, a number and a special symbol, with a live checklist (sign-up, change password, admin forms); enforced by the server too.
+- **Admin "Add account"**: create approved accounts (APC student, outside attendee or officer with position/committee/sub-committee) with a generated temporary password and *Copy login details*. **Reset password** per account. Temporary passwords must be changed at first sign-in (**Set your own password** page; the rest of the app is blocked until then).
+- **Change password page** (`/change-password`), linked from the profile menu and Profile.
+- **Sub-committees**: Marketing → Creatives, Media; Secretariat → Finance, Documents — at sign-up, in Add account, and in the admin Officers page.
+- **"Signed up as …"** on every account in Manage Accounts (type, position, committee, sub-committee).
+- **Committee task board**: Officer Tasks grouped by committee with sub-committee filters; tasks have a required deadline (date + time), committee and sub-committee; emails include the committee.
+- **Marketing Content Tracker** (pubmats): designee, caption writer, poster, status, post date, file link, notes, draft deadline; assigned officers notified with their role and can update their items from the Officer Dashboard; **caption guidelines** link.
+- **Connect**: networking QR now opens a profile summary (bio, all social links, achievements); **Scan QR** in Connect; **Add connection** and **My connections** with their achievements; the other person is notified.
+- **Live dashboard** for attendees and officers: Happening now / Up next, At the selected event, Your registrations, Latest updates, Your work (officers).
+- **Event pass on the event page** (inline QR) once registered.
+- **Save events**: the bookmark icon now saves events to your account; **Events → Saved** tab.
+- **Import club events** (admin home): adds the built-in club events missing from the live database.
+
+### Changed
+- **Leaderboard is admin-only** (monitoring), with progress bars; attendees and officers see their own progress and badges on Achievements, no rankings.
+- **Event status follows the dates**: ended events show under **Past** automatically (fixes past events missing on Vercel). Achievements "Events attended" now counts check-ins.
+- `/api/seed` no longer overwrites events: `GET` only reports missing club events, `POST` (admin only) adds just the missing ones.
+
+### Fixed
+- **Bookmark icon opened the event instead of saving it** — the button was inside the clickable card (a button inside a button). It now sits outside the card's click area.
+- Long titles no longer push cards off the screen on phones (grid columns can shrink).
+
+---
+
 ## [0.6.6] - 2026-10-18
 
 ### Changed

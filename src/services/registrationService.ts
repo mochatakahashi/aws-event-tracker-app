@@ -34,6 +34,7 @@ function toPerson(u: User): Person {
     organization: u.organization,
     officerPosition: u.officerPosition,
     committee: u.committee,
+    subcommittee: u.subcommittee,
   };
 }
 

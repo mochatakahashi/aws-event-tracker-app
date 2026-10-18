@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, PutCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
 
 const CLUB_NAME = 'AWS Student Builder Group - Asia Pacific College';
 
@@ -224,20 +224,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       marshallOptions: { removeUndefinedValues: true },
     });
 
-    for (const item of [...initialEvents, ...initialSessions]) {
-      await docClient.send(
-        new PutCommand({
-          TableName: tableName,
-          Item: item,
-        })
-      );
+    const all = [...initialEvents, ...initialSessions];
+    const missing: any[] = [];
+    for (const item of all) {
+      const found = await docClient.send(new GetCommand({ TableName: tableName, Key: { id: item.id } }));
+      if (!found.Item) missing.push(item);
+    }
+    const missingEvents = missing.filter((i) => initialEvents.includes(i));
+
+    // GET: only report what's missing (never writes)
+    if (req.method !== 'POST') {
+      return res.status(200).json({
+        missingEvents: missingEvents.map((e: any) => ({ id: e.id, title: e.title, startAt: e.startAt })),
+        missingSessions: missing.length - missingEvents.length,
+      });
     }
 
+    // POST: admin only, and only adds what's missing (never overwrites edits)
+    const actorId = (req.body || {}).actorId;
+    const actor = typeof actorId === 'string' && actorId
+      ? (await docClient.send(new GetCommand({ TableName: tableName, Key: { id: actorId } }))).Item
+      : undefined;
+    if (actor?.entityType !== 'user' || actor.role !== 'admin') {
+      return res.status(403).json({ error: 'Only an admin can import the club events.' });
+    }
+    for (const item of missing) {
+      await docClient.send(new PutCommand({ TableName: tableName, Item: item }));
+    }
     return res.status(200).json({
       success: true,
-      message: `Successfully seeded events and sessions into DynamoDB table '${tableName}'!`,
-      eventsCount: initialEvents.length,
-      sessionsCount: initialSessions.length,
+      addedEvents: missingEvents.length,
+      addedSessions: missing.length - missingEvents.length,
+      message: missing.length
+        ? `Added ${missingEvents.length} event(s) and ${missing.length - missingEvents.length} session(s). Existing events were not changed.`
+        : 'All club events are already in the database.',
     });
   } catch (err: any) {
     return res.status(500).json({

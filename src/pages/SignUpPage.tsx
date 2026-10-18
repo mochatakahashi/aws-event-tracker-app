@@ -8,7 +8,6 @@ import Typography from '@mui/material/Typography';
 import Alert from '@mui/material/Alert';
 import Link from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
-import MenuItem from '@mui/material/MenuItem';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -22,15 +21,10 @@ import { brand } from '../theme/theme';
 import { signUp } from '../services/authService';
 import { notify } from '../services/notifyService';
 import { notifyInApp } from '../services/notificationService';
-import type { AccountType, Committee, OfficerPosition } from '../types/auth';
-import {
-  COMMITTEES,
-  COMMITTEE_LABELS,
-  OFFICER_POSITIONS,
-  POSITION_LABELS,
-  positionNeedsCommittee,
-  validateSignUp,
-} from '../utils/people';
+import type { AccountType, Committee, OfficerPosition, Subcommittee } from '../types/auth';
+import OfficerRoleFields from '../components/OfficerRoleFields';
+import PasswordChecklist from '../components/PasswordChecklist';
+import { positionNeedsCommittee, validateSignUp } from '../utils/people';
 
 const TYPE_OPTIONS: { value: AccountType; label: string; hint: string; icon: ReactNode }[] = [
   { value: 'apc-student', label: 'APC Student', hint: 'Attendee from Asia Pacific College', icon: <SchoolRoundedIcon fontSize="small" /> },
@@ -49,6 +43,7 @@ export default function SignUpPage() {
   const [organization, setOrganization] = useState('');
   const [officerPosition, setOfficerPosition] = useState<OfficerPosition | ''>('');
   const [committee, setCommittee] = useState<Committee | ''>('');
+  const [subcommittee, setSubcommittee] = useState<Subcommittee | ''>('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -73,6 +68,7 @@ export default function SignUpPage() {
       organization: isApc ? undefined : organization,
       officerPosition: isOfficer ? officerPosition || undefined : undefined,
       committee: isOfficer && positionNeedsCommittee(officerPosition || undefined) ? committee || undefined : undefined,
+      subcommittee: isOfficer && committee && subcommittee ? subcommittee : undefined,
     };
     const invalid = validateSignUp(data, confirmPassword);
     if (invalid) {
@@ -288,44 +284,14 @@ export default function SignUpPage() {
           )}
 
           {isOfficer && (
-            <>
-              <TextField
-                select
-                label="Officer Position"
-                value={officerPosition}
-                onChange={(e) => {
-                  const v = e.target.value as OfficerPosition;
-                  setOfficerPosition(v);
-                  if (!positionNeedsCommittee(v)) setCommittee('');
-                }}
-                fullWidth
-                margin="normal"
-                required
-              >
-                {OFFICER_POSITIONS.map((p) => (
-                  <MenuItem key={p} value={p}>
-                    {POSITION_LABELS[p]}
-                  </MenuItem>
-                ))}
-              </TextField>
-              {positionNeedsCommittee(officerPosition || undefined) && (
-                <TextField
-                  select
-                  label="Committee"
-                  value={committee}
-                  onChange={(e) => setCommittee(e.target.value as Committee)}
-                  fullWidth
-                  margin="normal"
-                  required
-                >
-                  {COMMITTEES.map((c) => (
-                    <MenuItem key={c} value={c}>
-                      {COMMITTEE_LABELS[c]}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              )}
-            </>
+            <OfficerRoleFields
+              value={{ officerPosition, committee, subcommittee }}
+              onChange={(v) => {
+                setOfficerPosition(v.officerPosition);
+                setCommittee(v.committee);
+                setSubcommittee(v.subcommittee);
+              }}
+            />
           )}
 
           <TextField
@@ -336,9 +302,9 @@ export default function SignUpPage() {
             fullWidth
             margin="normal"
             required
-            helperText="At least 6 characters"
             autoComplete="new-password"
           />
+          <PasswordChecklist password={password} />
           <TextField
             label="Confirm Password"
             type="password"

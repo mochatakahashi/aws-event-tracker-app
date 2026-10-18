@@ -71,7 +71,7 @@ export default function WelcomePage() {
           width: '100%',
           maxWidth: { xs: 480, md: 1100 },
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: '1.1fr 0.9fr' },
+          gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: '1.1fr 0.9fr' },
           gap: { xs: 0, md: 8 },
           alignItems: 'center',
         }}

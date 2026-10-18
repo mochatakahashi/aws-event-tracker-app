@@ -215,9 +215,28 @@ function taskMail(u: any, task: any, ev: any, kind: 'assigned' | 'due'): Mail {
   const lines = [
     kind === 'assigned' ? `You have a new task: ${task.title}` : `Reminder: "${task.title}" is due tomorrow.`,
   ];
-  if (task.description) lines.push(task.description);
+  const COMMITTEE: Record<string, string> = {
+    secretariat: 'Secretariat', operations: 'Operations', marketing: 'Marketing', technicals: 'Technicals', relations: 'Relations',
+  };
+  const SUB: Record<string, string> = { creatives: 'Creatives', media: 'Media', finance: 'Finance', documents: 'Documents' };
+  if (task.committee) lines.push(`Committee: ${COMMITTEE[task.committee] || task.committee}${task.subcommittee ? ` · ${SUB[task.subcommittee] || task.subcommittee}` : ''}`);
+  if (task.kind === 'pubmat' && task.pubmat) {
+    const roles = [
+      task.pubmat.designeeIds?.includes(u.id) && 'creatives designee',
+      task.pubmat.captionWriterIds?.includes(u.id) && 'caption writer',
+      task.pubmat.posterIds?.includes(u.id) && 'poster',
+    ].filter(Boolean);
+    if (roles.length) lines.push(`Your role: ${roles.join(', ')}`);
+    if (task.pubmat.postDate) lines.push(`Post date: ${whenText(task.pubmat.postDate)}`);
+    if (task.pubmat.captionWriterIds?.includes(u.id)) {
+      lines.push('Caption guidelines: https://docs.google.com/document/d/1dMMyBQtYgGwg87Q45XHGTZEVlBsrX366VMgDBryfc1k/edit?usp=sharing');
+    }
+  } else if (task.description) {
+    lines.push(task.description);
+  }
+  if (task.kind === 'pubmat' && task.pubmat?.details) lines.push(task.pubmat.details);
   if (ev) lines.push(`Event: ${ev.title}`);
-  if (task.dueAt) lines.push(`Due: ${whenText(task.dueAt)}`);
+  if (task.dueAt) lines.push(`Deadline: ${whenText(task.dueAt)}`);
   return {
     to: addresses(u),
     subject: kind === 'assigned' ? `New task: ${task.title}` : `Due tomorrow: ${task.title}`,

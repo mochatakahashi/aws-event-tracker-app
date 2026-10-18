@@ -31,7 +31,7 @@ export async function getTasksForOfficer(personId: string): Promise<OfficerTask[
 
 export async function createTask(input: NewTaskInput): Promise<OfficerTask> {
   if (!input.title.trim()) throw new Error('Please enter a task title.');
-  if (input.assigneeIds.length === 0) throw new Error('Please assign at least one officer.');
+  if (input.kind !== 'pubmat' && input.assigneeIds.length === 0) throw new Error('Please assign at least one officer.');
   if (await isRemoteAvailable(API)) {
     return apiJson<OfficerTask>(API, { method: 'POST', body: JSON.stringify(input) });
   }

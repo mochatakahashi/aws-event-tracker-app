@@ -128,7 +128,7 @@ export default function SelectEventPage() {
       </Typography>
 
       {/* Event cards: 1 column on phones, 2–3 on laptops */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr', lg: '1fr 1fr 1fr' }, gap: 2 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'repeat(2, minmax(0, 1fr))', lg: '1fr 1fr 1fr' }, gap: 2 }}>
         {events.map((event) => {
           const st = statusConfig[event.status] ?? statusConfig.upcoming;
           return (

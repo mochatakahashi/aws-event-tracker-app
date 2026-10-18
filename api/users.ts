@@ -17,7 +17,10 @@ import {
  * GET  /api/users?id=per-1        → one account
  * POST /api/users?action=signup   → create a pending account
  * POST /api/users?action=login    → sign in (approved accounts only)
- * POST /api/users?action=password → change password
+ * POST /api/users?action=password → change password (clears "must change password")
+ * POST /api/users?action=create   → { actorId, account } admin creates an approved account with a
+ *                                   temporary password that must be changed at first sign-in
+ * POST /api/users?action=reset    → { actorId, id, newPassword } admin sets a temporary password
  * PUT  /api/users?id=per-1        → { changes, actorId } profile / admin changes
  * DELETE /api/users?id=per-1&actorId=per-9 → delete an account (admin only)
  */
@@ -70,12 +73,40 @@ function verifyPassword(password: string, stored: string | undefined): boolean {
 
 const POSITIONS = ['president', 'vp-internal', 'vp-external', 'director', 'assistant-director', 'associate'];
 const COMMITTEES = ['secretariat', 'operations', 'marketing', 'technicals', 'relations'];
-const PROFILE_FIELDS = ['avatarUrl', 'bio', 'socials', 'personalEmail', 'officerPosition', 'committee'];
+const SUBCOMMITTEES: Record<string, string[]> = { marketing: ['creatives', 'media'], secretariat: ['finance', 'documents'] };
+const PROFILE_FIELDS = [
+  'avatarUrl',
+  'bio',
+  'socials',
+  'personalEmail',
+  'officerPosition',
+  'committee',
+  'subcommittee',
+  'connections',
+  'savedEventIds',
+];
 const ADMIN_FIELDS = ['role', 'status', 'requestedRole', 'officerHistory', 'rejectionReason'];
 
 const isApcEmail = (email: string) => /^[^\s@]+@(student\.)?apc\.edu\.ph$/i.test(email);
 const isEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const needsCommittee = (p?: string) => p === 'director' || p === 'assistant-director' || p === 'associate';
+
+/** At least 6 characters with a capital letter, a small letter, a number and a symbol. */
+function passwordError(pw: unknown): string | null {
+  if (typeof pw !== 'string') return 'Please enter a password.';
+  const missing: string[] = [];
+  if (pw.length < 6) missing.push('at least 6 characters');
+  if (!/[A-Z]/.test(pw)) missing.push('one capital letter (A–Z)');
+  if (!/[a-z]/.test(pw)) missing.push('one small letter (a–z)');
+  if (!/[0-9]/.test(pw)) missing.push('one number (0–9)');
+  if (!/[^A-Za-z0-9\s]/.test(pw)) missing.push('one special symbol (e.g. ! @ # $ %)');
+  return missing.length ? `Password needs: ${missing.join(', ')}.` : null;
+}
+
+/** Keep list fields (connections, saved events) as short lists of ids. */
+function idList(v: unknown): string[] {
+  return Array.isArray(v) ? [...new Set(v.filter((x) => typeof x === 'string' && x.length < 100))].slice(0, 1000) : [];
+}
 
 function sanitize(item: any) {
   if (!item) return item;
@@ -158,9 +189,47 @@ function validateSignUp(d: any): string | null {
   if (type === 'officer') {
     if (!POSITIONS.includes(d.officerPosition)) return 'Please select your officer position.';
     if (needsCommittee(d.officerPosition) && !COMMITTEES.includes(d.committee)) return 'Please select your committee.';
+    if (d.subcommittee && !(SUBCOMMITTEES[d.committee] || []).includes(d.subcommittee)) {
+      return 'Please pick a sub-committee that belongs to your committee.';
+    }
   }
-  if (typeof d.password !== 'string' || d.password.length < 6) return 'Password must be at least 6 characters.';
-  return null;
+  return passwordError(d.password);
+}
+
+/** Account record from sign-up style data (shared by sign-up and admin create). */
+function buildAccount(d: any, personId: string) {
+  const isOfficer = d.accountType === 'officer';
+  const isOutside = d.accountType === 'outside';
+  const mi = d.middleInitial ? String(d.middleInitial).replace(/\./g, '').trim().toUpperCase() : undefined;
+  const email = String(d.email).trim().toLowerCase();
+  const committee = isOfficer && needsCommittee(d.officerPosition) ? d.committee : undefined;
+  return {
+    id: personId,
+    entityType: 'user',
+    personId,
+    username: email,
+    email,
+    name: formatName(d.firstName, mi, d.lastName),
+    firstName: String(d.firstName).trim(),
+    middleInitial: mi,
+    lastName: String(d.lastName).trim(),
+    personalEmail: isOfficer && d.personalEmail ? String(d.personalEmail).trim() : undefined,
+    signupType: d.accountType,
+    memberType: isOutside ? 'outside' : 'apc',
+    studentId: isOutside ? undefined : String(d.studentId).trim(),
+    organization: isOutside ? String(d.organization).trim() : undefined,
+    officerPosition: isOfficer ? d.officerPosition : undefined,
+    committee,
+    subcommittee: committee && (SUBCOMMITTEES[committee] || []).includes(d.subcommittee) ? d.subcommittee : undefined,
+    passwordHash: hashPassword(d.password),
+    createdAt: new Date().toISOString(),
+  };
+}
+
+async function getAdmin(client: DynamoDBDocumentClient, tableName: string, actorId: unknown) {
+  if (typeof actorId !== 'string' || !actorId) return null;
+  const actor = (await client.send(new GetCommand({ TableName: tableName, Key: { id: actorId } }))).Item;
+  return actor?.entityType === 'user' && actor.role === 'admin' && (actor.status ?? 'approved') === 'approved' ? actor : null;
 }
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
@@ -225,40 +294,70 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(409).json({ error: 'An account with this email already exists.' });
       }
 
-      const isOfficer = d.accountType === 'officer';
-      const isOutside = d.accountType === 'outside';
-      const mi = d.middleInitial ? String(d.middleInitial).replace(/\./g, '').trim().toUpperCase() : undefined;
       const personId = existing?.id || `per-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
       const item = {
-        id: personId,
-        entityType: 'user',
-        personId,
-        username: email,
-        email,
-        name: formatName(d.firstName, mi, d.lastName),
-        firstName: String(d.firstName).trim(),
-        middleInitial: mi,
-        lastName: String(d.lastName).trim(),
-        personalEmail: isOfficer && d.personalEmail ? String(d.personalEmail).trim() : undefined,
+        ...buildAccount(d, personId),
         role: 'attendee',
-        requestedRole: isOfficer ? 'officer' : 'attendee',
+        requestedRole: d.accountType === 'officer' ? 'officer' : 'attendee',
         status: 'pending',
-        memberType: isOutside ? 'outside' : 'apc',
-        studentId: isOutside ? undefined : String(d.studentId).trim(),
-        organization: isOutside ? String(d.organization).trim() : undefined,
-        officerPosition: isOfficer ? d.officerPosition : undefined,
-        committee: isOfficer && needsCommittee(d.officerPosition) ? d.committee : undefined,
-        passwordHash: hashPassword(d.password),
-        createdAt: new Date().toISOString(),
       };
       await client.send(new PutCommand({ TableName: tableName, Item: item }));
       return res.status(201).json(sanitize(item));
     }
 
+    if (req.method === 'POST' && action === 'create') {
+      const { actorId, account } = req.body || {};
+      if (!(await getAdmin(client, tableName, actorId))) {
+        return res.status(403).json({ error: 'Only an admin can create accounts.' });
+      }
+      const invalid = validateSignUp(account);
+      if (invalid) return res.status(400).json({ error: invalid });
+      const users = await scanUsers(client, tableName);
+      const email = String(account.email).trim().toLowerCase();
+      const existing = findByLogin(users, email);
+      if (existing && existing.status !== 'rejected') {
+        return res.status(409).json({ error: 'An account with this email already exists.' });
+      }
+      const personId = existing?.id || `per-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+      const role = ['admin', 'officer', 'attendee'].includes(account.role)
+        ? account.role
+        : account.accountType === 'officer'
+          ? 'officer'
+          : 'attendee';
+      const item = {
+        ...buildAccount(account, personId),
+        role,
+        requestedRole: null,
+        status: 'approved',
+        approvedAt: new Date().toISOString(),
+        approvedBy: actorId,
+        createdBy: actorId,
+        mustChangePassword: true,
+      };
+      await client.send(new PutCommand({ TableName: tableName, Item: item }));
+      return res.status(201).json(sanitize(item));
+    }
+
+    if (req.method === 'POST' && action === 'reset') {
+      const { actorId, id, newPassword } = req.body || {};
+      if (!(await getAdmin(client, tableName, actorId))) {
+        return res.status(403).json({ error: 'Only an admin can reset passwords.' });
+      }
+      const pwError = passwordError(newPassword);
+      if (pwError) return res.status(400).json({ error: pwError });
+      const user = (await client.send(new GetCommand({ TableName: tableName, Key: { id } }))).Item;
+      if (!user || user.entityType !== 'user') return res.status(404).json({ error: 'User not found' });
+      const updated = { ...user, passwordHash: hashPassword(newPassword), mustChangePassword: true, updatedAt: new Date().toISOString() };
+      await client.send(new PutCommand({ TableName: tableName, Item: updated }));
+      return res.status(200).json(sanitize(updated));
+    }
+
     if (req.method === 'POST' && action === 'password') {
       const { id, currentPassword, newPassword } = req.body || {};
-      if (typeof newPassword !== 'string' || newPassword.length < 6) {
-        return res.status(400).json({ error: 'New password must be at least 6 characters.' });
+      const pwError = passwordError(newPassword);
+      if (pwError) return res.status(400).json({ error: pwError });
+      if (newPassword === currentPassword) {
+        return res.status(400).json({ error: 'Your new password must be different from the current one.' });
       }
       const result = await client.send(new GetCommand({ TableName: tableName, Key: { id } }));
       const user = result.Item;
@@ -266,7 +365,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(401).json({ error: 'Your current password is incorrect.' });
       }
       await client.send(
-        new PutCommand({ TableName: tableName, Item: { ...user, passwordHash: hashPassword(newPassword) } })
+        new PutCommand({
+          TableName: tableName,
+          Item: { ...user, passwordHash: hashPassword(newPassword), mustChangePassword: false, passwordChangedAt: new Date().toISOString() },
+        })
       );
       return res.status(200).json({ success: true });
     }
@@ -295,6 +397,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       for (const key of allowed) {
         if (key in changes) updates[key] = changes[key];
       }
+      if ('connections' in updates) updates.connections = idList(updates.connections).filter((x) => x !== id);
+      if ('savedEventIds' in updates) updates.savedEventIds = idList(updates.savedEventIds);
       if (updates.status === 'approved' && target.status !== 'approved') {
         updates.approvedAt = new Date().toISOString();
         updates.approvedBy = actorId;

@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Card from '@mui/material/Card';
@@ -20,15 +20,14 @@ import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import { alpha } from '@mui/material/styles';
 import { useAuth } from '../context/AuthContext';
 import { brand } from '../theme/theme';
-import TextField from '@mui/material/TextField';
-import Alert from '@mui/material/Alert';
 import Collapse from '@mui/material/Collapse';
 import LockResetIcon from '@mui/icons-material/LockReset';
 import GroupsIcon from '@mui/icons-material/Groups';
 import BusinessIcon from '@mui/icons-material/Business';
 import AlternateEmailIcon from '@mui/icons-material/AlternateEmail';
 import { uploadImageToS3 } from '../services/storageService';
-import { changePassword, updateProfile } from '../services/authService';
+import { updateProfile } from '../services/authService';
+import ChangePasswordForm from '../components/ChangePasswordForm';
 import { memberLabel, officerTitle } from '../utils/people';
 import AvatarImageAdjuster from '../components/AvatarImageAdjuster';
 
@@ -37,27 +36,6 @@ export default function ProfilePage() {
 
   // Change password
   const [showPassword, setShowPassword] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [passwordMsg, setPasswordMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [savingPassword, setSavingPassword] = useState(false);
-
-  async function handleChangePassword(e: FormEvent) {
-    e.preventDefault();
-    if (!user) return;
-    setSavingPassword(true);
-    setPasswordMsg(null);
-    try {
-      await changePassword(user.personId, currentPassword, newPassword);
-      setPasswordMsg({ ok: true, text: 'Password changed.' });
-      setCurrentPassword('');
-      setNewPassword('');
-    } catch (err) {
-      setPasswordMsg({ ok: false, text: err instanceof Error ? err.message : 'Could not change password.' });
-    } finally {
-      setSavingPassword(false);
-    }
-  }
 
   // Profile photo state
   const [adjustSource, setAdjustSource] = useState<File | string | null>(null);
@@ -152,7 +130,7 @@ export default function ProfilePage() {
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 2fr) minmax(0, 1fr)' },
+          gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 2fr) minmax(0, 1fr)' },
           gap: 3,
           alignItems: 'start',
         }}
@@ -253,7 +231,7 @@ export default function ProfilePage() {
             ACCOUNT INFORMATION
           </Typography>
 
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2.5 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'repeat(2, minmax(0, 1fr))' }, gap: 2.5 }}>
             {infoRows.map((row) => (
               <Stack key={row.label} direction="row" spacing={2} alignItems="center">
                 <Avatar sx={{ bgcolor: alpha(brand.primary, 0.1), color: brand.primary, width: 40, height: 40 }}>
@@ -285,7 +263,6 @@ export default function ProfilePage() {
               startIcon={<LockResetIcon />}
               onClick={() => {
                 setShowPassword((v) => !v);
-                setPasswordMsg(null);
               }}
               sx={{ textTransform: 'none' }}
             >
@@ -293,42 +270,8 @@ export default function ProfilePage() {
             </Button>
           </Stack>
           <Collapse in={showPassword}>
-            <Box component="form" onSubmit={handleChangePassword} sx={{ mt: 1, maxWidth: 360 }}>
-              {passwordMsg && (
-                <Alert severity={passwordMsg.ok ? 'success' : 'error'} sx={{ mb: 1 }}>
-                  {passwordMsg.text}
-                </Alert>
-              )}
-              <TextField
-                label="Current password"
-                type="password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                fullWidth
-                size="small"
-                margin="dense"
-                autoComplete="current-password"
-              />
-              <TextField
-                label="New password"
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                fullWidth
-                size="small"
-                margin="dense"
-                helperText="At least 6 characters"
-                autoComplete="new-password"
-              />
-              <Button
-                type="submit"
-                variant="contained"
-                size="small"
-                disabled={savingPassword || !currentPassword || !newPassword}
-                sx={{ mt: 1 }}
-              >
-                {savingPassword ? 'Saving…' : 'Save new password'}
-              </Button>
+            <Box sx={{ mt: 1 }}>
+              <ChangePasswordForm onDone={() => setShowPassword(false)} />
             </Box>
           </Collapse>
         </CardContent>

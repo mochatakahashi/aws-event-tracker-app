@@ -1,4 +1,4 @@
-import type { Committee, MemberType, OfficerPosition, SocialLinks, UserRole } from './auth';
+import type { Committee, MemberType, OfficerPosition, SocialLinks, Subcommittee, UserRole } from './auth';
 
 /** RSVP state for a registration. */
 export type RsvpStatus = 'going' | 'interested' | 'declined';
@@ -27,6 +27,7 @@ export interface Person {
   organization?: string;
   officerPosition?: OfficerPosition | null;
   committee?: Committee | null;
+  subcommittee?: Subcommittee | null;
 }
 
 export type NewPersonInput = Omit<Person, 'id'>;

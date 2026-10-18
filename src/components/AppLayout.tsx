@@ -24,6 +24,7 @@ import NotificationsNoneRoundedIcon from '@mui/icons-material/NotificationsNoneR
 import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded';
 import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
 import LogoutIcon from '@mui/icons-material/Logout';
+import LockResetIcon from '@mui/icons-material/LockReset';
 import EventNoteIcon from '@mui/icons-material/EventNote';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
@@ -125,7 +126,10 @@ export default function AppLayout() {
       {/* Nav items */}
       <List sx={{ flex: 1, px: 1 }}>
         {ALL_NAV_ITEMS.filter(
-          (item) => !(user?.role === 'admin' && (item.label === 'Achievements' || item.label === 'Connect' || item.label === 'Events'))
+          (item) =>
+            !(user?.role === 'admin' && (item.label === 'Achievements' || item.label === 'Connect' || item.label === 'Events')) &&
+            // The leaderboard is for admins to monitor
+            !(user?.role !== 'admin' && item.label === 'Leaderboard'),
         ).map(item => {
           if (user?.role === 'admin' && item.label === 'Dashboard') return { ...item, label: 'Admin Dashboard' };
           return item;
@@ -290,6 +294,10 @@ export default function AppLayout() {
             >
               <ListItemIcon><PersonRoundedIcon fontSize="small" /></ListItemIcon>
               <ListItemText primary="My Profile" />
+            </MenuItem>
+            <MenuItem onClick={() => { setProfileAnchor(null); navigate('/change-password'); }} sx={{ py: 1.2 }}>
+              <ListItemIcon><LockResetIcon fontSize="small" /></ListItemIcon>
+              <ListItemText primary="Change password" />
             </MenuItem>
             {user?.role !== 'admin' && (
               <MenuItem onClick={() => { setProfileAnchor(null); navigate('/pass'); }} sx={{ py: 1.2 }}>

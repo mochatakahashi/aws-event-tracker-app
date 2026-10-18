@@ -18,7 +18,9 @@ graph TD
         OfficerDash --> Scanner["OfficerScanPage (camera QR check-in)"]
         Layout --> Pass["EventPassPage (QR pass, calendar, certificate)"]
         Layout --> Notifs["NotificationsPage (bell inbox)"]
-        Layout --> Leader["LeaderboardPage (ranking & badges)"]
+        Layout --> Leader["LeaderboardPage (admin monitoring)"]
+        Layout --> PersonPage["PersonProfilePage (/people/:id)"]
+        AdminHome --> Tracker["ContentTracker (Marketing pubmats)"]
         Public["VerifyCertificatePage (public /verify/:id)"]
         Layout --> AdminHome["AdminHome (admin /home)"]
         AdminHome --> AdminDash["AdminDashboardPage (Manage Accounts)"]
@@ -187,7 +189,10 @@ sequenceDiagram
 
 - **Stamps at the booth**: the scanner lists the event's stamp sessions (live ones first). *Approve stamp* reuses `sessionService` — it creates the stamp if the attendee never requested it, then approves it with the officer's id — and notifies the attendee.
 - **Verification**: every certificate carries a QR code to `…/#/verify/<certificateId>` (built from `APP_URL` or the request host). `GET /api/registrations?action=verify&certificateId=` is public and returns only what is printed on the certificate (name, event, dates, venue, issue date) plus `valid` / `revoked` / `not-found`.
-- **Leaderboard** (`utils/leaderboard.ts`, `utils/badges.ts`, data from `useBoardData`): two boards ranked by achievement points, listing everyone with an approved account (0 points included; admins excluded). *Attendees* (all non-admins, so officers appear too): 10 per approved stamp (one per person and session), +5 for workshops (session `type: 'workshop'`), 15 per check-in, 20 per badge. *Officers*: 5 per stamp approved (`approvedBy`), 5 per check-in done (`checkedInBy`), 20 per completed task, 25 per event volunteered (`officerIds`). Equal points share a rank. With an event filter only that event counts and badge points are left out; badges are always computed from all events. *Your standing* and *My badges* are shown on the Achievements page (`MyStandingCard`).
+- **Accounts**: passwords need 6+ characters with upper, lower, number and symbol (`utils/people.ts` `PASSWORD_RULES`, mirrored in `api/users.ts`). `POST /api/users?action=create` (admin) makes an approved account with `mustChangePassword: true`; `action=reset` (admin) sets a new temporary password; `action=password` clears the flag. `ProtectedRoute` sends flagged accounts to `/change-password`. `connections` and `savedEventIds` are profile fields the owner can edit.
+- **Tasks & pubmats** (`api/tasks.ts`): tasks carry `committee`, `subcommittee` and a deadline; `kind: 'pubmat'` items carry a `pubmat` object (designee / caption writer / poster ids, stage, post date, http(s) file link, notes) and appear in the Marketing **Content Tracker**. `assigneeIds` is everyone on the pubmat so the Officer Dashboard, notifications and the daily due reminders work unchanged.
+- **Events**: `eventService` applies `liveStatus()` (`utils/eventStatus.ts`) so ended events are *accomplished* (Past) and running ones *ongoing*, regardless of the stored status. `GET /api/seed` lists built-in club events missing from DynamoDB; `POST /api/seed` (admin) adds only those.
+- **Leaderboard** (`utils/leaderboard.ts`, `utils/badges.ts`, data from `useBoardData`): two boards ranked by achievement points, listing everyone with an approved account (0 points included; admins excluded). *Attendees* (all non-admins, so officers appear too): 10 per approved stamp (one per person and session), +5 for workshops (session `type: 'workshop'`), 15 per check-in, 20 per badge. *Officers*: 5 per stamp approved (`approvedBy`), 5 per check-in done (`checkedInBy`), 20 per completed task, 25 per event volunteered (`officerIds`). Equal points share a rank. With an event filter only that event counts and badge points are left out; badges are always computed from all events. The leaderboard is admin-only; attendees and officers see their own stats and badges on the Achievements page (`MyStandingCard`).
 
 ---
 
@@ -248,6 +253,11 @@ erDiagram
         string email
         string role
         string status
+        string signupType
+        boolean mustChangePassword
+        string subcommittee
+        list connections
+        list savedEventIds
         string memberType
         string studentId
         string organization
@@ -260,6 +270,11 @@ erDiagram
         string title
         string eventId FK
         string status
+        string dueAt
+        string committee
+        string subcommittee
+        string kind
+        map pubmat
     }
 
     Registration {
@@ -303,8 +318,9 @@ erDiagram
 | Role | Permissions |
 | :--- | :--- |
 | **public (signed out)** | Welcome, sign-in, sign-up, and **certificate verification** (`/verify/:id`). |
+| **any signed-in account with a temporary password** | Only **Set your own password** (`/change-password`) until it's changed. |
 | **`attendee`** | View schedule, request stamps, edit personal bio/socials, view own stamp card, show the QR event pass, add events to a calendar, download own certificate after check-in, read own notifications, view the **leaderboard** and own badges. |
-| **`officer`** | All attendee privileges + `OfficerDashboardPage`: see and complete assigned tasks, approve/decline stamp requests, and check attendees in and **approve stamps** with the **Check-in Scanner** (`/officer/scan`). |
+| **`officer`** | All attendee privileges + `OfficerDashboardPage`: see and complete assigned tasks, approve/decline stamp requests, and check attendees in and **approve stamps** with the **Check-in Scanner** (`/officer/scan`), update their **Content Tracker** items (status, file link, notes). |
 | **`admin`** | All officer privileges + approve/decline sign-ups (optional reason), change roles and delete accounts (`/admin`), monitor attendees and stamp finishers with Excel export (`/admin/attendees`), officer achievements, archive batches (`/admin/officers`), assign officer tasks (`/admin/tasks`), edit events and assign officers, send reminders. |
 
 The built-in admin is `awsapc.admin` (password from `ADMIN_PASSWORD`). There are no demo accounts. Admin actions — and check-ins (`/api/registrations?action=checkin`, officer or admin) — are checked on the server against the acting account's role; the app does not yet use signed sessions (see ADR-008). A certificate can only be downloaded by its owner or by an officer/admin.

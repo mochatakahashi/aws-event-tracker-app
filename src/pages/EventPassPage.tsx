@@ -180,7 +180,7 @@ export default function EventPassPage() {
       )}
 
       {reg && event && (
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 420px) 1fr' }, gap: 3, alignItems: 'start' }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'minmax(0, 420px) 1fr' }, gap: 3, alignItems: 'start' }}>
           {/* The pass */}
           <Paper
             elevation={0}

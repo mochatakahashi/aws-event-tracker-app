@@ -20,6 +20,9 @@ export type OfficerPosition =
 
 export type Committee = 'secretariat' | 'operations' | 'marketing' | 'technicals' | 'relations';
 
+/** Sub-committees: Marketing → Creatives, Media; Secretariat → Finance, Documents. */
+export type Subcommittee = 'creatives' | 'media' | 'finance' | 'documents';
+
 /** One school-year term as an officer, kept when a batch is archived. */
 export interface OfficerTerm {
   /** e.g. "2025–2026" */
@@ -63,6 +66,18 @@ export interface User {
   officerPosition?: OfficerPosition | null;
   /** Committee for directors, assistant directors and associates. */
   committee?: Committee | null;
+  /** Sub-committee within Marketing or Secretariat. */
+  subcommittee?: Subcommittee | null;
+  /** What the person picked when the account was created (kept for admins). */
+  signupType?: AccountType;
+  /** Person id of the admin who created the account (admin-created accounts only). */
+  createdBy?: string;
+  /** Admin-created accounts start with a temporary password that must be changed. */
+  mustChangePassword?: boolean;
+  /** Person ids this person added on the Connect page. */
+  connections?: string[];
+  /** Event ids saved with the bookmark icon. */
+  savedEventIds?: string[];
   /** Past officer terms (archived batches). */
   officerHistory?: OfficerTerm[];
   /** Optional reason given by the admin when declining a sign-up. */
@@ -97,11 +112,20 @@ export interface SignUpData {
   organization?: string;
   officerPosition?: OfficerPosition;
   committee?: Committee;
+  subcommittee?: Subcommittee;
+}
+
+/** Account an admin creates directly (approved, with a temporary password). */
+export interface AdminCreateAccount extends SignUpData {
+  role: UserRole;
 }
 
 /** Fields a user (or an admin) can change on a profile. */
 export type ProfileChanges = Partial<
-  Pick<User, 'avatarUrl' | 'bio' | 'socials' | 'personalEmail' | 'officerPosition' | 'committee'>
+  Pick<
+    User,
+    'avatarUrl' | 'bio' | 'socials' | 'personalEmail' | 'officerPosition' | 'committee' | 'subcommittee' | 'connections' | 'savedEventIds'
+  >
 >;
 
 /** Fields only an admin can change. */

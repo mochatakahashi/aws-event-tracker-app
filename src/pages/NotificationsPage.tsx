@@ -37,6 +37,7 @@ import {
 } from '../services/notificationService';
 import type { AppNotification, NotificationKind } from '../types/notification';
 import type { AppEvent } from '../types/event';
+import { timeAgo } from '../utils/time';
 
 const KIND: Record<NotificationKind, { icon: ReactNode; color: string }> = {
   'account-approved': { icon: <HowToRegIcon />, color: brand.success },
@@ -49,18 +50,6 @@ const KIND: Record<NotificationKind, { icon: ReactNode; color: string }> = {
   'checked-in': { icon: <VerifiedIcon />, color: brand.success },
   announcement: { icon: <CampaignIcon />, color: brand.primary },
 };
-
-/** "5 min ago", "3 h ago", "Oct 12". */
-export function timeAgo(iso: string, now = Date.now()): string {
-  const mins = Math.round((now - new Date(iso).getTime()) / 60000);
-  if (mins < 1) return 'Just now';
-  if (mins < 60) return `${mins} min ago`;
-  const hours = Math.round(mins / 60);
-  if (hours < 24) return `${hours} h ago`;
-  const days = Math.round(hours / 24);
-  if (days < 7) return `${days} day${days === 1 ? '' : 's'} ago`;
-  return new Date(iso).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', timeZone: 'Asia/Manila' });
-}
 
 /** Events the person registered for that are live now or start within 24 hours. */
 function liveOrSoon(events: AppEvent[], myEventIds: Set<string>) {

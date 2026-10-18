@@ -13,6 +13,10 @@ import { getStamps, getSessions, approveStamp, declineStamp } from '../services/
 import { getPeople } from '../services/registrationService';
 import { notifyInApp } from '../services/notificationService';
 import { getTasksForOfficer, updateTask } from '../services/taskService';
+import { getUsers } from '../services/authService';
+import ContentTracker from '../components/ContentTracker';
+import type { User } from '../types/auth';
+import { COMMITTEE_LABELS, SUBCOMMITTEE_LABELS } from '../utils/people';
 import { getEvents } from '../services/eventService';
 import Chip from '@mui/material/Chip';
 import Alert from '@mui/material/Alert';
@@ -22,7 +26,6 @@ import { alpha } from '@mui/material/styles';
 import { brand } from '../theme/theme';
 import { TASK_STATUS_LABELS, type OfficerTask, type TaskStatus } from '../types/task';
 import type { AppEvent } from '../types/event';
-import { formatDate } from '../components/AdminUi';
 import { officerTitle } from '../utils/people';
 import { useAuth } from '../context/AuthContext';
 import type { Stamp, Session } from '../types/session';
@@ -39,6 +42,7 @@ export default function OfficerDashboardPage() {
   const [tasks, setTasks] = useState<OfficerTask[]>([]);
   const [events, setEvents] = useState<AppEvent[]>([]);
   const [error, setError] = useState('');
+  const [officerUsers, setOfficerUsers] = useState<User[]>([]);
 
   useEffect(() => {
     if (user?.role !== 'admin' && user?.role !== 'officer') {
@@ -52,8 +56,10 @@ export default function OfficerDashboardPage() {
       getPeople(),
       user?.personId ? getTasksForOfficer(user.personId) : Promise.resolve([]),
       getEvents(),
+      getUsers().catch(() => [] as User[]),
     ])
-      .then(([stmps, sess, ppl, myTasks, evts]) => {
+      .then(([stmps, sess, ppl, myTasks, evts, users]) => {
+        setOfficerUsers(users.filter((u) => u.role === 'officer' || u.role === 'admin'));
         setPendingStamps(stmps.filter(s => s.status === 'pending'));
         setSessions(sess);
         setPeople(ppl);
@@ -115,6 +121,9 @@ export default function OfficerDashboardPage() {
     }
   }
 
+  const plainTasks = tasks.filter(t => t.kind !== 'pubmat');
+  const myPubmats = tasks.filter(t => t.kind === 'pubmat');
+
   if (loading) return <Box sx={{ p: 4, textAlign: 'center' }}><CircularProgress /></Box>;
 
   return (
@@ -154,23 +163,36 @@ export default function OfficerDashboardPage() {
         </Alert>
       )}
 
+      {myPubmats.length > 0 && user && (
+        <Box sx={{ mb: 4 }}>
+          <ContentTracker
+            items={myPubmats}
+            officers={officerUsers}
+            events={events}
+            me={user}
+            isAdmin={false}
+            onChange={(next) => setTasks([...plainTasks, ...next])}
+          />
+        </Box>
+      )}
+
       {/* Laptop: tasks and stamp requests side by side */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, gap: { xs: 0, lg: 4 }, alignItems: 'start' }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'repeat(2, minmax(0, 1fr))' }, gap: { xs: 0, lg: 4 }, alignItems: 'start' }}>
       <Box>
       {/* Tasks assigned by an admin */}
       <Typography variant="h3" sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
         <AssignmentIcon sx={{ color: brand.primary }} /> My Tasks
-        {tasks.filter(t => t.status !== 'done').length > 0 && (
-          <Chip size="small" color="warning" label={`${tasks.filter(t => t.status !== 'done').length} open`} />
+        {plainTasks.filter(t => t.status !== 'done').length > 0 && (
+          <Chip size="small" color="warning" label={`${plainTasks.filter(t => t.status !== 'done').length} open`} />
         )}
       </Typography>
-      {tasks.length === 0 ? (
+      {plainTasks.length === 0 ? (
         <Typography color="text.secondary" sx={{ mb: 4 }}>
           No tasks assigned to you yet.
         </Typography>
       ) : (
         <Stack spacing={1.5} sx={{ mb: 4 }}>
-          {[...tasks]
+          {[...plainTasks]
             .sort((a, b) => Number(a.status === 'done') - Number(b.status === 'done'))
             .map(task => {
               const event = events.find(e => e.id === task.eventId);
@@ -203,8 +225,23 @@ export default function OfficerDashboardPage() {
                       </Typography>
                     )}
                     <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
+                      {task.committee && (
+                        <Chip
+                          size="small"
+                          color="primary"
+                          variant="outlined"
+                          label={`${COMMITTEE_LABELS[task.committee]}${task.subcommittee ? ` · ${SUBCOMMITTEE_LABELS[task.subcommittee]}` : ''}`}
+                        />
+                      )}
                       {event && <Chip size="small" variant="outlined" label={event.title} />}
-                      {task.dueAt && <Chip size="small" variant="outlined" label={`Due ${formatDate(task.dueAt)}`} />}
+                      {task.dueAt && (
+                        <Chip
+                          size="small"
+                          variant="outlined"
+                          color={task.status !== 'done' && new Date(task.dueAt) < new Date() ? 'error' : 'default'}
+                          label={`Deadline ${new Date(task.dueAt).toLocaleString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`}
+                        />
+                      )}
                       {task.assigneeIds.length > 1 && (
                         <Chip
                           size="small"

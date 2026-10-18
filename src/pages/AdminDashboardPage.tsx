@@ -19,7 +19,10 @@ import SearchIcon from '@mui/icons-material/Search';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
 import { alpha } from '@mui/material/styles';
-import { approveUser, deleteUser, getUsers, rejectUser, updateUser } from '../services/authService';
+import { approveUser, deleteUser, getUsers, rejectUser, resetPassword, updateUser } from '../services/authService';
+import AddAccountPanel from '../components/AddAccountPanel';
+import PersonAddAlt1RoundedIcon from '@mui/icons-material/PersonAddAlt1Rounded';
+import LockResetIcon from '@mui/icons-material/LockReset';
 import { notifyQuietly } from '../services/notifyService';
 import { notifyInApp } from '../services/notificationService';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
@@ -31,7 +34,14 @@ import { brand } from '../theme/theme';
 import type { User, UserRole } from '../types/auth';
 import type { Stamp } from '../types/session';
 import { AdminHeader, EmptyNote, StatRow, StatTile, formatDateTime } from '../components/AdminUi';
-import { affiliation, memberLabel, officerTitle } from '../utils/people';
+import { ACCOUNT_TYPE_LABELS, affiliation, generateTempPassword, memberLabel, officerTitle } from '../utils/people';
+
+/** What the person picked on the sign-up form, e.g. "Officer — Director — Marketing (Creatives)". */
+function signedUpAs(u: User): string {
+  const type = u.signupType ?? (u.requestedRole === 'officer' || u.officerPosition ? 'officer' : u.memberType === 'outside' ? 'outside' : 'apc-student');
+  const base = ACCOUNT_TYPE_LABELS[type];
+  return type === 'officer' && u.officerPosition ? `${base} — ${officerTitle(u)}` : base;
+}
 
 type Filter = 'all' | 'admin' | 'officer' | 'attendee' | 'rejected';
 
@@ -81,6 +91,8 @@ export default function AdminDashboardPage() {
   const [decliningId, setDecliningId] = useState<string | null>(null);
   const [declineReason, setDeclineReason] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [resetFor, setResetFor] = useState<{ id: string; password: string; done?: boolean } | null>(null);
 
   useEffect(() => {
     if (user?.role !== 'admin') {
@@ -178,7 +190,25 @@ export default function AdminDashboardPage() {
 
   return (
     <Box>
-      <AdminHeader title="Manage Accounts" subtitle="Approve new sign-ups and manage everyone's role." />
+      <AdminHeader
+        title="Manage Accounts"
+        subtitle="Approve new sign-ups, add accounts and manage everyone's role."
+        actions={
+          !showAdd && (
+            <Button variant="contained" startIcon={<PersonAddAlt1RoundedIcon />} onClick={() => setShowAdd(true)}>
+              Add account
+            </Button>
+          )
+        }
+      />
+
+      {showAdd && user && (
+        <AddAccountPanel
+          actorId={user.personId}
+          onCreated={(created) => setUsers((prev) => [...prev.filter((u) => u.personId !== created.personId), created])}
+          onClose={() => setShowAdd(false)}
+        />
+      )}
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
@@ -212,7 +242,7 @@ export default function AdminDashboardPage() {
           <EmptyNote>No sign-ups are waiting. New accounts show up here until you approve them.</EmptyNote>
         </Box>
       ) : (
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, gap: 1.5, alignItems: 'start', mb: 4 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'repeat(2, minmax(0, 1fr))' }, gap: 1.5, alignItems: 'start', mb: 4 }}>
           {pending.map((u) => (
             <Card key={u.personId} variant="outlined" sx={{ borderColor: alpha(brand.warning, 0.6) }}>
               <CardContent>
@@ -228,6 +258,7 @@ export default function AdminDashboardPage() {
                       <Chip size="small" label={memberLabel(u)} color={u.requestedRole === 'officer' ? 'primary' : 'default'} />
                       {u.requestedRole === 'officer' && <Chip size="small" variant="outlined" label={officerTitle(u)} />}
                     </Stack>
+                    <DetailLine label="Signed up as" value={signedUpAs(u)} />
                     <DetailLine label="Email" value={u.email || u.username} />
                     <DetailLine label="Personal email" value={u.personalEmail} />
                     <DetailLine label="Student ID" value={u.memberType !== 'outside' ? u.studentId : undefined} />
@@ -344,7 +375,7 @@ export default function AdminDashboardPage() {
       {visible.length === 0 ? (
         <EmptyNote>No accounts match.</EmptyNote>
       ) : (
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, gap: 1.5, alignItems: 'start' }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'repeat(2, minmax(0, 1fr))' }, gap: 1.5, alignItems: 'start' }}>
           {visible.map((u) => {
             const stampCount = stamps.filter((s) => s.attendeeId === u.personId && s.status === 'approved').length;
             return (
@@ -375,6 +406,50 @@ export default function AdminDashboardPage() {
                         />
                       )}
                     </Stack>
+                    {(u.role !== 'admin' || u.signupType) && (
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                        {u.createdBy ? 'Added by an admin as ' : 'Signed up as '}
+                        {signedUpAs(u)}
+                      </Typography>
+                    )}
+                    {u.mustChangePassword && (
+                      <Chip size="small" color="warning" variant="outlined" label="Temp password not changed yet" sx={{ mt: 0.5 }} />
+                    )}
+                    {resetFor?.id === u.personId && (
+                      <Box sx={{ mt: 1, p: 1.25, borderRadius: 2, bgcolor: alpha(brand.primary, 0.05) }}>
+                        {resetFor.done ? (
+                          <Typography variant="body2">
+                            New temporary password: <Box component="code" sx={{ fontWeight: 700, userSelect: 'all' }}>{resetFor.password}</Box>
+                            <br />
+                            Share it with {u.firstName || u.name}; they'll be asked to change it at sign-in.
+                          </Typography>
+                        ) : (
+                          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }}>
+                            <Typography variant="body2">
+                              Set a temporary password <Box component="code" sx={{ fontWeight: 700 }}>{resetFor.password}</Box>?
+                            </Typography>
+                            <Stack direction="row" spacing={1}>
+                              <Button size="small" onClick={() => setResetFor(null)}>Cancel</Button>
+                              <Button
+                                size="small"
+                                variant="contained"
+                                disabled={busyId === u.personId}
+                                onClick={() =>
+                                  user &&
+                                  run(u.personId, async () => {
+                                    const updated = await resetPassword(u.personId, resetFor.password, user.personId);
+                                    setResetFor({ ...resetFor, done: true });
+                                    return updated;
+                                  })
+                                }
+                              >
+                                Reset password
+                              </Button>
+                            </Stack>
+                          </Stack>
+                        )}
+                      </Box>
+                    )}
                     {u.status === 'rejected' && (
                       <Typography variant="caption" color="error" sx={{ display: 'block', mt: 0.5 }}>
                         Declined{u.rejectionReason ? `: ${u.rejectionReason}` : ''}
@@ -426,11 +501,22 @@ export default function AdminDashboardPage() {
                         </Button>
                       </Stack>
                     ) : (
+                      <>
+                      <Tooltip title="Reset password">
+                        <IconButton
+                          size="small"
+                          aria-label={`Reset password for ${u.name}`}
+                          onClick={() => setResetFor({ id: u.personId, password: generateTempPassword() })}
+                        >
+                          <LockResetIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
                       <Tooltip title="Delete account">
                         <IconButton size="small" aria-label={`Delete ${u.name}`} onClick={() => setConfirmDeleteId(u.personId)}>
                           <DeleteOutlineIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
+                      </>
                     ))}
                 </CardContent>
               </Card>

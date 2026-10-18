@@ -1,11 +1,12 @@
 import type {
+  AdminCreateAccount,
   AdminUserChanges,
   Credentials,
   ProfileChanges,
   SignUpData,
   User,
 } from '../types/auth';
-import { formatFullName, validateSignUp } from '../utils/people';
+import { formatFullName, passwordError, positionNeedsCommittee, subcommitteesOf, validateSignUp } from '../utils/people';
 import { apiJson, delay, generateId, isRemoteAvailable, localCollection } from './apiClient';
 
 /**
@@ -186,9 +187,64 @@ export function buildUserFromSignUp(data: SignUpData): Omit<User, 'personId'> {
     studentId: isOutside ? undefined : data.studentId?.trim(),
     organization: isOutside ? data.organization?.trim() : undefined,
     officerPosition: isOfficer ? data.officerPosition : undefined,
-    committee: isOfficer ? data.committee : undefined,
+    committee: isOfficer && positionNeedsCommittee(data.officerPosition) ? data.committee : undefined,
+    subcommittee:
+      isOfficer && data.subcommittee && subcommitteesOf(data.committee).includes(data.subcommittee)
+        ? data.subcommittee
+        : undefined,
+    signupType: data.accountType,
     createdAt: new Date().toISOString(),
   };
+}
+
+/**
+ * Admin creates an approved account with a temporary password. The person
+ * must change it the first time they sign in.
+ */
+export async function createAccount(account: AdminCreateAccount, actorId: string): Promise<User> {
+  const invalid = validateSignUp(account);
+  if (invalid) throw new Error(invalid);
+  if (await isRemoteAvailable(API)) {
+    return apiJson<User>(`${API}?action=create`, { method: 'POST', body: JSON.stringify({ actorId, account }) });
+  }
+  const users = loadLocalUsers();
+  if (users.find((u) => u.personId === actorId)?.role !== 'admin') throw new Error('Only an admin can create accounts.');
+  const email = account.email.trim().toLowerCase();
+  const existing = users.find((u) => matchesLogin(u, email));
+  if (existing && existing.status !== 'rejected') throw new Error('An account with this email already exists.');
+  const role = account.role || (account.accountType === 'officer' ? 'officer' : 'attendee');
+  const user: LocalUser = {
+    ...buildUserFromSignUp(account),
+    personId: existing?.personId ?? generateId('per'),
+    password: account.password,
+    role,
+    requestedRole: null,
+    status: 'approved',
+    approvedAt: new Date().toISOString(),
+    approvedBy: actorId,
+    mustChangePassword: true,
+  };
+  local.save([...users.filter((u) => u !== existing), user]);
+  return delay(strip(user));
+}
+
+/** Admin sets a temporary password (e.g. someone forgot theirs). They must change it at sign-in. */
+export async function resetPassword(personId: string, newPassword: string, actorId: string): Promise<User> {
+  const pwError = passwordError(newPassword);
+  if (pwError) throw new Error(pwError);
+  if (await isRemoteAvailable(API)) {
+    return apiJson<User>(`${API}?action=reset`, {
+      method: 'POST',
+      body: JSON.stringify({ actorId, id: personId, newPassword }),
+    });
+  }
+  const users = loadLocalUsers();
+  if (users.find((u) => u.personId === actorId)?.role !== 'admin') throw new Error('Only an admin can reset passwords.');
+  const idx = users.findIndex((u) => u.personId === personId);
+  if (idx === -1) throw new Error('User not found');
+  users[idx] = { ...users[idx], password: newPassword, mustChangePassword: true };
+  local.save(users);
+  return delay(strip(users[idx]));
 }
 
 /** All accounts (any status), without passwords. */
@@ -337,7 +393,9 @@ export async function changePassword(
   currentPassword: string,
   newPassword: string,
 ): Promise<void> {
-  if (newPassword.length < 6) throw new Error('New password must be at least 6 characters.');
+  const pwError = passwordError(newPassword);
+  if (pwError) throw new Error(pwError);
+  if (newPassword === currentPassword) throw new Error('Your new password must be different from the current one.');
   if (await isRemoteAvailable(API)) {
     await apiJson(`${API}?action=password`, {
       method: 'POST',
@@ -350,7 +408,7 @@ export async function changePassword(
   if (idx === -1 || users[idx].password !== currentPassword) {
     throw new Error('Your current password is incorrect.');
   }
-  users[idx] = { ...users[idx], password: newPassword };
+  users[idx] = { ...users[idx], password: newPassword, mustChangePassword: false };
   local.save(users);
   await delay(null);
 }

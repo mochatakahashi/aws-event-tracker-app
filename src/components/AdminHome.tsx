@@ -12,6 +12,9 @@ import HowToRegIcon from '@mui/icons-material/HowToReg';
 import MilitaryTechIcon from '@mui/icons-material/MilitaryTech';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import QrCodeScannerRoundedIcon from '@mui/icons-material/QrCodeScannerRounded';
+import LeaderboardRoundedIcon from '@mui/icons-material/LeaderboardRounded';
+import Alert from '@mui/material/Alert';
+import { getMissingClubEvents, importClubEvents } from '../services/eventService';
 import { alpha } from '@mui/material/styles';
 import { brand } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
@@ -39,6 +42,22 @@ export default function AdminHome() {
   const [openTasks, setOpenTasks] = useState(0);
   const [reminderNote, setReminderNote] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [missingEvents, setMissingEvents] = useState<{ id: string; title: string }[]>([]);
+  const [importNote, setImportNote] = useState('');
+  const [importing, setImporting] = useState(false);
+
+  async function importEvents() {
+    if (!user) return;
+    setImporting(true);
+    try {
+      setImportNote(await importClubEvents(user.personId));
+      setMissingEvents([]);
+    } catch (e) {
+      setImportNote(e instanceof Error ? e.message : 'Could not import the events.');
+    } finally {
+      setImporting(false);
+    }
+  }
 
   async function sendReminders() {
     if (!user) return;
@@ -55,6 +74,7 @@ export default function AdminHome() {
     getTasks()
       .then((tasks) => setOpenTasks(tasks.filter((t) => t.status !== 'done').length))
       .catch(() => undefined);
+    getMissingClubEvents().then(setMissingEvents).catch(() => undefined);
   }, []);
 
   const items: Item[] = [
@@ -93,6 +113,12 @@ export default function AdminHome() {
       badgeLabel: 'open',
     },
     {
+      title: 'Leaderboard',
+      description: 'Rankings and progress of all attendees and officers',
+      to: '/leaderboard',
+      icon: <LeaderboardRoundedIcon sx={{ fontSize: 28 }} />,
+    },
+    {
       title: 'Check-in Scanner',
       description: 'Scan QR passes at the door; certificates are issued on check-in',
       to: '/officer/scan',
@@ -108,6 +134,25 @@ export default function AdminHome() {
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
         Admin dashboard
       </Typography>
+      {missingEvents.length > 0 && (
+        <Alert
+          severity="info"
+          sx={{ mb: 2 }}
+          action={
+            <Button color="inherit" size="small" onClick={importEvents} disabled={importing}>
+              {importing ? 'Adding…' : 'Add them'}
+            </Button>
+          }
+        >
+          {missingEvents.length} club event{missingEvents.length === 1 ? '' : 's'} (e.g. {missingEvents[0].title}) aren't in the
+          live database yet, so they don't show under Events.
+        </Alert>
+      )}
+      {importNote && (
+        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setImportNote('')}>
+          {importNote}
+        </Alert>
+      )}
       <Grid container spacing={2}>
         {items.map((item) => (
           <Grid key={item.to} size={{ xs: 12, sm: 6 }}>

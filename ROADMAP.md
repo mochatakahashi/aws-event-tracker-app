@@ -85,6 +85,15 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 
 ---
 
+### ✅ Version 0.6.7 — Accounts, Committees, Content Tracker, Connect & Dashboard
+- [x] **Password rules** (capital, small letter, number, symbol, 6+), **admin-created accounts with temporary passwords**, forced first change, admin password reset.
+- [x] **Sub-committees** (Marketing: Creatives, Media · Secretariat: Finance, Documents) and **"Signed up as"** for admins.
+- [x] **Committee task board** with deadlines and the **Marketing Content Tracker** (designee, caption writer, poster, status, post date, file link) + caption guidelines.
+- [x] **Connect**: profile QR, in-app scanner, profile summaries, connections with achievements.
+- [x] **Live dashboard**, pass on the event page, **saved events**, date-based Past events, admin-only leaderboard.
+
+---
+
 ## 🔮 Upcoming Milestones & Next Steps
 
 ### 🚧 Version 0.6.5 — On-site Extras & Email Notification Delivery
@@ -143,7 +152,11 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 | Offline PWA Support | v0.6.5 | ⏳ Planned | Medium |
 | Real-Time Stamp Notifications | v0.7.0 | ⏳ Planned | High |
 | AWS Cognito Authentication | v0.7.0 | ⏳ Planned | High |
-| Builder Leaderboard & Badges | v0.6.5 | ✅ Completed | Medium |
+| Builder Leaderboard & Badges | v0.6.5 | ✅ Completed (admin-only since v0.6.7) | Medium |
+| Password Rules, Admin-created Accounts, Temp Passwords | v0.6.7 | ✅ Completed | High |
+| Committee Task Board & Marketing Content Tracker | v0.6.7 | ✅ Completed | High |
+| Connect: Profile QR, Scanner, Connections | v0.6.7 | ✅ Completed | Medium |
+| Live Dashboard & Saved Events | v0.6.7 | ✅ Completed | Medium |
 | Certificate of Completion (100% stamps) | v1.0.0 | ⏳ Planned | Low |
 
 ---

@@ -49,6 +49,7 @@ export interface OfficerRow {
   stampsApproved: number;
   checkInsDone: number;
   tasksDone: number;
+  tasksAssigned: number;
   eventsVolunteered: number;
   rank: number;
 }
@@ -117,9 +118,9 @@ export function officerBoard(d: BoardData, eventId?: string): OfficerRow[] {
       const checkInsDone = d.registrations.filter(
         (r) => r.checkedIn && r.checkedInBy === p.id && (!eventId || r.eventId === eventId),
       ).length;
-      const tasksDone = d.tasks.filter(
-        (t) => t.status === 'done' && t.assigneeIds.includes(p.id) && (!eventId || t.eventId === eventId),
-      ).length;
+      const mine = d.tasks.filter((t) => t.assigneeIds.includes(p.id) && (!eventId || t.eventId === eventId));
+      const tasksDone = mine.filter((t) => t.status === 'done').length;
+      const tasksAssigned = mine.length;
       const eventsVolunteered = d.events.filter(
         (e) => (e.officerIds || []).includes(p.id) && (!eventId || e.id === eventId),
       ).length;
@@ -128,7 +129,7 @@ export function officerBoard(d: BoardData, eventId?: string): OfficerRow[] {
         checkInsDone * OFFICER_POINTS.checkInDone +
         tasksDone * OFFICER_POINTS.taskDone +
         eventsVolunteered * OFFICER_POINTS.eventVolunteered;
-      return { personId: p.id, points, stampsApproved, checkInsDone, tasksDone, eventsVolunteered, rank: 0 };
+      return { personId: p.id, points, stampsApproved, checkInsDone, tasksDone, tasksAssigned, eventsVolunteered, rank: 0 };
     });
   return rankRows(rows, peopleById);
 }

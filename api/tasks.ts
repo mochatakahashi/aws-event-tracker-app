@@ -70,7 +70,42 @@ function clean(item: any) {
 }
 
 const STATUSES = ['todo', 'in-progress', 'done'];
-const EDITABLE = ['title', 'description', 'eventId', 'assigneeIds', 'status', 'dueAt', 'updatedAt', 'completedAt', 'completedBy'];
+const EDITABLE = [
+  'title',
+  'description',
+  'eventId',
+  'assigneeIds',
+  'status',
+  'dueAt',
+  'updatedAt',
+  'completedAt',
+  'completedBy',
+  'committee',
+  'subcommittee',
+  'pubmat',
+];
+const COMMITTEES = ['secretariat', 'operations', 'marketing', 'technicals', 'relations'];
+const SUBCOMMITTEES: Record<string, string[]> = { marketing: ['creatives', 'media'], secretariat: ['finance', 'documents'] };
+const STAGES = ['not-started', 'in-progress', 'for-review', 'approved', 'posted'];
+
+const ids = (v: unknown) => (Array.isArray(v) ? [...new Set(v.filter((x) => typeof x === 'string'))].slice(0, 50) : []);
+const text = (v: unknown, max: number) => (v === undefined || v === null || v === '' ? undefined : String(v).slice(0, max));
+
+/** Clean a pubmat object from the request. */
+function cleanPubmat(p: any) {
+  if (!p || typeof p !== 'object') return undefined;
+  const link = text(p.fileLink, 1000);
+  return {
+    details: text(p.details, 2000),
+    designeeIds: ids(p.designeeIds),
+    captionWriterIds: ids(p.captionWriterIds),
+    posterIds: ids(p.posterIds),
+    stage: STAGES.includes(p.stage) ? p.stage : 'not-started',
+    postDate: text(p.postDate, 40),
+    fileLink: link && /^https?:\/\//i.test(link) ? link : undefined,
+    notes: text(p.notes, 2000),
+  };
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -95,18 +130,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'POST') {
       const body = req.body || {};
       if (!String(body.title || '').trim()) return res.status(400).json({ error: 'Task title is required' });
-      if (!Array.isArray(body.assigneeIds) || body.assigneeIds.length === 0) {
+      const isPubmat = body.kind === 'pubmat';
+      if (!isPubmat && (!Array.isArray(body.assigneeIds) || body.assigneeIds.length === 0)) {
         return res.status(400).json({ error: 'Assign at least one officer' });
       }
+      const committee = COMMITTEES.includes(body.committee) ? body.committee : isPubmat ? 'marketing' : undefined;
       const item = {
         id: `tsk-${Date.now()}-${Math.floor(Math.random() * 100000)}`,
         entityType: 'task',
         title: String(body.title).trim(),
         description: body.description ? String(body.description) : undefined,
         eventId: body.eventId || undefined,
-        assigneeIds: body.assigneeIds.map(String),
+        assigneeIds: ids(body.assigneeIds),
         status: STATUSES.includes(body.status) ? body.status : 'todo',
         dueAt: body.dueAt || undefined,
+        committee,
+        subcommittee: committee && (SUBCOMMITTEES[committee] || []).includes(body.subcommittee) ? body.subcommittee : undefined,
+        kind: isPubmat ? 'pubmat' : 'task',
+        pubmat: isPubmat ? cleanPubmat(body.pubmat) : undefined,
         createdBy: body.createdBy,
         createdAt: new Date().toISOString(),
       };
@@ -125,6 +166,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       const updates: Record<string, any> = {};
       for (const key of EDITABLE) if (key in body) updates[key] = body[key];
+      if ('pubmat' in updates) updates.pubmat = cleanPubmat(updates.pubmat);
+      if ('assigneeIds' in updates) updates.assigneeIds = ids(updates.assigneeIds);
       const merged = { ...result.Item, ...updates, id, entityType: 'task' };
       await client.send(new PutCommand({ TableName: tableName, Item: merged }));
       return res.status(200).json(clean(merged));

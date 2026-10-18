@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
@@ -14,6 +14,7 @@ import Tab from '@mui/material/Tab';
 import Collapse from '@mui/material/Collapse';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
+import LinearProgress from '@mui/material/LinearProgress';
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { alpha } from '@mui/material/styles';
@@ -38,6 +39,9 @@ interface Row {
   /** Small stats shown under the name, e.g. "3 stamps · 1 check-in". */
   stats: string[];
   badges?: BadgeId[];
+  /** 0–1 progress bar (passport completion for one event, or tasks done). */
+  progress?: number;
+  progressLabel?: string;
 }
 
 const initials = (name = '?') =>
@@ -75,6 +79,11 @@ export default function LeaderboardPage() {
   const [showRules, setShowRules] = useState(false);
   const board: Board = params.get('board') === 'officers' ? 'officers' : 'attendees';
 
+  // Admin-only: a monitoring view
+  useEffect(() => {
+    if (user && user.role !== 'admin') navigate('/achievements', { replace: true });
+  }, [user, navigate]);
+
   const events = useMemo(() => (data?.events ?? []).filter((e) => e.status !== 'cancelled'), [data]);
   const peopleById = useMemo(() => new Map((data?.people ?? []).map((p) => [p.id, p])), [data]);
   const scope = eventId === 'all' ? undefined : eventId;
@@ -89,17 +98,26 @@ export default function LeaderboardPage() {
         stats: [
           plural(r.stampsApproved, 'stamp') + ' approved',
           plural(r.checkInsDone, 'check-in'),
-          plural(r.tasksDone, 'task') + ' done',
+          `${r.tasksDone}/${r.tasksAssigned} tasks done`,
           plural(r.eventsVolunteered, 'event'),
         ],
+        progress: r.tasksAssigned ? r.tasksDone / r.tasksAssigned : undefined,
+        progressLabel: r.tasksAssigned ? 'Tasks done' : undefined,
       }));
     }
+    const stampSessions = scope ? data.sessions.filter((s) => s.eventId === scope && s.requiresStamp).length : 0;
     return attendeeBoard(data, scope).map((r) => ({
       personId: r.personId,
       points: r.points,
       rank: r.rank,
-      stats: [plural(r.stamps, 'stamp'), plural(r.workshops, 'workshop'), plural(r.checkIns, 'check-in')],
+      stats: [
+        stampSessions ? `${r.stamps}/${stampSessions} stamps` : plural(r.stamps, 'stamp'),
+        plural(r.workshops, 'workshop'),
+        plural(r.checkIns, 'check-in'),
+      ],
       badges: r.badges,
+      progress: stampSessions ? Math.min(1, r.stamps / stampSessions) : undefined,
+      progressLabel: stampSessions ? 'Passport' : undefined,
     }));
   }, [data, board, scope]);
 
@@ -125,7 +143,7 @@ export default function LeaderboardPage() {
             <EmojiEventsRoundedIcon sx={{ color: '#F5B301', fontSize: 34 }} /> Builder Leaderboard
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Who's the most active — ranked by achievement points.
+            Monitor who's most active — rankings and progress of all attendees and officers.
           </Typography>
         </Box>
         <TextField
@@ -219,7 +237,7 @@ export default function LeaderboardPage() {
         <>
           {/* Podium (only people who have points) */}
           {podium.length > 0 && (
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, minmax(0, 1fr))' }, gap: 1.5, mb: 3 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'repeat(3, minmax(0, 1fr))' }, gap: 1.5, mb: 3 }}>
               {podium.map((r) => {
                 const p = peopleById.get(r.personId);
                 const place = Math.min(r.rank, 3) - 1;
@@ -309,6 +327,17 @@ export default function LeaderboardPage() {
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }} noWrap>
                       {[subtitle(p), ...r.stats].filter(Boolean).join(' · ')}
                     </Typography>
+                    {r.progress !== undefined && (
+                      <Tooltip title={`${r.progressLabel}: ${Math.round(r.progress * 100)}%`}>
+                        <LinearProgress
+                          variant="determinate"
+                          value={r.progress * 100}
+                          color={r.progress >= 1 ? 'success' : 'primary'}
+                          sx={{ height: 5, borderRadius: 3, mt: 0.5, maxWidth: 260 }}
+                          aria-label={r.progressLabel}
+                        />
+                      </Tooltip>
+                    )}
                   </Box>
                   <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
                     <Typography sx={{ fontWeight: 800, color: r.points > 0 ? brand.primary : 'text.secondary', lineHeight: 1.1 }}>
