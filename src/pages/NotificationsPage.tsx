@@ -13,6 +13,7 @@ import Alert from '@mui/material/Alert';
 import CircularProgress from '@mui/material/CircularProgress';
 import CampaignIcon from '@mui/icons-material/Campaign';
 import EventIcon from '@mui/icons-material/Event';
+import WorkspacePremiumRoundedIcon from '@mui/icons-material/WorkspacePremiumRounded';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import HowToRegIcon from '@mui/icons-material/HowToReg';
 import PersonAddAlt1Icon from '@mui/icons-material/PersonAddAlt1';
@@ -48,6 +49,7 @@ const KIND: Record<NotificationKind, { icon: ReactNode; color: string }> = {
   'stamp-approved': { icon: <StarsIcon />, color: brand.success },
   'stamp-declined': { icon: <BlockIcon />, color: brand.error },
   'checked-in': { icon: <VerifiedIcon />, color: brand.success },
+  certificate: { icon: <WorkspacePremiumRoundedIcon />, color: brand.primary },
   announcement: { icon: <CampaignIcon />, color: brand.primary },
 };
 

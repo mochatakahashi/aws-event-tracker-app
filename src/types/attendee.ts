@@ -61,7 +61,7 @@ export interface Registration {
   /** When and by whom (person id) the attendee was checked in. */
   checkedInAt?: string;
   checkedInBy?: string;
-  /** Certificate of participation, issued at check-in. */
+  /** Certificate code (reserved at check-in); the certificate unlocks after the event ends. */
   certificateId?: string;
   certificateIssuedAt?: string;
   /** S3 key of the stored PDF (missing until uploaded). */

@@ -16,7 +16,16 @@ import WorkspacePremiumRoundedIcon from '@mui/icons-material/WorkspacePremiumRou
 import { alpha } from '@mui/material/styles';
 import { brand } from '../theme/theme';
 import EventOrganizerLogo from '../components/EventOrganizerLogo';
-import { normalizeCertificateId, verifyCertificate, type CertificateCheck } from '../services/registrationService';
+import {
+  certificateShareLink,
+  normalizeCertificateId,
+  publicCertificatePdf,
+  verifyCertificate,
+  type CertificateCheck,
+} from '../services/registrationService';
+import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
+import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
+import LinkRoundedIcon from '@mui/icons-material/LinkRounded';
 
 const STATUS = {
   valid: {
@@ -24,6 +33,12 @@ const STATUS = {
     color: brand.success,
     title: 'Verified certificate',
     text: 'This certificate was issued by AWS Student Builder Group – Asia Pacific College.',
+  },
+  'not-yet': {
+    icon: <ReportProblemRoundedIcon sx={{ fontSize: 40 }} />,
+    color: brand.warning,
+    title: 'Not issued yet',
+    text: 'This code belongs to someone checked in at the event. The certificate is issued when the event ends.',
   },
   revoked: {
     icon: <ReportProblemRoundedIcon sx={{ fontSize: 40 }} />,
@@ -53,6 +68,7 @@ export default function VerifyCertificatePage() {
   const [result, setResult] = useState<CertificateCheck | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!id) {
@@ -143,7 +159,7 @@ export default function VerifyCertificatePage() {
                 </Typography>
               </Box>
             </Stack>
-            {(result.status === 'valid' || result.status === 'revoked') && (
+            {(result.status === 'valid' || result.status === 'revoked' || result.status === 'not-yet') && (
               <Box sx={{ p: { xs: 2.5, sm: 3 } }}>
                 <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
                   <WorkspacePremiumRoundedIcon sx={{ color: brand.primary }} />
@@ -155,7 +171,7 @@ export default function VerifyCertificatePage() {
                   {result.name}
                 </Typography>
                 <Typography color="text.secondary" sx={{ mb: 2 }}>
-                  attended and actively participated in
+                  {result.status === 'not-yet' ? 'is checked in at' : 'attended and actively participated in'}
                 </Typography>
                 <Typography variant="h4" sx={{ fontWeight: 700 }}>
                   {result.eventTitle}
@@ -174,6 +190,40 @@ export default function VerifyCertificatePage() {
                     </Typography>
                   )}
                 </Stack>
+                {result.status === 'valid' && (
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mt: 2 }}>
+                    <Button
+                      variant="contained"
+                      startIcon={<VisibilityRoundedIcon />}
+                      component="a"
+                      href={publicCertificatePdf(result.certificateId)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      View certificate
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      startIcon={<DownloadRoundedIcon />}
+                      component="a"
+                      href={publicCertificatePdf(result.certificateId, true)}
+                      download
+                    >
+                      Download PDF
+                    </Button>
+                    <Button
+                      startIcon={<LinkRoundedIcon />}
+                      onClick={() => {
+                        void navigator.clipboard
+                          ?.writeText(certificateShareLink(result.certificateId))
+                          .then(() => setCopied(true))
+                          .catch(() => undefined);
+                      }}
+                    >
+                      {copied ? 'Link copied!' : 'Copy link'}
+                    </Button>
+                  </Stack>
+                )}
               </Box>
             )}
           </Paper>

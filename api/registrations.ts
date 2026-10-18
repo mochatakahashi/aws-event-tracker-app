@@ -21,13 +21,15 @@ import QRCode from 'qrcode';
  * DELETE /api/registrations?id=reg-1 | ?eventId=&personId=
  *
  * Check-in (admins, and officers on the event's check-in staff list; verified by actorId):
- * POST   /api/registrations?action=checkin  { id, actorId }  → checks in + issues the certificate
+ * POST   /api/registrations?action=checkin  { id, actorId }  → checks in + reserves the certificate code
  * POST   /api/registrations?action=checkout { id, actorId }  → undo a check-in
- * GET    /api/registrations?action=certificate&id=reg-1&personId=per-1
- *        → the certificate PDF (redirect to a short-lived S3 link, or generated on the fly
- *          when S3 isn't configured). Only for checked-in registrations.
+ * GET    /api/registrations?action=certificate&id=reg-1&personId=per-1[&download=1]
+ * GET    /api/registrations?action=certificate&certificateId=CERT-2026-ABCD2345[&download=1]  (public link)
+ *        → the certificate PDF, viewed inline or downloaded (redirect to a short-lived S3 link, or
+ *          generated on the fly when S3 isn't configured). Only for people checked in at the event,
+ *          and only after the event has ended. The unique code is reserved at check-in.
  * GET    /api/registrations?action=verify&certificateId=CERT-2026-ABCD2345   (public)
- *        → { valid, status, certificateId, name, eventTitle, eventDate, venue, issuedAt }
+ *        → { valid, status: valid | not-yet | revoked | not-found, certificateId, name, eventTitle, eventDate, venue, issuedAt }
  *
  * Certificates are saved to s3://$AWS_S3_BUCKET_NAME/certificates/<eventId>/<certificateId>.pdf
  */
@@ -239,6 +241,22 @@ async function certificateData(client: DynamoDBDocumentClient, tableName: string
   };
 }
 
+async function getEventItem(client: DynamoDBDocumentClient, tableName: string, eventId: string) {
+  return (await client.send(new GetCommand({ TableName: tableName, Key: { id: eventId } }))).Item;
+}
+
+/** Certificates unlock once the event is over. */
+function eventEnded(ev: any): boolean {
+  const end = ev?.endAt || ev?.startAt;
+  return Boolean(end) && Date.now() > new Date(end).getTime();
+}
+
+/** The certificate's date: when the event ended (or later, if it was first issued after that). */
+function issuedDate(reg: any, ev: any): string {
+  const end = ev?.endAt || ev?.startAt || new Date().toISOString();
+  return reg.certificateIssuedAt && reg.certificateIssuedAt > end ? reg.certificateIssuedAt : end;
+}
+
 /** Make the PDF and store it in S3. Returns the fields to save on the registration. */
 /** Public page that confirms a certificate is real. */
 function verifyLink(appUrl: string, certificateId: string): string | undefined {
@@ -316,8 +334,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       const reg = (await scanType(client, tableName, 'registration')).find((r) => r.certificateId === certificateId);
       if (!reg) return res.status(404).json({ valid: false, status: 'not-found', certificateId });
+      const ev = await getEventItem(client, tableName, reg.eventId);
       const data = await certificateData(client, tableName, reg);
-      const status = reg.checkedIn ? 'valid' : 'revoked';
+      const status = !reg.checkedIn ? 'revoked' : !eventEnded(ev) ? 'not-yet' : 'valid';
       return res.status(200).json({
         valid: status === 'valid',
         status,
@@ -326,37 +345,66 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         eventTitle: data.eventTitle,
         eventDate: data.eventDate,
         venue: data.venue,
-        issuedAt: reg.certificateIssuedAt,
+        issuedAt: status === 'valid' ? issuedDate(reg, ev) : undefined,
+        availableFrom: status === 'not-yet' ? ev?.endAt : undefined,
       });
     }
 
-    // Certificate download
+    // Certificate PDF — view (inline) or download (&download=1).
+    //   ?action=certificate&id=reg-1&personId=per-1   the attendee (or check-in staff / admin)
+    //   ?action=certificate&certificateId=CERT-…      anyone with the certificate link
+    // Only for people checked in at the event, and only once the event has ended.
     if (req.method === 'GET' && action === 'certificate') {
       const id = str(q.id);
       const who = str(q.personId);
-      if (!id || !who) return res.status(400).json({ error: 'id and personId are required' });
-      const reg = (await client.send(new GetCommand({ TableName: tableName, Key: { id } }))).Item;
-      if (!reg || reg.entityType !== 'registration') return res.status(404).json({ error: 'Registration not found' });
-      if (reg.personId !== who && !(await requireCheckinStaff(client, tableName, who, reg.eventId))) {
-        return res.status(403).json({ error: 'This certificate belongs to someone else.' });
+      const code = String(q.certificateId || '').trim().toUpperCase();
+      let reg: any;
+      if (code) {
+        if (!/^CERT-\d{4}-[A-Z0-9]{4,16}$/.test(code)) return res.status(400).json({ error: 'That is not a valid certificate ID.' });
+        reg = (await scanType(client, tableName, 'registration')).find((r) => r.certificateId === code);
+        if (!reg) return res.status(404).json({ error: 'Certificate not found.' });
+      } else {
+        if (!id || !who) return res.status(400).json({ error: 'id and personId, or certificateId, are required' });
+        reg = (await client.send(new GetCommand({ TableName: tableName, Key: { id } }))).Item;
+        if (!reg || reg.entityType !== 'registration') return res.status(404).json({ error: 'Registration not found' });
+        if (reg.personId !== who && !(await requireCheckinStaff(client, tableName, who, reg.eventId))) {
+          return res.status(403).json({ error: 'This certificate belongs to someone else.' });
+        }
       }
       if (!reg.checkedIn) {
-        return res.status(409).json({ error: 'The certificate unlocks once you are checked in at the venue.' });
+        return res.status(409).json({
+          error: 'There is no certificate: only people checked in at the event receive one.',
+          code: 'NOT_CHECKED_IN',
+        });
       }
+      const ev = await getEventItem(client, tableName, reg.eventId);
+      if (!eventEnded(ev)) {
+        return res.status(409).json({
+          error: 'The certificate unlocks after the event ends.',
+          code: 'NOT_YET',
+          availableFrom: ev?.endAt,
+        });
+      }
+      const download = q.download === '1' || q.download === 'true';
       let current = reg;
-      const s3 = s3Config();
-      if (s3 && !current.certificateKey) {
-        current = { ...current, ...(await issueCertificate(client, tableName, current, appUrl)) };
-        await client.send(new PutCommand({ TableName: tableName, Item: current }));
+      // First open after the event: fix the issue date to the event's end and (with S3) store the PDF
+      if (!current.certificateId || !current.certificateIssuedAt || current.certificateIssuedAt < (ev?.endAt || '')) {
+        current = { ...current, certificateIssuedAt: issuedDate(current, ev), certificateKey: undefined };
       }
-      const fileName = `AWS-SBG-APC-Certificate-${current.certificateId || 'participation'}.pdf`;
+      const s3 = s3Config();
+      if (!current.certificateId || (s3 && !current.certificateKey)) {
+        current = { ...current, ...(await issueCertificate(client, tableName, current, appUrl)) };
+      }
+      if (current !== reg) await client.send(new PutCommand({ TableName: tableName, Item: current }));
+      const fileName = `AWS-SBG-APC-Certificate-${current.certificateId}.pdf`;
+      const disposition = `${download ? 'attachment' : 'inline'}; filename="${fileName}"`;
       if (s3 && current.certificateKey) {
         const url = await getSignedUrl(
           s3.client,
           new GetObjectCommand({
             Bucket: s3.bucket,
             Key: current.certificateKey,
-            ResponseContentDisposition: `inline; filename="${fileName}"`,
+            ResponseContentDisposition: disposition,
             ResponseContentType: 'application/pdf',
           }),
           { expiresIn: 600 }
@@ -365,18 +413,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(302).end();
       }
       // No S3: build the same PDF on the fly.
-      if (!current.certificateId) {
-        current = { ...current, ...(await issueCertificate(client, tableName, current, appUrl)) };
-        await client.send(new PutCommand({ TableName: tableName, Item: current }));
-      }
       const bytes = await renderCertificate({
         ...(await certificateData(client, tableName, current)),
         certificateId: current.certificateId,
-        issuedAt: current.certificateIssuedAt || new Date().toISOString(),
+        issuedAt: current.certificateIssuedAt,
         verifyUrl: verifyLink(appUrl, current.certificateId),
       });
       res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+      res.setHeader('Content-Disposition', disposition);
       return res.status(200).send(Buffer.from(bytes));
     }
 
@@ -401,12 +445,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({ registration: clean(merged) });
       }
       if (reg.checkedIn) {
-        // Retry the certificate if an earlier upload failed.
-        if (reg.certificateError || !reg.certificateId) {
-          const retried = { ...reg, ...(await issueCertificate(client, tableName, reg, appUrl)) };
-          await client.send(new PutCommand({ TableName: tableName, Item: retried }));
-          return res.status(200).json({ registration: clean(retried), alreadyCheckedIn: true });
-        }
         return res.status(200).json({ registration: clean(reg), alreadyCheckedIn: true });
       }
       const checked = {
@@ -417,7 +455,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         checkedInBy: actor.id,
         updatedAt: now,
       };
-      const withCert = { ...checked, ...(await issueCertificate(client, tableName, checked, appUrl)) };
+      // The unique certificate code is reserved now; the certificate itself unlocks after the event ends
+      let certificateId = reg.certificateId;
+      if (!certificateId) {
+        const taken = new Set((await scanType(client, tableName, 'registration')).map((r) => r.certificateId).filter(Boolean));
+        do certificateId = newCertificateId();
+        while (taken.has(certificateId));
+      }
+      const withCert = { ...checked, certificateId };
       await client.send(new PutCommand({ TableName: tableName, Item: withCert }));
       return res.status(200).json({ registration: clean(withCert), alreadyCheckedIn: false });
     }

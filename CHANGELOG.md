@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.10] - 2026-10-18
+
+### Changed
+- **Certificates unlock after the event ends**, and only for people checked in at it; registered no-shows get none. Check-in now just reserves the **unique certificate code** (checked against existing codes); the PDF is dated the day the event ended.
+
+### Added
+- **View**, **Download** and **Copy link** for the certificate on the pass and event page; clear messages before the event ends, when not checked in, and for no-shows.
+- **Public certificate link** (`/#/verify/<code>`): anyone with it can view or download the PDF (`GET /api/registrations?action=certificate&certificateId=<code>[&download=1]`); codes from a running event show *Not issued yet*.
+- **"Your certificate is ready"** bell notice and email from the daily run, once per event, to everyone who was checked in (the bell notice is posted even without email set up).
+
+---
+
 ## [0.6.9] - 2026-10-18
 
 ### Added

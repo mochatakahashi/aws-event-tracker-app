@@ -244,12 +244,35 @@ export async function toggleCheckIn(registrationId: string, actorId = 'per-1'): 
 }
 
 /**
- * Link that opens the certificate PDF (deployed app only). Returns null when
- * running without the API (local development).
+ * Link that opens the certificate PDF — inline to view, or `download` to save
+ * it (deployed app only; null when running without the API).
  */
-export async function certificateLink(registrationId: string, personId: string): Promise<string | null> {
+export async function certificateLink(registrationId: string, personId: string, download = false): Promise<string | null> {
   if (!(await isRemoteAvailable(API))) return null;
-  return `${API}?action=certificate&id=${encodeURIComponent(registrationId)}&personId=${encodeURIComponent(personId)}`;
+  return `${API}?action=certificate&id=${encodeURIComponent(registrationId)}&personId=${encodeURIComponent(personId)}${download ? '&download=1' : ''}`;
+}
+
+/** Public PDF link for a certificate code — anyone with the link can view or download it. */
+export function publicCertificatePdf(certificateId: string, download = false): string {
+  return `${API}?action=certificate&certificateId=${encodeURIComponent(certificateId)}${download ? '&download=1' : ''}`;
+}
+
+/** The shareable certificate page (shows it's genuine, with View / Download). */
+export function certificateShareLink(certificateId: string): string {
+  const base = typeof window === 'undefined' ? '' : `${window.location.origin}${window.location.pathname}`;
+  return `${base}#/verify/${encodeURIComponent(certificateId)}`;
+}
+
+/** Certificates unlock after the event ends, only for people checked in at it. */
+export function certificateState(
+  registration: Pick<Registration, 'checkedIn'> | null | undefined,
+  event: { startAt?: string; endAt?: string } | null | undefined,
+  now = Date.now(),
+): 'ready' | 'after-event' | 'needs-check-in' | 'none' {
+  const end = event?.endAt || event?.startAt;
+  const ended = Boolean(end) && now > new Date(end!).getTime();
+  if (registration?.checkedIn) return ended ? 'ready' : 'after-event';
+  return ended ? 'none' : 'needs-check-in';
 }
 
 /** Count of registrations for an event. */
@@ -264,8 +287,10 @@ export function __resetRegistrations(): void {
 
 export interface CertificateCheck {
   valid: boolean;
-  status: 'valid' | 'revoked' | 'not-found' | 'invalid';
+  status: 'valid' | 'not-yet' | 'revoked' | 'not-found' | 'invalid';
   certificateId: string;
+  /** For not-yet: when the event ends and the certificate unlocks. */
+  availableFrom?: string;
   name?: string;
   eventTitle?: string;
   eventDate?: string;
@@ -302,9 +327,12 @@ export async function verifyCertificate(input: string): Promise<CertificateCheck
     iso ? new Date(iso).toLocaleDateString('en-US', { timeZone: 'Asia/Manila', month: 'long', day: 'numeric', year: 'numeric' }) : '';
   const start = fmt(event?.startAt);
   const end = fmt(event?.endAt);
+  const state = certificateState(reg, event);
+  const status = !reg.checkedIn ? 'revoked' : state === 'ready' ? 'valid' : 'not-yet';
   return {
-    valid: reg.checkedIn,
-    status: reg.checkedIn ? 'valid' : 'revoked',
+    valid: status === 'valid',
+    status,
+    availableFrom: status === 'not-yet' ? event?.endAt : undefined,
     certificateId,
     name: person?.name ?? 'Participant',
     eventTitle: event?.title ?? 'AWS SBG-APC Event',

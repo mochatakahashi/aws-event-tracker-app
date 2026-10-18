@@ -22,6 +22,7 @@ const KINDS = [
   'stamp-approved',
   'stamp-declined',
   'checked-in',
+  'certificate',
   'announcement',
 ];
 

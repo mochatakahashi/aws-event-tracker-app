@@ -8,6 +8,7 @@ export type NotificationKind =
   | 'stamp-approved'
   | 'stamp-declined'
   | 'checked-in'
+  | 'certificate'
   | 'announcement';
 
 /** One notification in a person's in-app inbox. */

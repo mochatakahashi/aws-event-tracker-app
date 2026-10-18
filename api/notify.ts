@@ -16,6 +16,7 @@ import nodemailer from 'nodemailer';
  *        - event tomorrow → registered attendees + assigned officers
  *        - event today    → "See you today!"
  *        - task due tomorrow → its officers
+ *        - event ended (last 7 days) → "your certificate is ready" to everyone checked in (email + bell)
  *
  * Environment variables:
  *   GMAIL_USER          Gmail address (e.g. aws.apcofficial@gmail.com)
@@ -265,6 +266,70 @@ function eventReminderMail(u: any, ev: any, kind: 'tomorrow' | 'today', isOffice
 
 // ─── Reminders (cron) ─────────────────────────────────────────────────────────
 
+/**
+ * Certificates unlock when an event ends: tell everyone who was checked in (bell + email),
+ * once per event, for events that ended in the last week. Returns emails sent.
+ */
+async function certificateNotices(
+  client: DynamoDBDocumentClient,
+  tableName: string,
+  events: any[],
+  regs: any[],
+  users: Map<string, any>,
+  trySend: ((mail: Mail) => Promise<boolean>) | null,
+): Promise<number> {
+  let sent = 0;
+  const now = Date.now();
+  for (const ev of events) {
+    const end = ev.endAt || ev.startAt;
+    if (ev.status === 'cancelled' || !end || ev.remindersSent?.certificates) continue;
+    const endMs = new Date(end).getTime();
+    if (endMs > now || now - endMs > 7 * 24 * 3600 * 1000) continue;
+    for (const r of regs.filter((x) => x.eventId === ev.id && x.checkedIn)) {
+      const u = users.get(r.personId);
+      if (!u) continue;
+      await client.send(
+        new PutCommand({
+          TableName: tableName,
+          Item: {
+            id: `ntf-${Date.now()}-${Math.floor(Math.random() * 1e6)}`,
+            entityType: 'notification',
+            personId: u.id,
+            kind: 'certificate',
+            title: `Your certificate for ${ev.title} is ready 🎓`,
+            message: `View or download it from your event pass. Certificate code: ${r.certificateId || '—'}.`,
+            link: `/pass?event=${ev.id}`,
+            read: false,
+            createdAt: new Date().toISOString(),
+          },
+        })
+      );
+      const mail: Mail = {
+        to: addresses(u),
+        subject: `Your certificate for ${ev.title} is ready`,
+        heading: `Congratulations, ${firstName(u)}!`,
+        lines: [
+          `Thank you for attending ${ev.title}. Your Certificate of Participation is ready.`,
+          ...(r.certificateId ? [`Certificate code: ${r.certificateId}`] : []),
+          'Open your event pass to view or download it, or share the certificate link so others can check it.',
+        ],
+        button: { label: 'Get my certificate', path: `/#/pass?event=${ev.id}` },
+      };
+      if (trySend && (await trySend(mail))) sent++;
+    }
+    await client.send(
+      new PutCommand({
+        TableName: tableName,
+        Item: { ...ev, remindersSent: { ...(ev.remindersSent || {}), certificates: new Date().toISOString() } },
+      })
+    );
+  }
+
+  return sent;
+}
+
+
+
 async function runReminders(client: DynamoDBDocumentClient, tableName: string, appUrl: string) {
   const items = await scanAll(client, tableName);
   const users = new Map(items.filter((i) => i.entityType === 'user').map((u) => [u.id, u]));
@@ -310,10 +375,12 @@ async function runReminders(client: DynamoDBDocumentClient, tableName: string, a
     await client.send(
       new PutCommand({
         TableName: tableName,
-        Item: { ...ev, remindersSent: { ...(ev.remindersSent || {}), [flag]: new Date().toISOString() } },
+        Item: { ...ev, remindersSent: (ev.remindersSent = { ...(ev.remindersSent || {}), [flag]: new Date().toISOString() }) },
       })
     );
   }
+
+  sent += await certificateNotices(client, tableName, events, regs, users, trySend);
 
   for (const task of tasks) {
     if (task.status === 'done' || !task.dueAt || task.dueReminderSentAt) continue;
@@ -385,7 +452,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!secret || req.headers?.authorization !== `Bearer ${secret}`) {
         return res.status(401).json({ error: 'Unauthorized' });
       }
-      if (notConfigured) return res.status(200).json({ sent: 0, skipped: 'Email configuration is not set (GMAIL_USER/GMAIL_APP_PASSWORD or SES_FROM_EMAIL)' });
+      if (notConfigured) {
+        // No email set up: still post the "certificate ready" notices in the app
+        const items = await scanAll(client, tableName);
+        await certificateNotices(
+          client,
+          tableName,
+          items.filter(isEvent),
+          items.filter((i) => i.entityType === 'registration'),
+          new Map(items.filter((i) => i.entityType === 'user').map((u) => [u.id, u])),
+          null,
+        );
+        return res.status(200).json({ sent: 0, skipped: 'Email configuration is not set (GMAIL_USER/GMAIL_APP_PASSWORD or SES_FROM_EMAIL)' });
+      }
       try {
         return res.status(200).json({ sent: await runReminders(client, tableName, appUrl) });
       } catch (err: any) {

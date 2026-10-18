@@ -91,7 +91,7 @@ export default function EventAttendeesPanel({
           personIds: [reg.personId],
           kind: 'checked-in',
           title: `You're checked in to ${event.title}`,
-          message: 'Welcome! Your certificate of participation is ready to download from your event pass.',
+          message: 'Welcome! Your certificate of participation unlocks on your event pass after the event ends.',
           link: `/pass?event=${event.id}`,
         });
       }

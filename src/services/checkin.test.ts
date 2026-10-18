@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   __resetRegistrations,
   certificateLink,
@@ -8,6 +8,7 @@ import {
   toggleCheckIn,
   normalizeCertificateId,
   verifyCertificate,
+  certificateState,
 } from './registrationService';
 import {
   __resetNotifications,
@@ -61,9 +62,27 @@ describe('certificate verification', () => {
     expect(normalizeCertificateId('hello')).toBe('');
   });
 
-  it('verifies, then reports revoked after undo, and not-found for unknown IDs', async () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('unlocks only after the event ends, and only for people checked in', () => {
+    const ev = { startAt: '2026-11-14T09:00:00+08:00', endAt: '2026-11-14T17:00:00+08:00' };
+    const during = new Date('2026-11-14T12:00:00+08:00').getTime();
+    const after = new Date('2026-11-15T09:00:00+08:00').getTime();
+    expect(certificateState({ checkedIn: true }, ev, during)).toBe('after-event');
+    expect(certificateState({ checkedIn: true }, ev, after)).toBe('ready');
+    expect(certificateState({ checkedIn: false }, ev, during)).toBe('needs-check-in');
+    expect(certificateState({ checkedIn: false }, ev, after)).toBe('none');
+  });
+
+  it('says "not yet" before the event ends, then verifies after it', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-14T12:00:00+08:00')); // during evt-1
     const reg = await registerForEvent('evt-1', 'per-1');
     const { registration } = await checkIn(reg.id, 'per-1');
+    expect((await verifyCertificate(registration.certificateId!)).status).toBe('not-yet');
+    vi.setSystemTime(new Date('2026-11-15T09:00:00+08:00'));
     const ok = await verifyCertificate(registration.certificateId!.toLowerCase());
     expect(ok.valid).toBe(true);
     expect(ok.status).toBe('valid');

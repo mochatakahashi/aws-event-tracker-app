@@ -280,7 +280,7 @@ export default function EventPassPage() {
             <Typography variant="h4" sx={{ fontWeight: 800, mb: 1.5 }}>
               Certificate of Participation
             </Typography>
-            <CertificateButton registration={reg} personId={user.personId} />
+            <CertificateButton registration={reg} personId={user.personId} event={event} />
           </Paper>
         </Box>
       )}

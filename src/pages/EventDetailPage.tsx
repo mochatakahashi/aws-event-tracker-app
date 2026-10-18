@@ -614,9 +614,9 @@ export default function EventDetailPage() {
                   <InlinePass registration={myReg} onOpen={() => navigate(`/pass?event=${event.id}`)} />
                   {!closed && <AddToCalendarButton event={event} fullWidth />}
                 </Stack>
-                {(myReg.checkedIn || event.status === 'accomplished') && personId && (
+                {personId && (
                   <Box sx={{ mb: 2.5 }}>
-                    <CertificateButton registration={myReg} personId={personId} />
+                    <CertificateButton registration={myReg} personId={personId} event={event} />
                   </Box>
                 )}
                 <Typography color="text.secondary" variant="caption" sx={{ mb: 1, display: 'block' }}>
