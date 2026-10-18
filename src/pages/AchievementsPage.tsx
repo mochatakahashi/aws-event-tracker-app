@@ -26,6 +26,7 @@ import type { Session } from '../types/session';
 import type { Stamp } from '../types/session';
 import type { AppEvent } from '../types/event';
 import EventStampCard from '../components/EventStampCard';
+import MyStandingCard from '../components/MyStandingCard';
 
 export default function AchievementsPage() {
   const navigate = useNavigate();
@@ -96,6 +97,9 @@ export default function AchievementsPage() {
         >
           Select Event <ArrowForwardRoundedIcon />
         </CardActionArea>
+        <Box sx={{ mt: 4, textAlign: 'left' }}>
+          <MyStandingCard />
+        </Box>
       </Box>
     );
   }
@@ -249,6 +253,9 @@ export default function AchievementsPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Leaderboard standing and badges */}
+      <MyStandingCard />
 
       {/* Stamp Passport Card */}
       <EventStampCard title="STAMP PASSPORT" />

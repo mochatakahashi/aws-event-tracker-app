@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.6] - 2026-10-18
+
+### Changed
+- **Leaderboard ranks everyone by achievement points**, not only people with approved stamps. Two tabs:
+  - **Attendees** (officers included): 10 per approved stamp, +5 for a workshop, 15 per event check-in, 20 per badge (badge points only in the *All events* view).
+  - **Officers**: 5 per stamp approved, 5 per attendee checked in, 20 per task completed, 25 per event volunteered for.
+  - Each row shows the person's stats; *How points work* explains the scoring; "You're #N of M with X points" for the signed-in user. The podium only shows people with points; the list shows everyone (0 included). Event filter now lists all events.
+- **Your standing and My badges moved to the Achievements page** (`MyStandingCard`): rank and points as an attendee, plus as an officer for officers, and the five badges.
+
+---
+
 ## [0.6.5] - 2026-10-16
 
 ### Added

@@ -281,7 +281,8 @@ Officers at workshop booths had to leave the scanner to approve stamps; certific
 ### Decision
 - **Scanner stamps** reuse the existing stamp API (create-if-missing, then approve) instead of a new endpoint, so the Officer Dashboard queue and the scanner stay consistent.
 - **Verification** is a public route outside sign-in. The API answers by certificate ID with only the fields printed on the certificate; certificate IDs are random (32-character alphabet, 8 characters) so they can't be guessed. Undoing a check-in marks the certificate *revoked* instead of deleting it.
-- **Leaderboard and badges** are computed in the browser from stamps and sessions (`utils/badges.ts`, unit-tested) — no new table or API function, and the Vercel Hobby limit of 12 functions is untouched (11 used).
+- **Leaderboard and badges** are computed in the browser from stamps, sessions, registrations, tasks and events (`utils/leaderboard.ts`, `utils/badges.ts`, unit-tested) — no new table or API function. (With `api/uploads.ts` added in v0.6.5 the project now has 12 functions, the Vercel Hobby maximum, so new server features should be added as `?action=` routes inside existing files.)
+- Rankings use **achievement points** so everyone is listed (not only people with stamps), with separate **Attendees** and **Officers** boards so attendance and officer work are both visible; officers appear on both. Personal standing and badges live on the Achievements page, while the leaderboard page stays a shared ranking.
 
 ### Consequences
 - **Positive**: No new infrastructure; one place defines the badge rules; verification works for anyone with the link or QR.

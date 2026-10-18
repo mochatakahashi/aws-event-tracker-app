@@ -21,7 +21,11 @@
 - **📅 Add to Calendar**: one tap on the event page or pass — **Google Calendar** link, or an **.ics** file for Apple Calendar / Outlook — with Manila time, venue, the session schedule and a 1-hour reminder.
 - **🏅 Certificate of Participation**: unlocked at check-in; a PDF with the attendee's name, event, date, venue, a certificate ID and a **"Scan to verify" QR code**, downloaded from the pass or event page.
 - **📜 Certificate verification (`/#/verify/:id`, public — no sign-in)**: anyone (professors, recruiters) can type a certificate ID or scan the QR on the certificate to see whether it's genuine, with the attendee's name, event, date and issue date. Withdrawn certificates (check-in undone) show as no longer valid.
-- **🏆 Builder Leaderboard (`/leaderboard`)**: top builders by approved stamps and completed workshops, per event or across all events — a podium for the top 3, the full ranking (ties share a rank), *Your standing*, and **achievement badges**: ⭐ First Stamp, 🛠️ Workshop Warrior (3 workshops), ☁️ Cloud Explorer (5 stamps), 🏆 Full Passport Complete (every stamp of an event), 🚀 Multi-Event Builder (stamps at 2+ events). Opened from the sidebar or the Achievements page.
+- **🏆 Builder Leaderboard (`/leaderboard`)**: shows who's most active, ranked by **achievement points**, per event or across all events. Two boards:
+  - **Attendees** — everyone (officers included, since they attend too), even with 0 points: 10 per approved stamp, +5 if it's a workshop, 15 per event check-in, 20 per badge.
+  - **Officers** — 5 per stamp approved, 5 per attendee checked in, 20 per task completed, 25 per event volunteered for.
+  - A podium for the top 3, the full ranking with each person's stats (same points share a rank), *How points work*, and "You're #N" for the signed-in user.
+- **🎖️ Your standing & badges (Achievements page)**: your rank and points as an attendee — and as an officer, if you are one — plus your **achievement badges**: ⭐ First Stamp, 🛠️ Workshop Warrior (3 workshops), ☁️ Cloud Explorer (5 stamps), 🏆 Full Passport Complete (every stamp of an event), 🚀 Multi-Event Builder (stamps at 2+ events).
 
 ### ✍️ Sign Up & Accounts
 - **Three sign-up types**: APC Student (APC email + student ID), Outside Attendee (any email + school/organization, no student ID) and Officer (APC email, optional personal Gmail, student ID, position and committee).
@@ -286,7 +290,7 @@ aws-event-tracker-app/
 │   │   ├── EventsPage.tsx
 │   │   ├── LoginPage.tsx
 │   │   ├── MorePage.tsx
-│   │   ├── LeaderboardPage.tsx      # Builder Leaderboard & badges
+│   │   ├── LeaderboardPage.tsx      # Builder Leaderboard (Attendees / Officers)
 │   │   ├── NotificationsPage.tsx    # In-app notification center
 │   │   ├── OfficerDashboardPage.tsx
 │   │   ├── OfficerScanPage.tsx      # Check-in scanner

@@ -187,7 +187,7 @@ sequenceDiagram
 
 - **Stamps at the booth**: the scanner lists the event's stamp sessions (live ones first). *Approve stamp* reuses `sessionService` — it creates the stamp if the attendee never requested it, then approves it with the officer's id — and notifies the attendee.
 - **Verification**: every certificate carries a QR code to `…/#/verify/<certificateId>` (built from `APP_URL` or the request host). `GET /api/registrations?action=verify&certificateId=` is public and returns only what is printed on the certificate (name, event, dates, venue, issue date) plus `valid` / `revoked` / `not-found`.
-- **Leaderboard** (`utils/badges.ts`): one approved stamp per person and session counts; ranked by stamps, then workshops (session `type: 'workshop'`), then whoever reached the score first; admins are excluded. Badges are always computed from all events so they don't change with the event filter.
+- **Leaderboard** (`utils/leaderboard.ts`, `utils/badges.ts`, data from `useBoardData`): two boards ranked by achievement points, listing everyone with an approved account (0 points included; admins excluded). *Attendees* (all non-admins, so officers appear too): 10 per approved stamp (one per person and session), +5 for workshops (session `type: 'workshop'`), 15 per check-in, 20 per badge. *Officers*: 5 per stamp approved (`approvedBy`), 5 per check-in done (`checkedInBy`), 20 per completed task, 25 per event volunteered (`officerIds`). Equal points share a rank. With an event filter only that event counts and badge points are left out; badges are always computed from all events. *Your standing* and *My badges* are shown on the Achievements page (`MyStandingCard`).
 
 ---
 

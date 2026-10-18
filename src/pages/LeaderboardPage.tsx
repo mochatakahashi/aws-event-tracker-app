@@ -1,33 +1,44 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import Avatar from '@mui/material/Avatar';
-import Chip from '@mui/material/Chip';
 import Tooltip from '@mui/material/Tooltip';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
 import Button from '@mui/material/Button';
+import Tabs from '@mui/material/Tabs';
+import Tab from '@mui/material/Tab';
+import Collapse from '@mui/material/Collapse';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { alpha } from '@mui/material/styles';
 import { brand } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
 import { useEvent } from '../context/EventContext';
-import { getEvents } from '../services/eventService';
-import { getSessions, getStamps } from '../services/sessionService';
-import { getPeople } from '../services/registrationService';
-import { affiliation, memberLabel } from '../utils/people';
-import { BADGES, badgesFor, buildLeaderboard, type BadgeId } from '../utils/badges';
-import type { AppEvent } from '../types/event';
+import { useBoardData } from '../hooks/useBoardData';
+import { affiliation, memberLabel, officerTitle } from '../utils/people';
+import { BADGES, type BadgeId } from '../utils/badges';
+import { ATTENDEE_POINTS, OFFICER_POINTS, attendeeBoard, officerBoard } from '../utils/leaderboard';
 import type { Person } from '../types/attendee';
-import type { Session, Stamp } from '../types/session';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 const MEDAL_COLORS = ['#F5B301', '#9CA3AF', '#CD7F32'];
+
+type Board = 'attendees' | 'officers';
+
+interface Row {
+  personId: string;
+  points: number;
+  rank: number;
+  /** Small stats shown under the name, e.g. "3 stamps · 1 check-in". */
+  stats: string[];
+  badges?: BadgeId[];
+}
 
 const initials = (name = '?') =>
   name
@@ -37,9 +48,12 @@ const initials = (name = '?') =>
     .slice(0, 2)
     .toUpperCase();
 
-function BadgeRow({ ids, size = 'small' }: { ids: BadgeId[]; size?: 'small' | 'medium' }) {
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+function BadgeRow({ ids }: { ids: BadgeId[] }) {
+  if (ids.length === 0) return null;
   return (
-    <Stack direction="row" spacing={0.25} sx={{ fontSize: size === 'small' ? 16 : 20, lineHeight: 1 }}>
+    <Stack direction="row" spacing={0.25} sx={{ fontSize: 15, lineHeight: 1 }}>
       {BADGES.filter((b) => ids.includes(b.id)).map((b) => (
         <Tooltip key={b.id} title={`${b.name} — ${b.description}`}>
           <Box component="span" role="img" aria-label={b.name}>
@@ -55,45 +69,43 @@ export default function LeaderboardPage() {
   const { user } = useAuth();
   const { selectedEvent } = useEvent();
   const navigate = useNavigate();
-  const [stamps, setStamps] = useState<Stamp[]>([]);
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [events, setEvents] = useState<AppEvent[]>([]);
-  const [people, setPeople] = useState<Person[]>([]);
-  const [eventId, setEventId] = useState<string>('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [params, setParams] = useSearchParams();
+  const { data, error, loading } = useBoardData();
+  const [eventId, setEventId] = useState<string>('all');
+  const [showRules, setShowRules] = useState(false);
+  const board: Board = params.get('board') === 'officers' ? 'officers' : 'attendees';
 
-  useEffect(() => {
-    Promise.all([getStamps(), getSessions(), getEvents(), getPeople()])
-      .then(([st, se, ev, pe]) => {
-        setStamps(st);
-        setSessions(se);
-        setPeople(pe);
-        const withStamps = ev.filter((e) => se.some((s) => s.eventId === e.id && s.requiresStamp));
-        setEvents(withStamps);
-        setEventId(selectedEvent && withStamps.some((e) => e.id === selectedEvent.id) ? selectedEvent.id : 'all');
-      })
-      .catch((e) => setError(e instanceof Error ? e.message : 'Could not load the leaderboard.'))
-      .finally(() => setLoading(false));
-  }, [selectedEvent]);
+  const events = useMemo(() => (data?.events ?? []).filter((e) => e.status !== 'cancelled'), [data]);
+  const peopleById = useMemo(() => new Map((data?.people ?? []).map((p) => [p.id, p])), [data]);
+  const scope = eventId === 'all' ? undefined : eventId;
 
-  const peopleById = useMemo(() => new Map(people.map((p) => [p.id, p])), [people]);
-  const admins = useMemo(() => new Set(people.filter((p) => p.role === 'admin').map((p) => p.id)), [people]);
-  const rows = useMemo(
-    () =>
-      buildLeaderboard(stamps, sessions, { eventId: eventId === 'all' ? undefined : eventId, excludeIds: admins })
-        // Only people who still have an approved account
-        .filter((r) => peopleById.has(r.personId)),
-    [stamps, sessions, eventId, admins, peopleById],
-  );
+  const rows: Row[] = useMemo(() => {
+    if (!data) return [];
+    if (board === 'officers') {
+      return officerBoard(data, scope).map((r) => ({
+        personId: r.personId,
+        points: r.points,
+        rank: r.rank,
+        stats: [
+          plural(r.stampsApproved, 'stamp') + ' approved',
+          plural(r.checkInsDone, 'check-in'),
+          plural(r.tasksDone, 'task') + ' done',
+          plural(r.eventsVolunteered, 'event'),
+        ],
+      }));
+    }
+    return attendeeBoard(data, scope).map((r) => ({
+      personId: r.personId,
+      points: r.points,
+      rank: r.rank,
+      stats: [plural(r.stamps, 'stamp'), plural(r.workshops, 'workshop'), plural(r.checkIns, 'check-in')],
+      badges: r.badges,
+    }));
+  }, [data, board, scope]);
 
-  const totalStampSessions = useMemo(
-    () => (eventId === 'all' ? null : sessions.filter((s) => s.eventId === eventId && s.requiresStamp).length),
-    [sessions, eventId],
-  );
   const me = rows.find((r) => r.personId === user?.personId);
-  const myBadges = user ? badgesFor(user.personId, stamps, sessions) : [];
-  const showMine = user && user.role !== 'admin';
+  const subtitle = (p?: Person) =>
+    !p ? '' : board === 'officers' ? officerTitle(p) : affiliation(p) || memberLabel(p);
 
   if (loading) {
     return (
@@ -103,17 +115,17 @@ export default function LeaderboardPage() {
     );
   }
 
-  const podium = rows.slice(0, 3);
+  const podium = rows.filter((r) => r.points > 0).slice(0, 3);
 
   return (
     <Box>
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ sm: 'flex-end' }} sx={{ mb: 3 }}>
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ md: 'flex-end' }} sx={{ mb: 2 }}>
         <Box>
           <Typography variant="h1" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <EmojiEventsRoundedIcon sx={{ color: '#F5B301', fontSize: 34 }} /> Builder Leaderboard
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Top builders by approved stamps and completed workshops.
+            Who's the most active — ranked by achievement points.
           </Typography>
         </Box>
         <TextField
@@ -122,7 +134,7 @@ export default function LeaderboardPage() {
           label="Event"
           value={eventId}
           onChange={(e) => setEventId(e.target.value)}
-          sx={{ minWidth: { sm: 300 } }}
+          sx={{ minWidth: { md: 300 } }}
         >
           <MenuItem value="all">All events</MenuItem>
           {events.map((e) => (
@@ -133,227 +145,190 @@ export default function LeaderboardPage() {
         </TextField>
       </Stack>
 
+      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ borderBottom: 1, borderColor: 'divider', mb: 2.5 }}>
+        <Tabs
+          value={board}
+          onChange={(_e, v: Board) => setParams(v === 'officers' ? { board: 'officers' } : {}, { replace: true })}
+        >
+          <Tab value="attendees" label="Attendees" />
+          <Tab value="officers" label="Officers" />
+        </Tabs>
+        <Button
+          size="small"
+          startIcon={<InfoOutlinedIcon />}
+          onClick={() => setShowRules((v) => !v)}
+          aria-label="How points work"
+          sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}
+        >
+          <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+            How points work
+          </Box>
+          <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>
+            Points
+          </Box>
+        </Button>
+      </Stack>
+
+      <Collapse in={showRules}>
+        <Paper variant="outlined" sx={{ p: 2, mb: 2.5, borderRadius: '14px' }}>
+          {board === 'attendees' ? (
+            <Typography variant="body2" color="text.secondary">
+              <strong>Attendees:</strong> {ATTENDEE_POINTS.stamp} per approved stamp, +{ATTENDEE_POINTS.workshopBonus} if it's a
+              workshop, {ATTENDEE_POINTS.checkIn} per event check-in, and {ATTENDEE_POINTS.badge} per badge (all-events view
+              only). Officers who attend also appear here.
+            </Typography>
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              <strong>Officers:</strong> {OFFICER_POINTS.stampApproved} per stamp approved, {OFFICER_POINTS.checkInDone} per
+              attendee checked in, {OFFICER_POINTS.taskDone} per task completed, and {OFFICER_POINTS.eventVolunteered} per
+              event volunteered for.
+            </Typography>
+          )}
+        </Paper>
+      </Collapse>
+
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: showMine ? 'minmax(0, 1fr) 340px' : '1fr' }, gap: 3, alignItems: 'start' }}>
-        <Box sx={{ minWidth: 0 }}>
-          {rows.length === 0 ? (
-            <Paper variant="outlined" sx={{ p: 5, textAlign: 'center', borderRadius: '20px', borderStyle: 'dashed', color: 'text.secondary' }}>
-              <EmojiEventsRoundedIcon sx={{ fontSize: 48, opacity: 0.35 }} />
-              <Typography sx={{ mt: 1 }}>No approved stamps yet. Be the first on the board!</Typography>
-              <Button sx={{ mt: 2 }} variant="contained" onClick={() => navigate('/achievements')}>
-                Collect stamps
+      {me && (
+        <Alert
+          icon={<EmojiEventsRoundedIcon fontSize="inherit" />}
+          severity="info"
+          sx={{ mb: 2.5, borderRadius: '14px' }}
+          action={
+            board === 'attendees' ? (
+              <Button color="inherit" size="small" onClick={() => navigate('/achievements')} sx={{ whiteSpace: 'nowrap' }}>
+                My badges
               </Button>
-            </Paper>
-          ) : (
-            <>
-              {/* Podium */}
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, minmax(0, 1fr))' }, gap: 1.5, mb: 3 }}>
-                {podium.map((r) => {
-                  const p = peopleById.get(r.personId);
-                  const place = Math.min(r.rank, 3) - 1;
-                  const mine = r.personId === user?.personId;
-                  return (
-                    <Paper
-                      key={r.personId}
-                      sx={{
-                        p: 2.5,
-                        borderRadius: '20px',
-                        textAlign: 'center',
-                        border: `2px solid ${alpha(MEDAL_COLORS[place], 0.6)}`,
-                        background: `linear-gradient(180deg, ${alpha(MEDAL_COLORS[place], 0.12)} 0%, transparent 70%)`,
-                        outline: mine ? `3px solid ${alpha(brand.primary, 0.35)}` : 'none',
-                      }}
-                    >
-                      <Typography sx={{ fontSize: 30, lineHeight: 1 }} aria-label={`Rank ${r.rank}`}>
-                        {MEDALS[place]}
+            ) : undefined
+          }
+        >
+          You're <strong>#{me.rank}</strong> of {rows.length} {board === 'officers' ? 'officers' : 'attendees'} with{' '}
+          <strong>{me.points} points</strong>.
+        </Alert>
+      )}
+
+      {rows.length === 0 ? (
+        <Paper variant="outlined" sx={{ p: 5, textAlign: 'center', borderRadius: '20px', borderStyle: 'dashed', color: 'text.secondary' }}>
+          <Typography>{board === 'officers' ? 'No officers yet.' : 'No attendees yet.'}</Typography>
+        </Paper>
+      ) : (
+        <>
+          {/* Podium (only people who have points) */}
+          {podium.length > 0 && (
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, minmax(0, 1fr))' }, gap: 1.5, mb: 3 }}>
+              {podium.map((r) => {
+                const p = peopleById.get(r.personId);
+                const place = Math.min(r.rank, 3) - 1;
+                const mine = r.personId === user?.personId;
+                return (
+                  <Paper
+                    key={r.personId}
+                    sx={{
+                      p: 2.5,
+                      borderRadius: '20px',
+                      textAlign: 'center',
+                      border: `2px solid ${alpha(MEDAL_COLORS[place], 0.6)}`,
+                      background: `linear-gradient(180deg, ${alpha(MEDAL_COLORS[place], 0.12)} 0%, transparent 70%)`,
+                      outline: mine ? `3px solid ${alpha(brand.primary, 0.35)}` : 'none',
+                    }}
+                  >
+                    <Typography sx={{ fontSize: 30, lineHeight: 1 }} aria-label={`Rank ${r.rank}`}>
+                      {MEDALS[place]}
+                    </Typography>
+                    <Avatar src={p?.avatarUrl || undefined} sx={{ width: 56, height: 56, mx: 'auto', my: 1 }}>
+                      {initials(p?.name)}
+                    </Avatar>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 800 }} noWrap>
+                      {p?.name}
+                      {mine && ' (you)'}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
+                      {subtitle(p)}
+                    </Typography>
+                    <Typography variant="h3" sx={{ mt: 1, fontWeight: 800, color: brand.primary }}>
+                      {r.points}
+                      <Typography component="span" variant="body2" color="text.secondary">
+                        {' '}
+                        pts
                       </Typography>
-                      <Avatar src={p?.avatarUrl || undefined} sx={{ width: 56, height: 56, mx: 'auto', my: 1 }}>
-                        {initials(p?.name)}
-                      </Avatar>
-                      <Typography variant="subtitle1" sx={{ fontWeight: 800 }} noWrap>
-                        {p?.name}
-                        {mine && ' (you)'}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
-                        {p ? affiliation(p) || memberLabel(p) : ''}
-                      </Typography>
-                      <Typography variant="h3" sx={{ mt: 1, fontWeight: 800, color: brand.primary }}>
-                        {r.stamps}
-                        <Typography component="span" variant="body2" color="text.secondary">
-                          {' '}
-                          stamp{r.stamps === 1 ? '' : 's'}
-                        </Typography>
-                      </Typography>
+                    </Typography>
+                    {r.badges && (
                       <Box sx={{ display: 'flex', justifyContent: 'center', mt: 0.5 }}>
                         <BadgeRow ids={r.badges} />
                       </Box>
-                    </Paper>
-                  );
-                })}
-              </Box>
-
-              {/* Full ranking */}
-              <Paper sx={{ borderRadius: '20px', overflow: 'hidden' }}>
-                <Box
-                  sx={{
-                    display: 'grid',
-                    gridTemplateColumns: { xs: '28px minmax(0, 1fr) 56px', sm: '32px minmax(0, 1fr) 60px 84px' },
-                    columnGap: 1.5,
-                    px: 2,
-                    py: 1,
-                    bgcolor: alpha(brand.primary, 0.05),
-                    color: 'text.secondary',
-                    fontSize: '0.75rem',
-                    fontWeight: 700,
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  <span>#</span>
-                  <span>Builder</span>
-                  <Box component="span" sx={{ textAlign: 'right' }}>
-                    Stamps
-                  </Box>
-                  <Box component="span" sx={{ textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
-                    Workshops
-                  </Box>
-                </Box>
-                {rows.map((r) => {
-                  const p = peopleById.get(r.personId);
-                  const mine = r.personId === user?.personId;
-                  return (
-                    <Box
-                      key={r.personId}
-                      sx={{
-                        display: 'grid',
-                        gridTemplateColumns: { xs: '28px minmax(0, 1fr) 56px', sm: '32px minmax(0, 1fr) 60px 84px' },
-                    columnGap: 1.5,
-                        alignItems: 'center',
-                        px: 2,
-                        py: 1.25,
-                        borderTop: `1px solid ${alpha(brand.primary, 0.08)}`,
-                        bgcolor: mine ? alpha(brand.primary, 0.07) : 'transparent',
-                      }}
-                    >
-                      <Typography sx={{ fontWeight: 800, color: r.rank <= 3 ? MEDAL_COLORS[r.rank - 1] : 'text.secondary' }}>
-                        {r.rank}
-                      </Typography>
-                      <Stack direction="row" spacing={1.25} alignItems="center" sx={{ minWidth: 0 }}>
-                        <Avatar src={p?.avatarUrl || undefined} sx={{ width: 32, height: 32, fontSize: '0.75rem' }}>
-                          {initials(p?.name)}
-                        </Avatar>
-                        <Box sx={{ minWidth: 0 }}>
-                          <Typography variant="body2" sx={{ fontWeight: mine ? 800 : 600 }} noWrap>
-                            {p?.name}
-                            {mine && ' (you)'}
-                          </Typography>
-                          <Stack direction="row" spacing={1} alignItems="center">
-                            <BadgeRow ids={r.badges} />
-                            <Typography variant="caption" color="text.secondary" sx={{ display: { sm: 'none' } }} noWrap>
-                              {r.workshops} workshop{r.workshops === 1 ? '' : 's'}
-                            </Typography>
-                          </Stack>
-                        </Box>
-                      </Stack>
-                      <Typography sx={{ textAlign: 'right', fontWeight: 800 }}>
-                        {r.stamps}
-                        {totalStampSessions ? (
-                          <Typography component="span" variant="caption" color="text.secondary">
-                            /{totalStampSessions}
-                          </Typography>
-                        ) : null}
-                      </Typography>
-                      <Typography sx={{ textAlign: 'right', display: { xs: 'none', sm: 'block' } }} color="text.secondary">
-                        {r.workshops}
-                      </Typography>
-                    </Box>
-                  );
-                })}
-              </Paper>
-            </>
-          )}
-        </Box>
-
-        {/* My standing and badges */}
-        {showMine && (
-          <Paper sx={{ p: 2.5, borderRadius: '20px', position: { lg: 'sticky' }, top: 24 }}>
-            <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>
-              Your standing
-            </Typography>
-            {me ? (
-              <Stack direction="row" spacing={3} sx={{ mb: 2 }}>
-                <Box>
-                  <Typography variant="h2" sx={{ fontWeight: 800, color: brand.primary }}>
-                    #{me.rank}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    of {rows.length}
-                  </Typography>
-                </Box>
-                <Box>
-                  <Typography variant="h2" sx={{ fontWeight: 800 }}>
-                    {me.stamps}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    stamps
-                  </Typography>
-                </Box>
-                <Box>
-                  <Typography variant="h2" sx={{ fontWeight: 800 }}>
-                    {me.workshops}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    workshops
-                  </Typography>
-                </Box>
-              </Stack>
-            ) : (
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                You're not on the board{eventId === 'all' ? '' : ' for this event'} yet — get a stamp approved to join.
-              </Typography>
-            )}
-            <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>
-              My badges · {myBadges.length}/{BADGES.length}
-            </Typography>
-            <Stack spacing={1} sx={{ mt: 1 }}>
-              {BADGES.map((b) => {
-                const earned = myBadges.includes(b.id);
-                return (
-                  <Stack
-                    key={b.id}
-                    direction="row"
-                    spacing={1.5}
-                    alignItems="center"
-                    sx={{
-                      p: 1.25,
-                      borderRadius: '12px',
-                      bgcolor: earned ? alpha(brand.success, 0.08) : alpha('#000', 0.03),
-                      opacity: earned ? 1 : 0.55,
-                    }}
-                  >
-                    <Box sx={{ fontSize: 24, filter: earned ? 'none' : 'grayscale(1)' }} aria-hidden>
-                      {b.emoji}
-                    </Box>
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                        {b.name}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {b.description}
-                      </Typography>
-                    </Box>
-                    {earned && <Chip size="small" color="success" label="Earned" />}
-                  </Stack>
+                    )}
+                  </Paper>
                 );
               })}
-            </Stack>
+            </Box>
+          )}
+
+          {/* Full ranking — everyone, including 0 points */}
+          <Paper sx={{ borderRadius: '20px', overflow: 'hidden' }}>
+            {rows.map((r, i) => {
+              const p = peopleById.get(r.personId);
+              const mine = r.personId === user?.personId;
+              return (
+                <Stack
+                  key={r.personId}
+                  direction="row"
+                  alignItems="center"
+                  spacing={1.5}
+                  sx={{
+                    px: 2,
+                    py: 1.25,
+                    borderTop: i === 0 ? 'none' : `1px solid ${alpha(brand.primary, 0.08)}`,
+                    bgcolor: mine ? alpha(brand.primary, 0.07) : 'transparent',
+                  }}
+                >
+                  <Typography
+                    sx={{
+                      width: 28,
+                      flexShrink: 0,
+                      fontWeight: 800,
+                      color: r.points > 0 && r.rank <= 3 ? MEDAL_COLORS[r.rank - 1] : 'text.secondary',
+                    }}
+                  >
+                    {r.rank}
+                  </Typography>
+                  <Avatar src={p?.avatarUrl || undefined} sx={{ width: 36, height: 36, fontSize: '0.8rem', flexShrink: 0 }}>
+                    {initials(p?.name)}
+                  </Avatar>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
+                      <Typography variant="body2" sx={{ fontWeight: mine ? 800 : 600 }} noWrap>
+                        {p?.name}
+                        {mine && ' (you)'}
+                      </Typography>
+                      {r.badges && <BadgeRow ids={r.badges} />}
+                    </Stack>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }} noWrap>
+                      {[subtitle(p), ...r.stats].filter(Boolean).join(' · ')}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
+                    <Typography sx={{ fontWeight: 800, color: r.points > 0 ? brand.primary : 'text.secondary', lineHeight: 1.1 }}>
+                      {r.points}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      pts
+                    </Typography>
+                  </Box>
+                </Stack>
+              );
+            })}
           </Paper>
-        )}
-      </Box>
+          {selectedEvent && eventId === 'all' && events.some((e) => e.id === selectedEvent.id) && (
+            <Button size="small" sx={{ mt: 1.5 }} onClick={() => setEventId(selectedEvent.id)}>
+              Show only {selectedEvent.title}
+            </Button>
+          )}
+        </>
+      )}
     </Box>
   );
 }
