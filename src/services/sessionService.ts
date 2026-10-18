@@ -217,27 +217,26 @@ export async function createStamp(input: NewStampInput): Promise<Stamp> {
   return delay(stamp);
 }
 
+async function errorFrom(res: Response, fallback: string): Promise<Error> {
+  const data = await res.json().catch(() => ({}));
+  return new Error((data as { error?: string })?.error || fallback);
+}
+
+/**
+ * Approve a stamp. Only admins and officers on the event's stamp team can
+ * (the server checks); a refusal is shown, never faked locally.
+ */
 export async function approveStamp(stampId: string, officerId: string): Promise<Stamp> {
-  try {
-    if (await checkRemoteApi()) {
-      const res = await fetch(`/api/stamps?id=${encodeURIComponent(stampId)}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          status: 'approved',
-          approvedBy: officerId,
-          approvedAt: new Date().toISOString(),
-        }),
-      });
-      if (res.ok) {
-        const approved = await res.json();
-        const local = loadLocalStamps().map((s) => (s.id === stampId ? approved : s));
-        saveLocalStamps(local);
-        return approved;
-      }
-    }
-  } catch (err) {
-    console.warn('Falling back to local approveStamp:', err);
+  if (await checkRemoteApi()) {
+    const res = await fetch(`/api/stamps?id=${encodeURIComponent(stampId)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'approved', actorId: officerId }),
+    });
+    if (!res.ok) throw await errorFrom(res, 'Could not approve the stamp. Try again.');
+    const approved = await res.json();
+    saveLocalStamps(loadLocalStamps().map((s) => (s.id === stampId ? approved : s)));
+    return approved;
   }
 
   ensureLocalSeeded();
@@ -254,20 +253,14 @@ export async function approveStamp(stampId: string, officerId: string): Promise<
   return delay(stamps[idx]);
 }
 
-export async function declineStamp(stampId: string): Promise<boolean> {
-  try {
-    if (await checkRemoteApi()) {
-      const res = await fetch(`/api/stamps?id=${encodeURIComponent(stampId)}`, {
-        method: 'DELETE',
-      });
-      if (res.ok) {
-        const local = loadLocalStamps().filter((s) => s.id !== stampId);
-        saveLocalStamps(local);
-        return true;
-      }
-    }
-  } catch (err) {
-    console.warn('Falling back to local declineStamp:', err);
+/** Decline (delete) a stamp request — stamp team only (server-checked). */
+export async function declineStamp(stampId: string, officerId?: string): Promise<boolean> {
+  if (await checkRemoteApi()) {
+    const qs = `id=${encodeURIComponent(stampId)}${officerId ? `&actorId=${encodeURIComponent(officerId)}` : ''}`;
+    const res = await fetch(`/api/stamps?${qs}`, { method: 'DELETE' });
+    if (!res.ok) throw await errorFrom(res, 'Could not decline the stamp. Try again.');
+    saveLocalStamps(loadLocalStamps().filter((s) => s.id !== stampId));
+    return true;
   }
 
   ensureLocalSeeded();

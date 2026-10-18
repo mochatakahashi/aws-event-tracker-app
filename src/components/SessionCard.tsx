@@ -4,13 +4,15 @@ import CardActionArea from '@mui/material/CardActionArea';
 import CardContent from '@mui/material/CardContent';
 import Typography from '@mui/material/Typography';
 import Stack from '@mui/material/Stack';
-import Button from '@mui/material/Button';
 import Avatar from '@mui/material/Avatar';
 import AvatarGroup from '@mui/material/AvatarGroup';
 import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
 import PlaceIcon from '@mui/icons-material/PlaceRounded';
 import AccessTimeIcon from '@mui/icons-material/AccessTimeRounded';
-import BookmarkBorderRoundedIcon from '@mui/icons-material/BookmarkBorderRounded';
+import EventAvailableRoundedIcon from '@mui/icons-material/EventAvailableRounded';
+import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import HourglassTopRoundedIcon from '@mui/icons-material/HourglassTopRounded';
 import ImageNotSupportedOutlinedIcon from '@mui/icons-material/ImageNotSupportedOutlined';
@@ -34,6 +36,13 @@ interface SessionCardProps {
   stampStatus?: 'pending' | 'approved';
   speakers?: Speaker[];
   onClick?: () => void;
+  /** People who picked this session. */
+  goingCount?: number;
+  /** Whether the viewer picked this session. */
+  attending?: boolean;
+  /** Registered attendees can pick sessions; omitted = no button. */
+  onToggleAttend?: () => void;
+  attendBusy?: boolean;
 }
 
 export default function SessionCard({
@@ -42,6 +51,10 @@ export default function SessionCard({
   stampStatus,
   speakers,
   onClick,
+  goingCount = 0,
+  attending = false,
+  onToggleAttend,
+  attendBusy = false,
 }: SessionCardProps) {
   const coverImage = session.imageUrl || '';
   const { month, day } = formatMonthDay(session.startTime);
@@ -54,6 +67,7 @@ export default function SessionCard({
       variant="outlined"
       sx={{
         mb: 2,
+        position: 'relative',
         borderRadius: '15px',
         overflow: 'hidden',
         transition: 'all 0.25s ease',
@@ -123,24 +137,6 @@ export default function SessionCard({
             </Typography>
           </Box>
 
-          {/* Overlay Bookmark Icon (Top Right) */}
-          <IconButton
-            size="small"
-            sx={{
-              position: 'absolute',
-              top: 10,
-              right: 10,
-              bgcolor: 'rgba(255, 255, 255, 0.92)',
-              backdropFilter: 'blur(6px)',
-              color: '#EF4444',
-              width: 30,
-              height: 30,
-              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-              '&:hover': { bgcolor: '#fff' },
-            }}
-          >
-            <BookmarkBorderRoundedIcon sx={{ fontSize: 18 }} />
-          </IconButton>
         </Box>
 
         {/* Card Body */}
@@ -149,24 +145,24 @@ export default function SessionCard({
             {session.title}
           </Typography>
 
-          {/* Attendees / Speakers row */}
+          {/* Speakers + how many picked this session */}
           <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.2 }}>
-            <AvatarGroup max={3} sx={{ '& .MuiAvatar-root': { width: 22, height: 22, fontSize: '0.65rem' } }}>
-              {speakers && speakers.length > 0 ? (
-                speakers.map((s) => (
+            {speakers && speakers.length > 0 && (
+              <AvatarGroup max={3} sx={{ '& .MuiAvatar-root': { width: 22, height: 22, fontSize: '0.65rem' } }}>
+                {speakers.map((s) => (
                   <Avatar key={s.id} src={s.avatarUrl} alt={s.name}>
                     {s.name.charAt(0)}
                   </Avatar>
-                ))
-              ) : (
-                <>
-                  <Avatar src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80" />
-                  <Avatar src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80" />
-                </>
-              )}
-            </AvatarGroup>
-            <Typography variant="caption" sx={{ color: '#EF4444', fontWeight: 700, fontSize: '0.75rem' }}>
-              +15 Going
+                ))}
+              </AvatarGroup>
+            )}
+            <GroupsRoundedIcon sx={{ fontSize: 16, color: goingCount ? '#EF4444' : '#9CA3AF' }} />
+            <Typography
+              variant="caption"
+              sx={{ color: goingCount ? '#EF4444' : '#6B7280', fontWeight: 700, fontSize: '0.75rem' }}
+              data-testid="session-going"
+            >
+              {goingCount ? `${goingCount} going` : 'No one has picked this yet'}
             </Typography>
           </Stack>
 
@@ -184,17 +180,13 @@ export default function SessionCard({
 
           {/* Full-Width Action Button / Status Pill */}
           {session.requiresStamp && (
-            <Button
-              fullWidth
-              variant="contained"
-              startIcon={
-                isApproved ? (
-                  <CheckCircleRoundedIcon fontSize="small" />
-                ) : isPending ? (
-                  <HourglassTopRoundedIcon fontSize="small" />
-                ) : undefined
-              }
+            <Box
               sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 0.75,
+                textAlign: 'center',
                 borderRadius: '24px',
                 py: 1,
                 fontSize: '0.75rem',
@@ -206,9 +198,13 @@ export default function SessionCard({
                   ? 'linear-gradient(135deg, #4F46E5 0%, #6366F1 100%)'
                   : 'linear-gradient(135deg, #7B2D8E 0%, #A855C8 100%)',
                 color: '#fff',
-                boxShadow: isPending ? '0 4px 14px rgba(79, 70, 229, 0.35)' : 'none',
               }}
             >
+              {isApproved ? (
+                <CheckCircleRoundedIcon fontSize="small" />
+              ) : isPending ? (
+                <HourglassTopRoundedIcon fontSize="small" />
+              ) : null}
               {isApproved
                 ? 'STAMP VERIFIED ✓'
                 : isPending
@@ -216,10 +212,36 @@ export default function SessionCard({
                 : hasStamp
                 ? 'STAMP CLAIMED'
                 : 'CLAIM SESSION STAMP'}
-            </Button>
+            </Box>
           )}
         </CardContent>
       </CardActionArea>
+
+      {/* Pick / unpick this session (outside the clickable card) */}
+      {onToggleAttend && (
+        <Tooltip title={attending ? "You're going — tap to remove it from your plan" : 'Add to my sessions'}>
+          <IconButton
+            size="small"
+            aria-label={attending ? `Remove ${session.title} from my sessions` : `I'll attend ${session.title}`}
+            aria-pressed={attending}
+            disabled={attendBusy}
+            onClick={onToggleAttend}
+            sx={{
+              position: 'absolute',
+              top: 10,
+              right: 10,
+              bgcolor: attending ? '#10B981' : 'rgba(255, 255, 255, 0.92)',
+              color: attending ? '#fff' : '#7B2D8E',
+              width: 32,
+              height: 32,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+              '&:hover': { bgcolor: attending ? '#059669' : '#fff' },
+            }}
+          >
+            {attending ? <EventAvailableRoundedIcon sx={{ fontSize: 18 }} /> : <AddRoundedIcon sx={{ fontSize: 18 }} />}
+          </IconButton>
+        </Tooltip>
+      )}
     </Card>
   );
 }

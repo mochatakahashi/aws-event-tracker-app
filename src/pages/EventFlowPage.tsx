@@ -21,6 +21,9 @@ import type { Stamp } from '../types/session';
 import type { Speaker } from '../types/speaker';
 import SessionCard from '../components/SessionCard';
 import EventStampCard from '../components/EventStampCard';
+import Alert from '@mui/material/Alert';
+import { useSessionPicks } from '../hooks/useSessionPicks';
+import { formatDateRange } from '../utils/eventDisplay';
 
 function formatTimeGroup(iso: string): string {
   return new Date(iso).toLocaleTimeString('en-US', {
@@ -38,6 +41,7 @@ export default function EventFlowPage() {
   const [stamps, setStamps] = useState<Stamp[]>([]);
   const [speakers, setSpeakers] = useState<Speaker[]>([]);
   const [loading, setLoading] = useState(true);
+  const picks = useSessionPicks(selectedEvent?.id);
 
   useEffect(() => {
     if (!selectedEvent) {
@@ -134,14 +138,48 @@ export default function EventFlowPage() {
 
       </Stack>
 
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3, fontSize: '0.8rem' }}>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontSize: '0.8rem' }}>
         {sessions.length > 0
-          ? 'The full schedule for this event. Tap on any session for details or to request a stamp.'
-          : 'Session details for this event.'}
+          ? 'Everyone registered for the event can join any session. Tap + on the sessions you’ll go to — each session shows how many picked it.'
+          : 'This event has no separate sessions.'}
       </Typography>
+      {selectedEvent.participants > 0 && (
+        <Chip
+          size="small"
+          variant="outlined"
+          label={`${selectedEvent.participantsEstimated ? 'Est. ' : ''}${selectedEvent.participants} ${
+            selectedEvent.status === 'accomplished' ? 'attended' : 'expected'
+          } for the whole event`}
+          sx={{ mb: 2.5, fontWeight: 600 }}
+        />
+      )}
+      {sessions.length > 0 && !picks.loading && !picks.canPick && user?.role !== 'admin' && (
+        <Alert severity="info" sx={{ mb: 2 }} action={<Button size="small" onClick={() => navigate(`/events/${selectedEvent.id}`)}>Register</Button>}>
+          Register for the event first, then pick the sessions you’ll attend.
+        </Alert>
+      )}
+      {picks.error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {picks.error}
+        </Alert>
+      )}
 
-      {/* Attendee Event Stamp Card */}
-      <EventStampCard />
+      {sessions.length === 0 ? (
+        <Box sx={{ p: 3, mb: 3, borderRadius: '15px', border: `1px dashed ${alpha(brand.primary, 0.3)}`, textAlign: 'center' }}>
+          <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5 }}>
+            One program, no sessions to pick
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {formatDateRange(selectedEvent.startAt, selectedEvent.endAt)} · {selectedEvent.venue}. Your event pass is all you need.
+          </Typography>
+          <Button variant="outlined" onClick={() => navigate(`/events/${selectedEvent.id}`)}>
+            Event details
+          </Button>
+        </Box>
+      ) : (
+        /* Attendee Event Stamp Card */
+        <EventStampCard />
+      )}
 
       {/* Session groups */}
       {grouped.map((group) => (
@@ -173,6 +211,10 @@ export default function EventFlowPage() {
                 stampStatus={stamp?.status}
                 speakers={sessionSpeakers}
                 onClick={() => navigate(`/flow/session/${session.id}`)}
+                goingCount={picks.counts.get(session.id) ?? 0}
+                attending={picks.mine.has(session.id)}
+                onToggleAttend={picks.canPick ? () => void picks.toggle(session.id) : undefined}
+                attendBusy={picks.busy === session.id}
               />
             );
           })}

@@ -31,6 +31,7 @@ import { useEvent } from '../context/EventContext';
 import { getEvents } from '../services/eventService';
 import { checkIn, getPeople, getRegistration, getRegistrationsByEvent } from '../services/registrationService';
 import { approveStamp, createStamp, getSessionsByEvent, getStampsByAttendee } from '../services/sessionService';
+import { canDo, staffEvents } from '../utils/eventStaff';
 import { notifyInApp } from '../services/notificationService';
 import { affiliation, memberLabel } from '../utils/people';
 import { parsePass } from '../utils/pass';
@@ -96,6 +97,7 @@ export default function OfficerScanPage() {
   const [stampBusy, setStampBusy] = useState<string | null>(null);
   const [stampJustApproved, setStampJustApproved] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [loaded, setLoaded] = useState(false);
   const lastCode = useRef<{ text: string; at: number }>({ text: '', at: 0 });
 
   const isStaff = user?.role === 'officer' || user?.role === 'admin';
@@ -108,13 +110,15 @@ export default function OfficerScanPage() {
   useEffect(() => {
     Promise.all([getEvents(), getPeople()])
       .then(([evts, ppl]) => {
-        const open = evts.filter((e) => e.status !== 'cancelled');
+        // Officers only see events where they're on the staff list
+        const open = staffEvents(user, evts.filter((e) => e.status !== 'cancelled'));
         setEvents(open);
         setPeople(ppl);
         setDoorEventId((cur) => cur || defaultEvent(open, selectedEvent?.id));
       })
-      .catch((e) => setError(e instanceof Error ? e.message : 'Could not load events.'));
-  }, [selectedEvent?.id]);
+      .catch((e) => setError(e instanceof Error ? e.message : 'Could not load events.'))
+      .finally(() => setLoaded(true));
+  }, [selectedEvent?.id, user]);
 
   useEffect(() => {
     if (!doorEventId) return;
@@ -251,6 +255,9 @@ export default function OfficerScanPage() {
   const checkedCount = eventRegs.filter((r) => r.checkedIn).length;
   const doorEvent = events.find((e) => e.id === doorEventId);
 
+  const mayCheckIn = canDo(user, scanned?.event, 'checkin');
+  const mayStamp = canDo(user, scanned?.event, 'stamps');
+
   const result = scanned && (
     <Paper
       sx={{
@@ -351,6 +358,10 @@ export default function OfficerScanPage() {
                           {st?.approvedBy === user?.personId && stampJustApproved === s.id ? 'Approved!' : 'Approved'}
                         </Typography>
                       </Stack>
+                    ) : !mayStamp ? (
+                      <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
+                        {st?.status === 'pending' ? 'Waiting for the stamp team' : 'Not claimed'}
+                      </Typography>
                     ) : (
                       <Button
                         size="small"
@@ -385,6 +396,10 @@ export default function OfficerScanPage() {
               ? ` by ${peopleById.get(scanned.reg.checkedInBy)?.name ?? 'an officer'}`
               : ''}
             {scanned.reg.certificateId && ` · Certificate ${scanned.reg.certificateId}`}
+          </Alert>
+        ) : !mayCheckIn ? (
+          <Alert severity="info" sx={{ mb: 1.5 }} data-testid="not-checkin-team">
+            You’re not on the check-in team for this event, so you can’t check people in here.
           </Alert>
         ) : (
           <Button
@@ -444,6 +459,12 @@ export default function OfficerScanPage() {
         )}
       </Stack>
 
+      {loaded && events.length === 0 && user?.role === 'officer' && (
+        <Alert severity="warning" sx={{ mb: 2 }} data-testid="no-staff-events">
+          You’re not on the staff list of any event yet. An admin can tick you for “Approve stamps” or “Check people in” on
+          the event page.
+        </Alert>
+      )}
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
           {error}

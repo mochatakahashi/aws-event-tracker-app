@@ -28,6 +28,18 @@ export interface Person {
   officerPosition?: OfficerPosition | null;
   committee?: Committee | null;
   subcommittee?: Subcommittee | null;
+  /** Badges an admin awarded (officers). */
+  awards?: Award[];
+}
+
+/** A badge an admin gave someone, e.g. "Best in Pubmat" for one event. */
+export interface Award {
+  id: string;
+  badge: string;
+  eventId?: string;
+  note?: string;
+  awardedBy: string;
+  awardedAt: string;
 }
 
 export type NewPersonInput = Omit<Person, 'id'>;
@@ -40,6 +52,8 @@ export interface Registration {
   eventId: string;
   personId: string;
   rsvp: RsvpStatus;
+  /** Sessions this person plans to attend (an event can have none). */
+  sessionIds?: string[];
   /** Whether the attendee has been checked in on-site (admin-facing). */
   checkedIn: boolean;
   /** ISO 8601 timestamp of when the registration was created. */

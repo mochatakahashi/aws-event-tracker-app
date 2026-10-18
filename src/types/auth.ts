@@ -1,3 +1,5 @@
+import type { Award } from './attendee';
+
 export type UserRole = 'admin' | 'officer' | 'attendee';
 
 /** Every new account starts as `pending` until an admin approves it. */
@@ -78,6 +80,8 @@ export interface User {
   connections?: string[];
   /** Event ids saved with the bookmark icon. */
   savedEventIds?: string[];
+  /** Badges an admin awarded (set through the admin-only award action). */
+  awards?: Award[];
   /** Past officer terms (archived batches). */
   officerHistory?: OfficerTerm[];
   /** Optional reason given by the admin when declining a sign-up. */

@@ -137,6 +137,7 @@ export default function SelectEventPage() {
               variant="outlined"
               sx={{
                 height: '100%',
+                position: 'relative',
                 transition: 'all 0.25s ease',
                 '&:hover': {
                   borderColor: brand.primary,
@@ -147,7 +148,7 @@ export default function SelectEventPage() {
               <CardActionArea onClick={() => handleSelect(event)} sx={{ p: 0, height: '100%', alignItems: 'flex-start', display: 'flex' }}>
                 <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
                   <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-                    <Box sx={{ flex: 1, pr: 1 }}>
+                    <Box sx={{ flex: 1, pr: 4 }}>
                       <Typography
                         variant="h3"
                         sx={{
@@ -196,19 +197,18 @@ export default function SelectEventPage() {
                       />
                     </Box>
 
-                    <IconButton
-                      size="small"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/events/${event.id}`);
-                      }}
-                      sx={{ color: brand.textSecondary, mt: 0.5 }}
-                    >
-                      <InfoOutlinedIcon />
-                    </IconButton>
                   </Stack>
                 </CardContent>
               </CardActionArea>
+              {/* Event details, outside the clickable card so it doesn't also select the event */}
+              <IconButton
+                size="small"
+                aria-label={`Details of ${event.title}`}
+                onClick={() => navigate(`/events/${event.id}`)}
+                sx={{ position: 'absolute', top: 16, right: 12, color: brand.textSecondary }}
+              >
+                <InfoOutlinedIcon />
+              </IconButton>
             </Card>
           );
         })}

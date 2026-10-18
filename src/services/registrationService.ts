@@ -35,6 +35,7 @@ function toPerson(u: User): Person {
     officerPosition: u.officerPosition,
     committee: u.committee,
     subcommittee: u.subcommittee,
+    awards: u.awards,
   };
 }
 
@@ -153,6 +154,23 @@ async function updateRegistration(
 /** Update the RSVP of an existing registration by id; rejects if unknown. */
 export function setRsvp(registrationId: string, rsvp: RsvpStatus): Promise<Registration> {
   return updateRegistration(registrationId, () => ({ rsvp }));
+}
+
+/** Save which sessions the attendee plans to attend (their own registration only). */
+export async function setSessionPicks(registrationId: string, personId: string, sessionIds: string[]): Promise<Registration> {
+  if (await isRemoteAvailable(API)) {
+    return apiJson<Registration>(`${API}?id=${encodeURIComponent(registrationId)}`, {
+      method: 'PUT',
+      body: JSON.stringify({ personId, sessionIds }),
+    });
+  }
+  const regs = local.load();
+  const reg = regs.find((r) => r.id === registrationId);
+  if (!reg) throw new Error(`Registration not found: ${registrationId}`);
+  if (reg.personId !== personId) throw new Error('You can only choose sessions on your own registration.');
+  reg.sessionIds = [...new Set(sessionIds)];
+  local.save(regs);
+  return delay({ ...reg });
 }
 
 /** One registration by id, or null. */

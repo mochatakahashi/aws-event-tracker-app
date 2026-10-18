@@ -150,6 +150,41 @@ export async function updateEvent(
   return clone(updated);
 }
 
+export interface EventStaff {
+  officerIds: string[];
+  officerRoles: Record<string, string>;
+  stampOfficerIds: string[];
+  checkinOfficerIds: string[];
+}
+
+/**
+ * Admin: save who works at the event and which of them may approve stamps or
+ * check people in. The server rejects anyone who isn't an admin.
+ */
+export async function setEventStaff(eventId: string, staff: EventStaff, actorId: string): Promise<AppEvent> {
+  const assigned = new Set(staff.officerIds);
+  const clean: EventStaff = {
+    officerIds: [...assigned],
+    officerRoles: staff.officerRoles,
+    stampOfficerIds: [...new Set(staff.stampOfficerIds)].filter((x) => assigned.has(x)),
+    checkinOfficerIds: [...new Set(staff.checkinOfficerIds)].filter((x) => assigned.has(x)),
+  };
+  if (await checkRemoteApi()) {
+    const res = await fetch(`/api/events?id=${encodeURIComponent(eventId)}&action=staff`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ actorId, ...clean }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || `Could not save the staff list (HTTP ${res.status}).`);
+    return withLiveStatus(data as AppEvent);
+  }
+  const index = localEvents.findIndex((e) => e.id === eventId);
+  if (index === -1) throw new Error(`Event not found: ${eventId}`);
+  localEvents[index] = { ...localEvents[index], ...clean };
+  return withLiveStatus(clone(localEvents[index]));
+}
+
 /** Delete an event by id; resolves to true if something was removed. */
 export async function deleteEvent(id: string): Promise<boolean> {
   try {

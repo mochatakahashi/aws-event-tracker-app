@@ -11,6 +11,8 @@ import { useAuth } from '../context/AuthContext';
 import { useBoardData } from '../hooks/useBoardData';
 import { BADGES } from '../utils/badges';
 import { attendeeBoard, officerBoard } from '../utils/leaderboard';
+import OfficerBadgeGrid from './OfficerBadgeGrid';
+import { AUTO_OFFICER_BADGES, AWARD_BADGES } from '../utils/officerBadges';
 
 function Stat({ value, label }: { value: number; label: string }) {
   return (
@@ -69,8 +71,18 @@ export default function MyStandingCard() {
         </>
       )}
 
+      {meO && (
+        <>
+          <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700, display: 'block', mt: 2.5 }}>
+            My officer badges · {meO.badges.filter((b) => !b.badge.awarded).length}/{AUTO_OFFICER_BADGES.length} earned
+            {meO.badges.some((b) => b.badge.awarded) ? ` · ${meO.badges.filter((b) => b.badge.awarded).length}/${AWARD_BADGES.length} awarded` : ''}
+          </Typography>
+          <OfficerBadgeGrid earned={meO.badges} />
+        </>
+      )}
+
       <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700, display: 'block', mt: 2.5 }}>
-        My badges · {myBadges.length}/{BADGES.length}
+        {meO ? 'My attendee badges' : 'My badges'} · {myBadges.length}/{BADGES.length}
       </Typography>
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(3, minmax(0, 1fr))' }, gap: 1, mt: 1 }}>
         {BADGES.map((b) => {

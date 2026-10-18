@@ -14,7 +14,7 @@
     - 🟠 **PENDING OFFICER APPROVAL**: Amber pulsing indicator awaiting review.
     - ⚪ **UNCLAIMED**: Dashed star slot with one-tap "Request Stamp" functionality.
   - Progress tracking with a completion bar and "PASSPORT COMPLETED 🎉" status badge.
-- **Event Flow & Real-Time Schedule**: View time-grouped sessions with room locations, speaker profiles, and activity requirements.
+- **🗓️ Pick your sessions**: an event has **one expected-participants number** (shown on the event page); once registered, you tap **I'll attend** on the sessions you'll actually go to. Every session shows its **own real "going" count** (no more fake "+15 Going"), on the event page, the session page and the stamp passport. Events can have **many sessions or none** — an event with no sessions says it's one program and your registration covers it.
 - **🏠 Live Dashboard**: what's happening now — a *Happening now* card for events you're registered for, *Up next for you* with a countdown ("See you there!"), *At {event}* (session now / next and your stamp progress), *Your registrations* (Registered / Interested / Attended), *Latest updates* (notifications and new events) and, for officers, *Your work* (open tasks, pubmats, next deadline). The event pass is on the event page, not the dashboard.
 - **🤝 Connect**: **QR Card** opens your profile summary (bio, every social link, achievements) instead of a single link; **Scan QR** reads someone else's card with the camera; **Add connection** saves them to *My connections* (with their stamps, events and badges) and notifies them so they can add you back. Profile pages are at `/people/:id`.
 - **🔖 Save events**: the bookmark icon on event cards and event pages saves the event to your account (works on every device); see them under **Events → Saved**.
@@ -26,14 +26,16 @@
 - **📜 Certificate verification (`/#/verify/:id`, public — no sign-in)**: anyone (professors, recruiters) can type a certificate ID or scan the QR on the certificate to see whether it's genuine, with the attendee's name, event, date and issue date. Withdrawn certificates (check-in undone) show as no longer valid.
 - **🏆 Builder Leaderboard (`/leaderboard`, admins only)**: for monitoring who's most active, ranked by **achievement points**, per event or across all events, with progress bars (passport completion for one event; tasks done for officers). Two boards:
   - **Attendees** — everyone (officers included, since they attend too), even with 0 points: 10 per approved stamp, +5 if it's a workshop, 15 per event check-in, 20 per badge.
-  - **Officers** — 5 per stamp approved, 5 per attendee checked in, 20 per task completed, 25 per event volunteered for.
+  - **Officers** — 5 per stamp approved, 5 per attendee checked in, 20 per task completed, 25 per event worked, 20 per officer badge.
   - A podium for the top 3, the full ranking with each person's stats (same points share a rank) and *How points work*.
 - **🎖️ My progress & badges (Achievements page)**: your own stats — stamps, workshops, events attended, and for officers stamps approved, check-ins, tasks done and events volunteered — plus your **achievement badges** (no rankings for attendees/officers): ⭐ First Stamp, 🛠️ Workshop Warrior (3 workshops), ☁️ Cloud Explorer (5 stamps), 🏆 Full Passport Complete (every stamp of an event), 🚀 Multi-Event Builder (stamps at 2+ events).
+- **🏅 Officer badges**: earned automatically — 🎟️ First Duty, ⭐ Stamp Master (25 stamps approved), 🚪 Door Keeper (25 check-ins), ✅ Task Finisher (5 tasks), 🎨 Content Creator (worked on a posted pubmat), 🎤 Event Host (assigned as *Host* on an event), 🚀 Event Regular (3 events) — and **awarded by an admin**: 🏅 Best Host, 🖼️ Best in Pubmat, 🏆 Event MVP, 🤝 Team Player, 🌟 Rising Star (optionally for a specific event, can be given again for another event). Officers are notified and see them on Achievements; others see them on the officer's profile; each badge is worth 20 points on the admin leaderboard.
 
 ### ✍️ Sign Up & Accounts
 - **Three sign-up types**: APC Student (APC email + student ID), Outside Attendee (any email + school/organization, no student ID) and Officer (APC email, optional personal Gmail, student ID, **position, committee and sub-committee**). What they picked is kept and shown to admins as *Signed up as …*.
 - **Password rules (everyone)**: at least 6 characters with **one capital letter, one small letter, one number and one special symbol** — a live checklist under every password field; checked again by the server.
 - **Change password**: profile menu → *Change password*, or **Profile → Password**. Forgot it? An admin can set a temporary one.
+- **Accounts — the recommended way**: everyone has **their own** account (no shared or premade logins). People **sign up themselves** and an admin approves them (the type and officer role they picked is shown). For someone who can't sign up, an admin uses **Add account** and hands over a temporary password they must change at first sign-in. New **admins** are only created by an existing admin through Add account.
 - **Name format**: First Name, M.I. (optional), Last Name — shown as "Juan D. Dela Cruz".
 - **Admin approval for everyone**: new accounts are *pending* and can't sign in until an admin approves them. A declined person sees the reason (if given) and can sign up again with the same email.
 - **Email sign-in** (no Google sign-in), **Change password** on the Profile page, and profile photo, bio and social links saved to the account.
@@ -46,9 +48,10 @@
 - **Officers (`AdminOfficersPage`)**: officers in hierarchy order with events volunteered (and their event role), stamps approved and task progress; edit position/committee; **archive** one officer or the whole school-year batch (they become alumni attendees, listed under *Past batches*); delete; Excel download.
 - **Officer Tasks (`AdminTasksPage`)**: a board by **committee** (All · Secretariat · Operations · Marketing · Technicals · Relations) with **sub-committee** filters. Each task has what to do, a **deadline (date + time)**, the committee/sub-committee and the officers assigned (that committee's officers listed first); assigned officers get an in-app notification and an email. Overdue deadlines turn red.
 - **📣 Marketing Content Tracker**: the pubmat sheet inside the app — per event: Content, Details / reference post, **Creatives designee**, **Caption writer**, **Poster**, Status (Not Started → In Progress → For Review → Approved → Posted), Post date, File / link, Notes and a draft deadline, with a **Caption guidelines** link. Everyone assigned is notified with their role; officers update the status, file link and notes from their Officer Dashboard.
-- **Officer Dashboard (`OfficerDashboardPage`)**: the officer's tasks (Start / Mark done / Reopen), the stamp approval queue, and **Open scanner**.
-- **Check-in Scanner (`/officer/scan`, officers and admins)**: scans an attendee's QR pass with the phone or laptop camera, shows their name, affiliation and stamp passport, and checks them in with **one tap** (which also issues their certificate). At a workshop booth, the officer taps **Approve stamp** on the session they just finished (sessions happening now are listed first and highlighted) — no need to go back to the Officer Dashboard; the attendee gets a notification. A *"Can't scan? Find the attendee"* search works without a camera. Re-scanning says who already checked them in.
-- **Assign officers to events** on the event page (admins only), listed in hierarchy order.
+- **Officer Dashboard (`OfficerDashboardPage`)**: the officer's tasks (Start / Mark done / Reopen), **their duties** (which events they can check people in / approve stamps at), the stamp requests **for those events only**, and **Open scanner**.
+- **Check-in Scanner (`/officer/scan`, admins and officers on an event's staff list)**: scans an attendee's QR pass with the phone or laptop camera, shows their name, affiliation and stamp passport, and checks them in with **one tap** (which also issues their certificate). At a workshop booth, the officer taps **Approve stamp** on the session they just finished (sessions happening now are listed first and highlighted) — no need to go back to the Officer Dashboard; the attendee gets a notification. A *"Can't scan? Find the attendee"* search works without a camera. Re-scanning says who already checked them in.
+- **🔐 Event staff list (event page, admins)**: assign officers to an event with a role (Lead, Host, Usher, Registration Booth, Creatives, Media) and tick who may **Approve stamps** and **Check people in** (the role pre-ticks a sensible default). **Only those officers** can approve stamps or check people in at that event — enforced by the server, not just hidden buttons; admins can always do both. Officers are notified when they get a duty. Admin Home warns about upcoming events that have nobody on stamps or check-in.
+- **🏅 Award badges (Officers page)**: open an officer, pick a badge (and optionally the event and a note), **Award**; tap × on a badge to take it back.
 
 ### 🔔 Notifications
 - **In-app notification center with a bell badge** (unread count in the phone top bar and the laptop sidebar, refreshed every 30 s): stamp approved/declined, account approved/declined, assigned to an event, new task, checked in, and — for admins — new sign-ups waiting. Tap one to open the related page; *Mark all as read* and remove. Events you registered for that are live or start within 24 hours are pinned on top.
@@ -232,6 +235,7 @@ Set these in Vercel → Settings → Environment Variables, then redeploy:
 4. **S3 bucket CORS** (already needed for image uploads) must allow `PUT` from your Vercel domain. Certificate downloads use signed links, so the bucket can stay private.
 5. **Cron** — `CRON_SECRET` set; `vercel.json` already schedules `/api/notify` daily at 8:00 AM Manila.
 6. **Test** — sign up with a spare email, approve or decline it (email + bell), register for an event, open **My Event Pass**, scan it from an officer's phone on the https link, then download the certificate.
+7. **Event staff (new in v0.6.8)** — on each upcoming event's page, under **Event staff**, tick which officers can **Approve stamps** and **Check people in**. Until you do, only admins can (Admin Home reminds you).
 
 ---
 
@@ -274,6 +278,10 @@ aws-event-tracker-app/
 │   │   ├── BottomNav.tsx           # Mobile bottom navigation bar
 │   │   ├── CertificateButton.tsx   # Certificate download (unlocked at check-in)
 │   │   ├── EventStampCard.tsx      # Automatic circle stamp passport card
+│   │   ├── EventStaffPanel.tsx     # Event staff list: roles + who can approve stamps / check in
+│   │   ├── SessionsSection.tsx     # Event page sessions with "I'll attend" and going counts
+│   │   ├── OfficerBadgeGrid.tsx    # Officer badges (automatic + awarded)
+│   │   ├── AwardBadgePanel.tsx     # Admin: award / take back officer badges
 │   │   ├── ImageBannerAdjuster.tsx # 16:9 banner frame adjuster with S3 upload
 │   │   ├── NetworkingCard.tsx      # Inline modal-free QR card
 │   │   ├── ProtectedRoute.tsx      # Auth route guard
@@ -327,8 +335,12 @@ aws-event-tracker-app/
 │   │   ├── session.ts
 │   │   ├── speaker.ts
 │   │   └── task.ts                 # Officer tasks
+│   ├── hooks/
+│   │   └── useSessionPicks.ts      # Sessions people plan to attend + going counts
 │   └── utils/
 │       ├── people.ts               # Name format, APC email check, officer hierarchy
+│       ├── eventStaff.ts           # Who may approve stamps / check in at an event
+│       ├── officerBadges.ts        # Officer badge catalogue + automatic badge rules
 │       └── excelExport.ts          # .xlsx downloads
 ├── ARCHITECTURE.md        # Technical architecture documentation
 ├── CHANGELOG.md           # Version release history

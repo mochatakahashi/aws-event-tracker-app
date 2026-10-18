@@ -277,20 +277,22 @@ export default function DashboardPage() {
             >
               <Stack spacing={1}>
                 {sessionNow && (
-                  <Typography variant="body2">
+                  <Typography variant="body2" component="div">
                     <Chip size="small" color="error" label="Now" sx={{ mr: 1 }} />
                     <strong>{sessionNow.title}</strong> · {sessionNow.room} · until {time(sessionNow.endTime)}
                   </Typography>
                 )}
                 {sessionNext && (
-                  <Typography variant="body2">
+                  <Typography variant="body2" component="div">
                     <Chip size="small" label="Next" sx={{ mr: 1 }} />
                     <strong>{sessionNext.title}</strong> · {time(sessionNext.startTime)} · {sessionNext.room}
                   </Typography>
                 )}
                 {!sessionNow && !sessionNext && (
                   <Typography variant="body2" color="text.secondary">
-                    All sessions are done for this event.
+                    {sessions.length === 0
+                      ? 'This event is one program — no separate sessions.'
+                      : 'All sessions are done for this event.'}
                   </Typography>
                 )}
                 {stampSessions.length > 0 && (

@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.8] - 2026-10-18
+
+### Added
+- **Pick your sessions**: the event keeps one expected-participants number; registered attendees tap **I'll attend** on the sessions they'll go to (event page, session page). Each session shows its own real **"N going"** count. API: `PUT /api/registrations?id=` with `{ personId, sessionIds }` (own registration only; only that event's sessions are kept).
+- **Event staff list** on the event page (admins): assign officers with a role and tick **Approve stamps** / **Check people in** per officer (roles pre-tick a default: Lead → both, Registration Booth → check-in, Usher → stamps). Officers are notified of new duties; officers can be removed from an event. API: `PUT /api/events?id=…&action=staff` (admin only).
+- **Officer duties** on the Officer Dashboard, and a warning on Admin Home for upcoming events with nobody on stamps or check-in.
+- **Officer badges**: automatic (First Duty, Stamp Master, Door Keeper, Task Finisher, Content Creator, Event Host, Event Regular) and **admin-awarded** (Best Host, Best in Pubmat, Event MVP, Team Player, Rising Star — optionally per event, with a note). Shown on Achievements, profiles and the admin leaderboard (+20 points each). API: `POST /api/users?action=award|unaward` (admin only).
+
+### Changed
+- **Only officers on an event's staff list can approve/decline stamps and check people in** at that event (admins always can). Enforced in `/api/stamps` and `/api/registrations`; the scanner only lists the officer's events and hides buttons they can't use; the stamp queue only shows their events.
+- New stamp requests are always *pending* (the server ignores a client-sent `approved`), and `PUT /api/registrations` can no longer set `checkedIn` (check-in only through `action=checkin`).
+- Ordinary event edits can't change the duty lists; removing an officer from an event removes their duties.
+- Officer leaderboard: +20 per officer badge (all-events view).
+- Events with no sessions: the schedule/passport and dashboard say it's one program instead of showing empty or Tech Barangay-specific text.
+
+### Fixed
+- Session cards showed a hard-coded **"+15 Going" / "+12 Going"** and a fixed "10 OCT" date on every session.
+- Approving or declining a stamp that the server refused looked successful (it fell back to a local copy); the error is now shown.
+- The info button on *Select Event* cards was a button inside a button (same bug as the old bookmark); it now sits outside the card's click area.
+
+### Notes
+- **No new packages** — `npm install` isn't needed for this update.
+- After deploying, set the **Event staff** for upcoming events; until then only admins can approve stamps or check people in.
+
+---
+
 ## [0.6.7] - 2026-10-18
 
 ### Added

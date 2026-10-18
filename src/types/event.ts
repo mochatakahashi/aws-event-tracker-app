@@ -59,6 +59,13 @@ export interface AppEvent {
   officerIds?: string[];
   /** Roles of the assigned officers mapped by their person ID. */
   officerRoles?: Record<string, string>;
+  /**
+   * Staff list: assigned officers who may approve stamps / check people in at
+   * this event. Only an admin can change these (server-checked). Admins can
+   * always do both.
+   */
+  stampOfficerIds?: string[];
+  checkinOfficerIds?: string[];
   /** Optional custom image URL for the event cover. */
   imageUrl?: string;
   /** Link to external event page (e.g. registration form). */

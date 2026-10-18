@@ -23,6 +23,14 @@ import { brand } from '../theme/theme';
 import type { Session, Stamp } from '../types/session';
 import type { Speaker } from '../types/speaker';
 import StampBadge from '../components/StampBadge';
+import Alert from '@mui/material/Alert';
+import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
+import EventAvailableRoundedIcon from '@mui/icons-material/EventAvailableRounded';
+import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import { getEvent } from '../services/eventService';
+import { useSessionPicks } from '../hooks/useSessionPicks';
+import { canDo } from '../utils/eventStaff';
+import type { AppEvent } from '../types/event';
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('en-US', {
@@ -41,6 +49,12 @@ export default function SessionDetailPage() {
   const [myStamp, setMyStamp] = useState<Stamp | null>(null);
   const [loading, setLoading] = useState(true);
   const [requesting, setRequesting] = useState(false);
+  const [event, setEvent] = useState<AppEvent | null>(null);
+  const picks = useSessionPicks(session?.eventId);
+
+  useEffect(() => {
+    if (session?.eventId) void getEvent(session.eventId).then(setEvent).catch(() => setEvent(null));
+  }, [session?.eventId]);
 
   useEffect(() => {
     if (!id) return;
@@ -59,7 +73,9 @@ export default function SessionDetailPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  const isOfficer = user?.role === 'admin' || user?.role === 'officer';
+  const canApprove = canDo(user, event, 'stamps');
+  const going = session ? picks.counts.get(session.id) ?? 0 : 0;
+  const attending = session ? picks.mine.has(session.id) : false;
 
   if (loading) {
     return (
@@ -120,6 +136,52 @@ export default function SessionDetailPage() {
         />
       </Stack>
 
+      {/* Who's going + pick this session */}
+      <Card variant="outlined" sx={{ mb: 3, borderRadius: '14px' }}>
+        <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ sm: 'center' }}>
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ flex: 1 }}>
+              <GroupsRoundedIcon color="primary" />
+              <Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }} data-testid="session-detail-going">
+                  {going ? `${going} ${going === 1 ? 'person is' : 'people are'} going` : 'No one has picked this session yet'}
+                </Typography>
+                {event && event.participants > 0 && (
+                  <Typography variant="caption" color="text.secondary">
+                    {event.participantsEstimated ? 'Est. ' : ''}
+                    {event.participants} expected for the whole event — everyone registered can join any session.
+                  </Typography>
+                )}
+              </Box>
+            </Stack>
+            {picks.canPick ? (
+              <Button
+                variant={attending ? 'contained' : 'outlined'}
+                color={attending ? 'success' : 'primary'}
+                startIcon={attending ? <EventAvailableRoundedIcon /> : <AddRoundedIcon />}
+                disabled={picks.busy === session.id}
+                onClick={() => void picks.toggle(session.id)}
+                sx={{ borderRadius: '12px', whiteSpace: 'nowrap', ...(attending ? { backgroundImage: 'none' } : {}) }}
+              >
+                {attending ? "I'm going ✓" : "I'll attend"}
+              </Button>
+            ) : (
+              !picks.loading &&
+              user?.role !== 'admin' && (
+                <Button size="small" onClick={() => navigate(`/events/${session.eventId}`)}>
+                  Register to pick sessions
+                </Button>
+              )
+            )}
+          </Stack>
+          {picks.error && (
+            <Alert severity="error" sx={{ mt: 1.5 }}>
+              {picks.error}
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Description */}
       {session.description && (
         <Typography
@@ -153,9 +215,9 @@ export default function SessionDetailPage() {
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   Complete this session's activity to earn your stamp.
-                  {isOfficer
-                    ? ' As an officer, you can approve stamps.'
-                    : ' Ask an officer to verify your completion.'}
+                  {canApprove
+                    ? ' You are on the stamp team for this event, so you can approve stamps.'
+                    : ' Ask an officer on the stamp team to verify your completion.'}
                 </Typography>
               </Box>
             </Stack>

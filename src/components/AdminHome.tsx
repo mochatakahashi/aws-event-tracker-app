@@ -14,7 +14,8 @@ import AssignmentIcon from '@mui/icons-material/Assignment';
 import QrCodeScannerRoundedIcon from '@mui/icons-material/QrCodeScannerRounded';
 import LeaderboardRoundedIcon from '@mui/icons-material/LeaderboardRounded';
 import Alert from '@mui/material/Alert';
-import { getMissingClubEvents, importClubEvents } from '../services/eventService';
+import { getEvents, getMissingClubEvents, importClubEvents } from '../services/eventService';
+import type { AppEvent } from '../types/event';
 import { alpha } from '@mui/material/styles';
 import { brand } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
@@ -45,6 +46,7 @@ export default function AdminHome() {
   const [missingEvents, setMissingEvents] = useState<{ id: string; title: string }[]>([]);
   const [importNote, setImportNote] = useState('');
   const [importing, setImporting] = useState(false);
+  const [unstaffed, setUnstaffed] = useState<AppEvent[]>([]);
 
   async function importEvents() {
     if (!user) return;
@@ -75,6 +77,19 @@ export default function AdminHome() {
       .then((tasks) => setOpenTasks(tasks.filter((t) => t.status !== 'done').length))
       .catch(() => undefined);
     getMissingClubEvents().then(setMissingEvents).catch(() => undefined);
+    // Upcoming / live events where no officer may approve stamps or check people in
+    getEvents()
+      .then((evts) =>
+        setUnstaffed(
+          evts.filter(
+            (e) =>
+              (e.status === 'upcoming' || e.status === 'ongoing') &&
+              !(e.stampOfficerIds?.length) &&
+              !(e.checkinOfficerIds?.length),
+          ),
+        ),
+      )
+      .catch(() => undefined);
   }, []);
 
   const items: Item[] = [
@@ -146,6 +161,22 @@ export default function AdminHome() {
         >
           {missingEvents.length} club event{missingEvents.length === 1 ? '' : 's'} (e.g. {missingEvents[0].title}) aren't in the
           live database yet, so they don't show under Events.
+        </Alert>
+      )}
+      {unstaffed.length > 0 && (
+        <Alert
+          severity="warning"
+          sx={{ mb: 2 }}
+          data-testid="unstaffed-alert"
+          action={
+            <Button color="inherit" size="small" onClick={() => navigate(`/events/${unstaffed[0].id}`)}>
+              Set staff
+            </Button>
+          }
+        >
+          {unstaffed.length === 1 ? unstaffed[0].title : `${unstaffed.length} upcoming events (e.g. ${unstaffed[0].title})`} ha
+          {unstaffed.length === 1 ? 's' : 've'} no officers for stamps or check-in yet — only admins can do them until you tick
+          officers under Event staff.
         </Alert>
       )}
       {importNote && (

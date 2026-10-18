@@ -24,6 +24,7 @@ import { useEvent } from '../context/EventContext';
 import { useBoardData } from '../hooks/useBoardData';
 import { affiliation, memberLabel, officerTitle } from '../utils/people';
 import { BADGES, type BadgeId } from '../utils/badges';
+import type { EarnedOfficerBadge } from '../utils/officerBadges';
 import { ATTENDEE_POINTS, OFFICER_POINTS, attendeeBoard, officerBoard } from '../utils/leaderboard';
 import type { Person } from '../types/attendee';
 
@@ -39,6 +40,7 @@ interface Row {
   /** Small stats shown under the name, e.g. "3 stamps · 1 check-in". */
   stats: string[];
   badges?: BadgeId[];
+  officerBadges?: EarnedOfficerBadge[];
   /** 0–1 progress bar (passport completion for one event, or tasks done). */
   progress?: number;
   progressLabel?: string;
@@ -53,6 +55,21 @@ const initials = (name = '?') =>
     .toUpperCase();
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+function OfficerBadgeRow({ badges }: { badges: EarnedOfficerBadge[] }) {
+  if (badges.length === 0) return null;
+  return (
+    <Stack direction="row" spacing={0.25} sx={{ fontSize: 15, lineHeight: 1 }}>
+      {badges.map((b) => (
+        <Tooltip key={b.badge.id} title={`${b.badge.name}${b.count > 1 ? ` ×${b.count}` : ''} — ${b.events.join(', ') || b.badge.description}`}>
+          <Box component="span" role="img" aria-label={b.badge.name}>
+            {b.badge.emoji}
+          </Box>
+        </Tooltip>
+      ))}
+    </Stack>
+  );
+}
 
 function BadgeRow({ ids }: { ids: BadgeId[] }) {
   if (ids.length === 0) return null;
@@ -101,6 +118,7 @@ export default function LeaderboardPage() {
           `${r.tasksDone}/${r.tasksAssigned} tasks done`,
           plural(r.eventsVolunteered, 'event'),
         ],
+        officerBadges: r.badges,
         progress: r.tasksAssigned ? r.tasksDone / r.tasksAssigned : undefined,
         progressLabel: r.tasksAssigned ? 'Tasks done' : undefined,
       }));
@@ -198,8 +216,8 @@ export default function LeaderboardPage() {
           ) : (
             <Typography variant="body2" color="text.secondary">
               <strong>Officers:</strong> {OFFICER_POINTS.stampApproved} per stamp approved, {OFFICER_POINTS.checkInDone} per
-              attendee checked in, {OFFICER_POINTS.taskDone} per task completed, and {OFFICER_POINTS.eventVolunteered} per
-              event volunteered for.
+              attendee checked in, {OFFICER_POINTS.taskDone} per task completed, {OFFICER_POINTS.eventVolunteered} per
+              event worked, and {OFFICER_POINTS.badge} per officer badge (automatic or awarded by an admin; all-events view only).
             </Typography>
           )}
         </Paper>
@@ -279,6 +297,11 @@ export default function LeaderboardPage() {
                         <BadgeRow ids={r.badges} />
                       </Box>
                     )}
+                    {r.officerBadges && (
+                      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 0.5 }}>
+                        <OfficerBadgeRow badges={r.officerBadges} />
+                      </Box>
+                    )}
                   </Paper>
                 );
               })}
@@ -323,6 +346,7 @@ export default function LeaderboardPage() {
                         {mine && ' (you)'}
                       </Typography>
                       {r.badges && <BadgeRow ids={r.badges} />}
+                      {r.officerBadges && <OfficerBadgeRow badges={r.officerBadges} />}
                     </Stack>
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }} noWrap>
                       {[subtitle(p), ...r.stats].filter(Boolean).join(' · ')}

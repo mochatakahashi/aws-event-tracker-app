@@ -18,9 +18,6 @@ import Alert from '@mui/material/Alert';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import IconButton from '@mui/material/IconButton';
-import MenuItem from '@mui/material/MenuItem';
-import Select from '@mui/material/Select';
-import FormControl from '@mui/material/FormControl';
 
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import BookmarkBorderRoundedIcon from '@mui/icons-material/BookmarkBorderRounded';
@@ -46,9 +43,7 @@ import {
   getPeopleByIds,
   getPeople,
 } from '../services/registrationService';
-import { compareOfficers, officerTitle } from '../utils/people';
-import { notifyQuietly } from '../services/notifyService';
-import { notifyInApp } from '../services/notificationService';
+import { compareOfficers } from '../utils/people';
 import type { AppEvent } from '../types/event';
 import type { Speaker } from '../types/speaker';
 import type { Registration, RsvpStatus, Person } from '../types/attendee';
@@ -57,6 +52,8 @@ import AddToCalendarButton from '../components/AddToCalendarButton';
 import CertificateButton from '../components/CertificateButton';
 import RecentUploadsShelf from '../components/RecentUploadsShelf';
 import InlinePass from '../components/InlinePass';
+import EventStaffPanel from '../components/EventStaffPanel';
+import SessionsSection from '../components/SessionsSection';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import { formatDateRange } from '../utils/eventDisplay';
 import { useAuth } from '../context/AuthContext';
@@ -87,8 +84,6 @@ export default function EventDetailPage() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [working, setWorking] = useState(false);
-  const [newOfficerId, setNewOfficerId] = useState('');
-  const [newOfficerRole, setNewOfficerRole] = useState('');
   const [showAllSpeakers, setShowAllSpeakers] = useState(false);
   const [allPeople, setAllPeople] = useState<Person[]>([]);
 
@@ -146,34 +141,6 @@ export default function EventDetailPage() {
       const regs = await getRegistrationsByEvent(id);
       setRegistrations(regs);
       setMyReg(null);
-    } finally {
-      setWorking(false);
-    }
-  }
-
-  const [assignNote, setAssignNote] = useState<string | null>(null);
-
-  async function handleAddOfficer() {
-    if (!id || !event || !newOfficerId.trim()) return;
-    setWorking(true);
-    try {
-      const updatedOfficerIds = [...(event.officerIds || []), newOfficerId.trim()];
-      const updatedRoles = { ...(event.officerRoles || {}), [newOfficerId.trim()]: newOfficerRole.trim() || 'Officer' };
-      await updateEvent(id, { ...event, officerIds: updatedOfficerIds, officerRoles: updatedRoles });
-      // Email + in-app notice that they're on this event
-      void notifyInApp({
-        personIds: [newOfficerId.trim()],
-        kind: 'event-assigned',
-        title: `You're assigned to ${event.title}`,
-        message: `Role: ${(newOfficerRole.trim() || 'Officer').replace(/\b\w/g, (c) => c.toUpperCase())}. ${formatDateRange(event.startAt, event.endAt)} at ${event.venue}.`,
-        link: `/events/${id}`,
-      });
-      setAssignNote(await notifyQuietly({ type: 'event-assigned', eventId: id, personIds: [newOfficerId.trim()] }));
-      await load();
-      setNewOfficerId('');
-      setNewOfficerRole('');
-    } catch (e) {
-      console.error(e);
     } finally {
       setWorking(false);
     }
@@ -424,6 +391,10 @@ export default function EventDetailPage() {
 
             <Divider sx={{ my: 3 }} />
 
+            <SessionsSection event={event} refreshKey={`${myReg?.id ?? ''}:${myReg?.rsvp ?? ''}`} isAdmin={user?.role === 'admin'} />
+
+            <Divider sx={{ my: 3 }} />
+
             <Typography variant="h3" sx={{ fontWeight: 800, mb: 2 }}>
               Speakers Lineup
             </Typography>
@@ -600,98 +571,16 @@ export default function EventDetailPage() {
               </Box>
             </Box>
 
-            <Typography variant="h3" sx={{ fontWeight: 800, mb: 2 }}>
-              Assigned Officers
-            </Typography>
-
-            {user?.role === 'admin' && (
-            <Box sx={{ mb: 3, p: 2, bgcolor: alpha(brand.primary, 0.04), borderRadius: '12px', border: '1px solid', borderColor: alpha(brand.primary, 0.1) }}>
-              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700 }}>
-                Assign an Officer
-              </Typography>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-                <FormControl fullWidth size="small" sx={{ bgcolor: '#fff', borderRadius: 1 }}>
-                  <Select
-                    value={newOfficerId}
-                    onChange={(e) => setNewOfficerId(e.target.value as string)}
-                    disabled={working}
-                    displayEmpty
-                    sx={{ borderRadius: '8px', color: newOfficerId ? 'inherit' : 'text.secondary' }}
-                  >
-                    <MenuItem value="" disabled>Select Officer</MenuItem>
-                    {allPeople
-                      .filter((p) => !(event.officerIds || []).includes(p.id))
-                      .map((p) => (
-                        <MenuItem key={p.id} value={p.id}>
-                          {p.name} — {p.role === 'admin' ? 'Admin' : officerTitle(p)}
-                        </MenuItem>
-                      ))}
-                  </Select>
-                </FormControl>
-                
-                <FormControl fullWidth size="small" sx={{ bgcolor: '#fff', borderRadius: 1 }}>
-                  <Select
-                    value={newOfficerRole}
-                    onChange={(e) => setNewOfficerRole(e.target.value as string)}
-                    disabled={working}
-                    displayEmpty
-                    sx={{ borderRadius: '8px', color: newOfficerRole ? 'inherit' : 'text.secondary' }}
-                  >
-                    <MenuItem value="" disabled>Select Role</MenuItem>
-                    <MenuItem value="creatives">Creatives</MenuItem>
-                    <MenuItem value="media">Media</MenuItem>
-                    <MenuItem value="lead">Lead</MenuItem>
-                    <MenuItem value="host">Host</MenuItem>
-                    <MenuItem value="usher">Usher</MenuItem>
-                    <MenuItem value="registration booth">Registration Booth</MenuItem>
-                  </Select>
-                </FormControl>
-
-                <Button 
-                  variant="contained" 
-                  onClick={handleAddOfficer}
-                  disabled={working || !newOfficerId.trim()}
-                  sx={{ borderRadius: '8px', px: 3, fontWeight: 700, textTransform: 'none' }}
-                >
-                  Add
-                </Button>
-              </Stack>
-              {assignNote && (
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                  {assignNote}
-                </Typography>
-              )}
-            </Box>
-            )}
-
-            {officers.length === 0 ? (
-              <Typography color="text.secondary">No officers assigned yet.</Typography>
-            ) : (
-              <List disablePadding>
-                {officers.map((o) => (
-                  <ListItem key={o.id} alignItems="flex-start" disableGutters sx={{ mb: 1 }}>
-                    <ListItemAvatar>
-                      <Avatar sx={{ width: 44, height: 44, bgcolor: alpha(brand.secondary, 0.1), color: brand.secondary }}>
-                        {initials(o.name)}
-                      </Avatar>
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={
-                        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                          {o.name}
-                        </Typography>
-                      }
-                      secondary={
-                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                          {o.role === 'officer' ? `${officerTitle(o)} · ` : ''}
-                          {(event.officerRoles?.[o.id] || 'Officer').replace(/\b\w/g, (c) => c.toUpperCase())}
-                        </Typography>
-                      }
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            )}
+            <EventStaffPanel
+              event={event}
+              team={officers}
+              candidates={allPeople}
+              actor={user}
+              onChange={async (updated) => {
+                setEvent(updated);
+                setOfficers(await getPeopleByIds(updated.officerIds || []));
+              }}
+            />
           </Paper>
         </Grid>
 

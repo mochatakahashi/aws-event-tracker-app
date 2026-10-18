@@ -21,6 +21,8 @@ import {
  * POST /api/users?action=create   → { actorId, account } admin creates an approved account with a
  *                                   temporary password that must be changed at first sign-in
  * POST /api/users?action=reset    → { actorId, id, newPassword } admin sets a temporary password
+ * POST /api/users?action=award   → { actorId, id, badge, eventId?, note? } admin awards a badge
+ * POST /api/users?action=unaward → { actorId, id, awardId } admin takes it back
  * PUT  /api/users?id=per-1        → { changes, actorId } profile / admin changes
  * DELETE /api/users?id=per-1&actorId=per-9 → delete an account (admin only)
  */
@@ -85,6 +87,8 @@ const PROFILE_FIELDS = [
   'connections',
   'savedEventIds',
 ];
+/** Badges only an admin can give (see src/utils/officerBadges.ts). */
+const AWARD_BADGES = ['best-host', 'best-pubmat', 'mvp', 'team-player', 'rising-star'];
 const ADMIN_FIELDS = ['role', 'status', 'requestedRole', 'officerHistory', 'rejectionReason'];
 
 const isApcEmail = (email: string) => /^[^\s@]+@(student\.)?apc\.edu\.ph$/i.test(email);
@@ -348,6 +352,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const user = (await client.send(new GetCommand({ TableName: tableName, Key: { id } }))).Item;
       if (!user || user.entityType !== 'user') return res.status(404).json({ error: 'User not found' });
       const updated = { ...user, passwordHash: hashPassword(newPassword), mustChangePassword: true, updatedAt: new Date().toISOString() };
+      await client.send(new PutCommand({ TableName: tableName, Item: updated }));
+      return res.status(200).json(sanitize(updated));
+    }
+
+    // Admin-awarded badges (e.g. Best in Pubmat for one event)
+    if (req.method === 'POST' && (action === 'award' || action === 'unaward')) {
+      const { actorId, id, badge, eventId, note, awardId } = req.body || {};
+      if (!(await getAdmin(client, tableName, actorId))) {
+        return res.status(403).json({ error: 'Only an admin can award badges.' });
+      }
+      const user = (await client.send(new GetCommand({ TableName: tableName, Key: { id } }))).Item;
+      if (!user || user.entityType !== 'user') return res.status(404).json({ error: 'User not found' });
+      const awards: any[] = Array.isArray(user.awards) ? user.awards : [];
+      let next: any[];
+      if (action === 'award') {
+        if (!AWARD_BADGES.includes(badge)) return res.status(400).json({ error: 'Unknown badge.' });
+        if (typeof eventId === 'string' && eventId && awards.some((a) => a.badge === badge && a.eventId === eventId)) {
+          return res.status(409).json({ error: 'They already have this badge for that event.' });
+        }
+        next = [
+          ...awards,
+          {
+            id: `awd-${Date.now()}-${Math.floor(Math.random() * 100000)}`,
+            badge,
+            eventId: typeof eventId === 'string' && eventId ? eventId.slice(0, 100) : undefined,
+            note: typeof note === 'string' && note.trim() ? note.trim().slice(0, 200) : undefined,
+            awardedBy: actorId,
+            awardedAt: new Date().toISOString(),
+          },
+        ];
+      } else {
+        next = awards.filter((a) => a.id !== awardId);
+      }
+      const updated = { ...user, awards: next, updatedAt: new Date().toISOString() };
       await client.send(new PutCommand({ TableName: tableName, Item: updated }));
       return res.status(200).json(sanitize(updated));
     }

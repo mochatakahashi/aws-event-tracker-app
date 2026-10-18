@@ -94,6 +94,13 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 
 ---
 
+### ✅ Version 0.6.8 — Session Picks, Event Staff Permissions & Officer Badges
+- [x] **Pick your sessions**: one expected count per event; each session shows its real "going" count; events can have no sessions.
+- [x] **Event staff list**: only officers an admin ticks can approve stamps / check people in at that event (server-enforced).
+- [x] **Officer badges**: automatic (incl. Event Host, Content Creator) and admin-awarded (Best Host, Best in Pubmat, MVP, Team Player, Rising Star).
+
+---
+
 ## 🔮 Upcoming Milestones & Next Steps
 
 ### 🚧 Version 0.6.5 — On-site Extras & Email Notification Delivery
@@ -157,6 +164,9 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 | Committee Task Board & Marketing Content Tracker | v0.6.7 | ✅ Completed | High |
 | Connect: Profile QR, Scanner, Connections | v0.6.7 | ✅ Completed | Medium |
 | Live Dashboard & Saved Events | v0.6.7 | ✅ Completed | Medium |
+| Session Picks & Real "Going" Counts | v0.6.8 | ✅ Completed | Medium |
+| Event Staff Permissions (stamps / check-in) | v0.6.8 | ✅ Completed | High |
+| Officer Badges (automatic + awarded) | v0.6.8 | ✅ Completed | Medium |
 | Certificate of Completion (100% stamps) | v1.0.0 | ⏳ Planned | Low |
 
 ---

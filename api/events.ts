@@ -40,6 +40,32 @@ function getDynamoDocClient() {
   };
 }
 
+// ─── Staff list ───────────────────────────────────────────────────────────────
+// stampOfficerIds / checkinOfficerIds decide which officers may approve stamps
+// and check people in at this event. Only an admin can change them, through
+// PUT /api/events?id=…&action=staff { actorId, officerIds, officerRoles, stampOfficerIds, checkinOfficerIds }.
+
+const STAFF_FIELDS = ['stampOfficerIds', 'checkinOfficerIds'];
+
+function idList(v: unknown): string[] {
+  return Array.isArray(v) ? [...new Set(v.filter((x) => typeof x === 'string' && x && x.length < 100))].slice(0, 200) : [];
+}
+
+/** Keep the duty lists limited to officers who are assigned to the event. */
+function pruneStaff(item: any) {
+  const assigned = new Set(idList(item.officerIds));
+  for (const f of STAFF_FIELDS) {
+    if (item[f] !== undefined) item[f] = idList(item[f]).filter((x) => assigned.has(x));
+  }
+  return item;
+}
+
+async function getAdmin(client: DynamoDBDocumentClient, tableName: string, actorId: unknown) {
+  if (typeof actorId !== 'string' || !actorId) return null;
+  const actor = (await client.send(new GetCommand({ TableName: tableName, Key: { id: actorId } }))).Item;
+  return actor?.entityType === 'user' && actor.role === 'admin' && (actor.status ?? 'approved') === 'approved' ? actor : null;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -88,8 +114,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       const id = event.id || `evt-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+      // Duty lists are only set through action=staff (admin-checked)
+      const { stampOfficerIds: _s, checkinOfficerIds: _c, ...fields } = event;
+      void _s;
+      void _c;
       const itemToSave = {
-        ...event,
+        ...fields,
         id,
         entityType: 'event',
         createdAt: event.createdAt || new Date().toISOString(),
@@ -125,13 +155,45 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(409).json({ error: 'This id belongs to another kind of record' });
       }
 
-      const merged = {
+      // Staff list (admin only)
+      if (req.query.action === 'staff') {
+        const { actorId, officerIds, officerRoles, stampOfficerIds, checkinOfficerIds } = eventUpdates || {};
+        if (!(await getAdmin(client, tableName, actorId))) {
+          return res.status(403).json({ error: 'Only an admin can change who works at this event.' });
+        }
+        if (!existing.Item) return res.status(404).json({ error: 'Event not found' });
+        const roles: Record<string, string> = {};
+        const ids = idList(officerIds);
+        const givenRoles = officerRoles && typeof officerRoles === 'object' ? officerRoles : {};
+        for (const pid of ids) {
+          const r = (givenRoles as any)[pid];
+          roles[pid] = typeof r === 'string' && r.trim() ? r.trim().slice(0, 40) : 'Officer';
+        }
+        const staffed = pruneStaff({
+          ...existing.Item,
+          officerIds: ids,
+          officerRoles: roles,
+          stampOfficerIds: idList(stampOfficerIds),
+          checkinOfficerIds: idList(checkinOfficerIds),
+          id: eventId,
+          entityType: 'event',
+          updatedAt: new Date().toISOString(),
+        });
+        await client.send(new PutCommand({ TableName: tableName, Item: staffed }));
+        return res.status(200).json(staffed);
+      }
+
+      // Ordinary edits never change the duty lists
+      const { stampOfficerIds: _s, checkinOfficerIds: _c, ...fieldUpdates } = eventUpdates || {};
+      void _s;
+      void _c;
+      const merged = pruneStaff({
         ...(existing.Item || {}),
-        ...eventUpdates,
+        ...fieldUpdates,
         id: eventId,
         entityType: 'event',
         updatedAt: new Date().toISOString(),
-      };
+      });
       // Moving the event re-arms its reminder emails
       if (existing.Item?.startAt && eventUpdates?.startAt && existing.Item.startAt !== eventUpdates.startAt) {
         delete (merged as any).remindersSent;

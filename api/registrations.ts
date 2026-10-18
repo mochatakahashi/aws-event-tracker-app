@@ -17,10 +17,10 @@ import QRCode from 'qrcode';
  *
  * GET    /api/registrations[?eventId=&personId=&id=]
  * POST   /api/registrations            { eventId, personId, rsvp } (upsert)
- * PUT    /api/registrations?id=reg-1   { rsvp?, checkedIn? }
+ * PUT    /api/registrations?id=reg-1   { rsvp? } | { personId, sessionIds } (sessions the attendee will go to)
  * DELETE /api/registrations?id=reg-1 | ?eventId=&personId=
  *
- * Check-in (officers / admins only, verified by actorId):
+ * Check-in (admins, and officers on the event's check-in staff list; verified by actorId):
  * POST   /api/registrations?action=checkin  { id, actorId }  → checks in + issues the certificate
  * POST   /api/registrations?action=checkout { id, actorId }  → undo a check-in
  * GET    /api/registrations?action=certificate&id=reg-1&personId=per-1
@@ -276,11 +276,19 @@ async function issueCertificate(client: DynamoDBDocumentClient, tableName: strin
   }
 }
 
-async function requireStaff(client: DynamoDBDocumentClient, tableName: string, actorId: unknown) {
+/**
+ * Who may check people in at an event: admins, and officers on the event's
+ * staff list for check-in (event.checkinOfficerIds, set by an admin).
+ */
+async function requireCheckinStaff(client: DynamoDBDocumentClient, tableName: string, actorId: unknown, eventId: unknown) {
   if (typeof actorId !== 'string' || !actorId) return null;
   const actor = (await client.send(new GetCommand({ TableName: tableName, Key: { id: actorId } }))).Item;
-  const ok = actor?.entityType === 'user' && (actor.role === 'admin' || actor.role === 'officer') && (!actor.status || actor.status === 'approved');
-  return ok ? actor : null;
+  if (actor?.entityType !== 'user' || (actor.status ?? 'approved') !== 'approved') return null;
+  if (actor.role === 'admin') return actor;
+  if (actor.role !== 'officer' || typeof eventId !== 'string') return null;
+  const event = (await client.send(new GetCommand({ TableName: tableName, Key: { id: eventId } }))).Item;
+  const allowed: unknown = event?.checkinOfficerIds;
+  return Array.isArray(allowed) && allowed.includes(actor.id) ? actor : null;
 }
 
 
@@ -329,7 +337,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!id || !who) return res.status(400).json({ error: 'id and personId are required' });
       const reg = (await client.send(new GetCommand({ TableName: tableName, Key: { id } }))).Item;
       if (!reg || reg.entityType !== 'registration') return res.status(404).json({ error: 'Registration not found' });
-      if (reg.personId !== who && !(await requireStaff(client, tableName, who))) {
+      if (reg.personId !== who && !(await requireCheckinStaff(client, tableName, who, reg.eventId))) {
         return res.status(403).json({ error: 'This certificate belongs to someone else.' });
       }
       if (!reg.checkedIn) {
@@ -376,11 +384,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'POST' && (action === 'checkin' || action === 'checkout')) {
       const { id, actorId } = req.body || {};
       if (!id) return res.status(400).json({ error: 'Registration id is required' });
-      const actor = await requireStaff(client, tableName, actorId);
-      if (!actor) return res.status(403).json({ error: 'Only officers and admins can check attendees in.' });
       const reg = (await client.send(new GetCommand({ TableName: tableName, Key: { id } }))).Item;
       if (!reg || reg.entityType !== 'registration') {
         return res.status(404).json({ error: 'This pass was not found. The registration may have been cancelled.' });
+      }
+      const actor = await requireCheckinStaff(client, tableName, actorId, reg.eventId);
+      if (!actor) {
+        return res.status(403).json({
+          error: 'You are not on the check-in team for this event. Ask an admin to tick "Check people in" for you on the event page.',
+        });
       }
       const now = new Date().toISOString();
       if (action === 'checkout') {
@@ -462,7 +474,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!RSVPS.includes(body.rsvp)) return res.status(400).json({ error: 'Invalid RSVP' });
         updates.rsvp = body.rsvp;
       }
-      if (body.checkedIn !== undefined) updates.checkedIn = Boolean(body.checkedIn);
+      // Which sessions the attendee plans to go to (only they can change it)
+      if (body.sessionIds !== undefined) {
+        if (body.personId !== result.Item.personId) {
+          return res.status(403).json({ error: 'You can only choose sessions on your own registration.' });
+        }
+        const wanted = Array.isArray(body.sessionIds)
+          ? [...new Set(body.sessionIds.filter((x: unknown) => typeof x === 'string'))]
+          : [];
+        const kept: string[] = [];
+        for (const sid of wanted.slice(0, 50) as string[]) {
+          const ses = (await client.send(new GetCommand({ TableName: tableName, Key: { id: sid } }))).Item;
+          const isSession = ses && (ses.entityType === 'session' || (!ses.entityType && String(ses.id).startsWith('ses-')));
+          if (isSession && ses.eventId === result.Item.eventId) kept.push(sid);
+        }
+        updates.sessionIds = kept;
+      }
+      // Check-in only goes through action=checkin (staff-checked)
       const merged = { ...result.Item, ...updates, updatedAt: new Date().toISOString() };
       await client.send(new PutCommand({ TableName: tableName, Item: merged }));
       return res.status(200).json(clean(merged));

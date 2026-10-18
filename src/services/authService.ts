@@ -247,6 +247,61 @@ export async function resetPassword(personId: string, newPassword: string, actor
   return delay(strip(users[idx]));
 }
 
+/** Admin awards a badge (e.g. Best in Pubmat for one event). */
+export async function awardBadge(
+  personId: string,
+  award: { badge: string; eventId?: string; note?: string },
+  actorId: string,
+): Promise<User> {
+  if (await isRemoteAvailable(API)) {
+    return apiJson<User>(`${API}?action=award`, {
+      method: 'POST',
+      body: JSON.stringify({ actorId, id: personId, ...award }),
+    });
+  }
+  const users = loadLocalUsers();
+  if (users.find((u) => u.personId === actorId)?.role !== 'admin') throw new Error('Only an admin can award badges.');
+  const idx = users.findIndex((u) => u.personId === personId);
+  if (idx === -1) throw new Error('User not found');
+  const awards = users[idx].awards ?? [];
+  if (award.eventId && awards.some((a) => a.badge === award.badge && a.eventId === award.eventId)) {
+    throw new Error('They already have this badge for that event.');
+  }
+  users[idx] = {
+    ...users[idx],
+    awards: [
+      ...awards,
+      {
+        id: generateId('awd'),
+        badge: award.badge,
+        eventId: award.eventId || undefined,
+        note: award.note?.trim() || undefined,
+        awardedBy: actorId,
+        awardedAt: new Date().toISOString(),
+      },
+    ],
+  };
+  local.save(users);
+  return delay(strip(users[idx]));
+}
+
+/** Admin takes an awarded badge back. */
+export async function removeAward(personId: string, awardId: string, actorId: string): Promise<User> {
+  if (await isRemoteAvailable(API)) {
+    return apiJson<User>(`${API}?action=unaward`, {
+      method: 'POST',
+      body: JSON.stringify({ actorId, id: personId, awardId }),
+    });
+  }
+  const users = loadLocalUsers();
+  if (users.find((u) => u.personId === actorId)?.role !== 'admin') throw new Error('Only an admin can award badges.');
+  const idx = users.findIndex((u) => u.personId === personId);
+  if (idx === -1) throw new Error('User not found');
+  users[idx] = { ...users[idx], awards: (users[idx].awards ?? []).filter((a) => a.id !== awardId) };
+  local.save(users);
+  return delay(strip(users[idx]));
+}
+
 /** All accounts (any status), without passwords. */
 export async function getUsers(): Promise<User[]> {
   if (await isRemoteAvailable(API)) {

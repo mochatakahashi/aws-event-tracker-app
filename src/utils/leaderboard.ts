@@ -3,6 +3,7 @@ import type { Registration, Person } from '../types/attendee';
 import type { OfficerTask } from '../types/task';
 import type { AppEvent } from '../types/event';
 import { buildLeaderboard, type BadgeId } from './badges';
+import { officerBadgesFor, type EarnedOfficerBadge } from './officerBadges';
 
 /**
  * Achievement points for the Builder Leaderboard. Everyone with an approved
@@ -22,6 +23,7 @@ export const OFFICER_POINTS = {
   checkInDone: 5,
   taskDone: 20,
   eventVolunteered: 25,
+  badge: 20,
 } as const;
 
 export interface BoardData {
@@ -51,6 +53,8 @@ export interface OfficerRow {
   tasksDone: number;
   tasksAssigned: number;
   eventsVolunteered: number;
+  /** Officer badges (automatic + admin-awarded). */
+  badges: EarnedOfficerBadge[];
   rank: number;
 }
 
@@ -104,7 +108,7 @@ export function attendeeBoard(d: BoardData, eventId?: string): AttendeeRow[] {
   return rankRows(rows, peopleById);
 }
 
-/** Officers board. With `eventId`, only work for that event counts. */
+/** Officers board. With `eventId`, only work for that event counts (badge points are left out). */
 export function officerBoard(d: BoardData, eventId?: string): OfficerRow[] {
   const peopleById = new Map(d.people.map((p) => [p.id, p]));
   const sessionById = new Map(d.sessions.map((s) => [s.id, s]));
@@ -124,12 +128,15 @@ export function officerBoard(d: BoardData, eventId?: string): OfficerRow[] {
       const eventsVolunteered = d.events.filter(
         (e) => (e.officerIds || []).includes(p.id) && (!eventId || e.id === eventId),
       ).length;
+      const badges = officerBadgesFor(p, d);
+      const badgeCount = badges.reduce((n, b) => n + b.count, 0);
       const points =
         stampsApproved * OFFICER_POINTS.stampApproved +
         checkInsDone * OFFICER_POINTS.checkInDone +
         tasksDone * OFFICER_POINTS.taskDone +
-        eventsVolunteered * OFFICER_POINTS.eventVolunteered;
-      return { personId: p.id, points, stampsApproved, checkInsDone, tasksDone, tasksAssigned, eventsVolunteered, rank: 0 };
+        eventsVolunteered * OFFICER_POINTS.eventVolunteered +
+        (eventId ? 0 : badgeCount * OFFICER_POINTS.badge);
+      return { personId: p.id, points, stampsApproved, checkInsDone, tasksDone, tasksAssigned, eventsVolunteered, badges, rank: 0 };
     });
   return rankRows(rows, peopleById);
 }

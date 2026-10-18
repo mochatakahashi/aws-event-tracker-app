@@ -330,5 +330,24 @@ The club needed to onboard people directly (hand over an email and temporary pas
 
 ---
 
+## ADR-017: Per-event Staff Permissions, Session Picks and Awarded Badges
+
+### Status
+**Accepted**
+
+### Context
+Any officer could approve stamps and check people in at any event, and session cards showed a fake, identical "going" number. The club wanted only officers who are tasked for an event to do these, a real count per session (people choose sessions; the expected number belongs to the whole event), and officer badges for things like hosting and the best pubmat.
+
+### Decision
+- **Staff list on the event**, not on tasks: `stampOfficerIds` and `checkinOfficerIds` next to the existing `officerIds`/`officerRoles`. Changed only through an admin-checked `action=staff`; enforced in the stamps and registrations APIs per event. Admins keep both rights everywhere.
+- **Session choice on the registration** (`sessionIds`) instead of a new record type: no extra function (12-function limit), one read gives every session's count, and only registered people can pick.
+- **Officer badges**: automatic ones computed on the client from existing data (like attendee badges); admin-awarded ones stored as `awards` on the user record, written only by `action=award|unaward` (not a profile field, so people can't award themselves).
+
+### Consequences
+- **Positive**: Least privilege at events with one checkbox per officer; real attendance signals per session; recognition without new infrastructure.
+- **Negative**: Existing events start with empty duty lists, so only admins can approve/check in until staff are set (Admin Home warns). Server checks still trust the `actorId` sent by the app (ADR-008) until signed sessions arrive.
+
+---
+
 *Last Updated: October 2026*
 

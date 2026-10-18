@@ -72,16 +72,38 @@ describe('officer board', () => {
     const rows = officerBoard(data);
     expect(rows.map((r) => r.personId).sort()).toEqual(['off', 'off2']);
     const off = rows.find((r) => r.personId === 'off')!;
-    // 3 stamps approved (15) + 1 check-in (5) + 0 tasks + 1 event (25)
-    expect([off.stampsApproved, off.checkInsDone, off.tasksDone, off.eventsVolunteered, off.points]).toEqual([3, 1, 0, 1, 45]);
+    // 3 stamps approved (15) + 1 check-in (5) + 0 tasks + 1 event (25) + First Duty badge (20)
+    expect([off.stampsApproved, off.checkInsDone, off.tasksDone, off.eventsVolunteered, off.points]).toEqual([3, 1, 0, 1, 65]);
+    expect(off.badges.map((b) => b.badge.id)).toEqual(['first-duty']);
     const off2 = rows.find((r) => r.personId === 'off2')!;
-    // 1 stamp (5) + 1 check-in (5) + 1 task (20) + 1 event (25)
-    expect(off2.points).toBe(55);
+    // 1 stamp (5) + 1 check-in (5) + 1 task (20) + 1 event (25) + First Duty (20)
+    expect(off2.points).toBe(75);
     expect(rows[0].personId).toBe('off2');
   });
 
-  it('filters by event', () => {
+  it('filters by event (badge points left out)', () => {
     const off = officerBoard(data, 'E2').find((r) => r.personId === 'off')!;
     expect(off.points).toBe(0);
+    expect(officerBoard(data, 'E1').find((r) => r.personId === 'off')!.points).toBe(15 + 5 + 25);
+  });
+
+  it('adds 20 points per awarded badge, each time it is given', () => {
+    const awarded: BoardData = {
+      ...data,
+      people: data.people.map((p) =>
+        p.id === 'off'
+          ? {
+              ...p,
+              awards: [
+                { id: 'w1', badge: 'best-pubmat', eventId: 'E1', awardedBy: 'adm', awardedAt: '' },
+                { id: 'w2', badge: 'best-pubmat', eventId: 'E2', awardedBy: 'adm', awardedAt: '' },
+              ],
+            }
+          : p,
+      ),
+    };
+    const off = officerBoard(awarded).find((r) => r.personId === 'off')!;
+    expect(off.points).toBe(65 + 40);
+    expect(off.badges.find((b) => b.badge.id === 'best-pubmat')!.count).toBe(2);
   });
 });

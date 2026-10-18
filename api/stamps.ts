@@ -40,6 +40,26 @@ function getDynamoDocClient() {
   };
 }
 
+/**
+ * Who may approve or decline a stamp: admins, and officers on the event's
+ * staff list for stamps (event.stampOfficerIds, set by an admin).
+ */
+async function stampApprover(client: DynamoDBDocumentClient, tableName: string, actorId: unknown, sessionId: unknown) {
+  if (typeof actorId !== 'string' || !actorId || typeof sessionId !== 'string') return null;
+  const actor = (await client.send(new GetCommand({ TableName: tableName, Key: { id: actorId } }))).Item;
+  if (actor?.entityType !== 'user' || (actor.status ?? 'approved') !== 'approved') return null;
+  if (actor.role === 'admin') return actor;
+  if (actor.role !== 'officer') return null;
+  const session = (await client.send(new GetCommand({ TableName: tableName, Key: { id: sessionId } }))).Item;
+  if (!session?.eventId) return null;
+  const event = (await client.send(new GetCommand({ TableName: tableName, Key: { id: session.eventId } }))).Item;
+  const allowed: unknown = event?.stampOfficerIds;
+  return Array.isArray(allowed) && allowed.includes(actor.id) ? actor : null;
+}
+
+const NOT_ON_STAFF =
+  'You are not on the stamp team for this event. Ask an admin to tick "Approve stamps" for you on the event page.';
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -115,12 +135,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json(existing);
       }
 
-      const id = stamp.id || `stp-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+      // A new stamp is always a request; approving happens through PUT
+      const id = `stp-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
       const itemToSave = {
-        ...stamp,
         id,
         entityType: 'stamp',
-        status: stamp.status || 'pending',
+        sessionId: String(stamp.sessionId),
+        attendeeId: String(stamp.attendeeId),
+        status: 'pending',
         requestedAt: new Date().toISOString(),
       };
 
@@ -133,7 +155,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(201).json(itemToSave);
     }
 
-    // PUT /api/stamps (Officer Approves Stamp)
+    // PUT /api/stamps?id=… { actorId, status } (stamp team approves; status 'pending' un-approves)
     if (req.method === 'PUT') {
       const { id } = req.query;
       const updates = req.body;
@@ -157,13 +179,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(404).json({ error: 'Stamp not found' });
       }
 
-      const merged = {
-        ...existing.Item,
-        ...updates,
-        id: stampId,
-        entityType: 'stamp',
-        approvedAt: updates.approvedAt || new Date().toISOString(),
-      };
+      const actor = await stampApprover(client, tableName, updates?.actorId || updates?.approvedBy, existing.Item.sessionId);
+      if (!actor) return res.status(403).json({ error: NOT_ON_STAFF });
+      const approve = (updates?.status ?? 'approved') === 'approved';
+      const merged = approve
+        ? { ...existing.Item, id: stampId, entityType: 'stamp', status: 'approved', approvedBy: actor.id, approvedAt: new Date().toISOString() }
+        : { ...existing.Item, id: stampId, entityType: 'stamp', status: 'pending', approvedBy: undefined, approvedAt: undefined };
 
       await client.send(
         new PutCommand({
@@ -174,7 +195,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json(merged);
     }
 
-    // DELETE /api/stamps?id=... (Officer Declines Stamp)
+    // DELETE /api/stamps?id=…&actorId=… (stamp team declines) or &attendeeId=… (withdraw own request)
     if (req.method === 'DELETE') {
       const { id } = req.query;
       if (!id || typeof id !== 'string') {
@@ -184,6 +205,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const toDelete = await client.send(new GetCommand({ TableName: tableName, Key: { id } }));
       if (!isOwnRecord(toDelete.Item)) {
         return res.status(404).json({ error: 'Stamp not found' });
+      }
+      // Attendees may withdraw their own pending request; declining needs the stamp team
+      const own =
+        typeof req.query.attendeeId === 'string' &&
+        req.query.attendeeId === toDelete.Item!.attendeeId &&
+        toDelete.Item!.status === 'pending';
+      if (!own && !(await stampApprover(client, tableName, req.query.actorId, toDelete.Item!.sessionId))) {
+        return res.status(403).json({ error: NOT_ON_STAFF });
       }
 
       await client.send(

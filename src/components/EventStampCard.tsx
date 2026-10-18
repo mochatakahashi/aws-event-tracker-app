@@ -7,8 +7,6 @@ import Typography from '@mui/material/Typography';
 import Stack from '@mui/material/Stack';
 import Chip from '@mui/material/Chip';
 import Button from '@mui/material/Button';
-import Avatar from '@mui/material/Avatar';
-import AvatarGroup from '@mui/material/AvatarGroup';
 import CircularProgress from '@mui/material/CircularProgress';
 import Divider from '@mui/material/Divider';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
@@ -16,6 +14,8 @@ import HourglassTopRoundedIcon from '@mui/icons-material/HourglassTopRounded';
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
 import WorkspacePremiumRoundedIcon from '@mui/icons-material/WorkspacePremiumRounded';
 import PlaceIcon from '@mui/icons-material/PlaceRounded';
+import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
+import { useSessionPicks } from '../hooks/useSessionPicks';
 import ImageNotSupportedOutlinedIcon from '@mui/icons-material/ImageNotSupportedOutlined';
 import { alpha } from '@mui/material/styles';
 import { brand } from '../theme/theme';
@@ -43,6 +43,7 @@ export default function EventStampCard({
   const [stamps, setStamps] = useState<Stamp[]>([]);
   const [loading, setLoading] = useState(true);
   const [requestingSessionId, setRequestingSessionId] = useState<string | null>(null);
+  const { counts } = useSessionPicks(selectedEvent?.id);
 
   useEffect(() => {
     if (!selectedEvent) {
@@ -105,19 +106,11 @@ export default function EventStampCard({
       >
         <WorkspacePremiumRoundedIcon sx={{ fontSize: 40, color: alpha(brand.primary, 0.4), mb: 1 }} />
         <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5 }}>
-          No Stamp Passport for this Event
+          No stamp activities at this event
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 440, mx: 'auto', mb: 2 }}>
-          Activity stamps and the session passport are exclusive to hands-on workshops in <strong>Tech Barangay: AWS x WordPress x Notion</strong>.
+        <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 440, mx: 'auto' }}>
+          {selectedEvent.title} has no sessions with stamps. Stamps show up here when an event has hands-on activities.
         </Typography>
-        <Button
-          size="small"
-          variant="outlined"
-          onClick={() => navigate('/select-event')}
-          sx={{ borderRadius: 2 }}
-        >
-          Switch to Tech Barangay
-        </Button>
       </Card>
     );
   }
@@ -440,10 +433,10 @@ export default function EventStampCard({
                       }}
                     >
                       <Typography variant="caption" sx={{ fontWeight: 800, color: '#EF4444', display: 'block', fontSize: '0.65rem', lineHeight: 1.1 }}>
-                        10
+                        {new Date(session.startTime).getDate() || '–'}
                       </Typography>
                       <Typography variant="caption" sx={{ fontWeight: 800, color: '#1A0A2E', display: 'block', fontSize: '0.65rem', lineHeight: 1.1 }}>
-                        OCT
+                        {session.startTime ? new Date(session.startTime).toLocaleDateString('en-US', { month: 'short' }).toUpperCase() : ''}
                       </Typography>
                     </Box>
 
@@ -480,14 +473,14 @@ export default function EventStampCard({
                       {session.title}
                     </Typography>
 
-                    {/* Attendees Stack */}
-                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                      <AvatarGroup max={3} sx={{ '& .MuiAvatar-root': { width: 20, height: 20, fontSize: '0.6rem' } }}>
-                        <Avatar src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80" />
-                        <Avatar src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80" />
-                      </AvatarGroup>
-                      <Typography variant="caption" sx={{ color: '#EF4444', fontWeight: 700, fontSize: '0.72rem' }}>
-                        +12 Going
+                    {/* How many picked this session */}
+                    <Stack direction="row" alignItems="center" spacing={0.75} sx={{ mb: 1 }}>
+                      <GroupsRoundedIcon sx={{ fontSize: 15, color: counts.get(session.id) ? '#EF4444' : '#9CA3AF' }} />
+                      <Typography
+                        variant="caption"
+                        sx={{ color: counts.get(session.id) ? '#EF4444' : '#6B7280', fontWeight: 700, fontSize: '0.72rem' }}
+                      >
+                        {counts.get(session.id) ? `${counts.get(session.id)} going` : 'No one has picked this yet'}
                       </Typography>
                     </Stack>
 

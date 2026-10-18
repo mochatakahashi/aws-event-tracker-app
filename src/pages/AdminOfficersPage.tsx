@@ -23,6 +23,11 @@ import { archiveOfficer, deleteUser, getUsers, updateUser } from '../services/au
 import { getEvents } from '../services/eventService';
 import { getStamps } from '../services/sessionService';
 import { getTasks } from '../services/taskService';
+import { getAllRegistrations } from '../services/registrationService';
+import AwardBadgePanel from '../components/AwardBadgePanel';
+import { officerBadgesFor } from '../utils/officerBadges';
+import type { BoardData } from '../utils/leaderboard';
+import type { Registration } from '../types/attendee';
 import { brand } from '../theme/theme';
 import type { Committee, OfficerPosition, Subcommittee, User } from '../types/auth';
 import type { AppEvent } from '../types/event';
@@ -66,6 +71,7 @@ export default function AdminOfficersPage() {
   const [events, setEvents] = useState<AppEvent[]>([]);
   const [stamps, setStamps] = useState<Stamp[]>([]);
   const [tasks, setTasks] = useState<OfficerTask[]>([]);
+  const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [open, setOpen] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -79,12 +85,13 @@ export default function AdminOfficersPage() {
       navigate('/home');
       return;
     }
-    Promise.all([getUsers(), getEvents(), getStamps(), getTasks()])
-      .then(([u, e, s, t]) => {
+    Promise.all([getUsers(), getEvents(), getStamps(), getTasks(), getAllRegistrations().catch(() => [] as Registration[])])
+      .then(([u, e, s, t, r]) => {
         setUsers(u);
         setEvents(e);
         setStamps(s);
         setTasks(t);
+        setRegistrations(r);
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Could not load officers.'))
       .finally(() => setLoading(false));
@@ -93,6 +100,11 @@ export default function AdminOfficersPage() {
   const officers = useMemo(
     () => users.filter((u) => u.role === 'officer' && (!u.status || u.status === 'approved')).sort(compareOfficers),
     [users],
+  );
+
+  const board: BoardData = useMemo(
+    () => ({ people: [], stamps, sessions: [], registrations, tasks, events }),
+    [stamps, registrations, tasks, events],
   );
 
   function statsFor(o: User) {
@@ -438,6 +450,16 @@ export default function AdminOfficersPage() {
                         </TextField>
                       )}
                     </Stack>
+
+                    {user && (
+                      <AwardBadgePanel
+                        officer={o}
+                        earned={officerBadgesFor({ id: o.personId, awards: o.awards }, board)}
+                        events={events}
+                        actorId={user.personId}
+                        onChange={replace}
+                      />
+                    )}
 
                     <Typography variant="subtitle2" sx={{ fontWeight: 700, mt: 2.5, mb: 1 }}>
                       Events volunteered

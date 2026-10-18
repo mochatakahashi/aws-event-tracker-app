@@ -27,6 +27,7 @@ import { brand } from '../theme/theme';
 import { TASK_STATUS_LABELS, type OfficerTask, type TaskStatus } from '../types/task';
 import type { AppEvent } from '../types/event';
 import { officerTitle } from '../utils/people';
+import { canDo, staffEvents } from '../utils/eventStaff';
 import { useAuth } from '../context/AuthContext';
 import type { Stamp, Session } from '../types/session';
 import type { Person } from '../types/attendee';
@@ -76,6 +77,7 @@ export default function OfficerDashboardPage() {
       const stamp = pendingStamps.find(s => s.id === stampId);
       await approveStamp(stampId, user.personId);
       setPendingStamps(prev => prev.filter(s => s.id !== stampId));
+      setError('');
       if (stamp) {
         const session = sessions.find(s => s.id === stamp.sessionId);
         void notifyInApp({
@@ -87,7 +89,7 @@ export default function OfficerDashboardPage() {
         });
       }
     } catch (e) {
-      console.error(e);
+      setError(e instanceof Error ? e.message : 'Could not approve the stamp.');
     }
   }
 
@@ -104,7 +106,7 @@ export default function OfficerDashboardPage() {
   async function handleDecline(stampId: string) {
     try {
       const stamp = pendingStamps.find(s => s.id === stampId);
-      await declineStamp(stampId);
+      await declineStamp(stampId, user?.personId);
       setPendingStamps(prev => prev.filter(s => s.id !== stampId));
       if (stamp) {
         const session = sessions.find(s => s.id === stamp.sessionId);
@@ -117,12 +119,16 @@ export default function OfficerDashboardPage() {
         });
       }
     } catch (e) {
-      console.error(e);
+      setError(e instanceof Error ? e.message : 'Could not decline the stamp.');
     }
   }
 
   const plainTasks = tasks.filter(t => t.kind !== 'pubmat');
   const myPubmats = tasks.filter(t => t.kind === 'pubmat');
+  // Only stamp requests for events where you're on the stamp team
+  const eventOfSession = new Map(sessions.map(s => [s.id, events.find(e => e.id === s.eventId)]));
+  const myStampRequests = pendingStamps.filter(st => canDo(user, eventOfSession.get(st.sessionId), 'stamps'));
+  const myDutyEvents = staffEvents(user, events).filter(e => e.status !== 'cancelled' && e.status !== 'accomplished');
 
   if (loading) return <Box sx={{ p: 4, textAlign: 'center' }}><CircularProgress /></Box>;
 
@@ -150,6 +156,25 @@ export default function OfficerDashboardPage() {
             <Typography variant="body2" color="text.secondary">
               Scan an attendee’s QR pass at the door to check them in, or at a booth to approve their stamp.
             </Typography>
+            {user?.role === 'officer' && (
+              myDutyEvents.length === 0 ? (
+                <Typography variant="caption" color="warning.main" sx={{ display: 'block', mt: 0.5, fontWeight: 600 }} data-testid="no-duties">
+                  You’re not on the stamp or check-in team for any upcoming event yet. An admin adds you on the event page.
+                </Typography>
+              ) : (
+                <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 1 }} data-testid="my-duties">
+                  {myDutyEvents.map(e => (
+                    <Chip
+                      key={e.id}
+                      size="small"
+                      variant="outlined"
+                      onClick={() => navigate(`/events/${e.id}`)}
+                      label={`${e.title}: ${[canDo(user, e, 'checkin') && 'check-in', canDo(user, e, 'stamps') && 'stamps'].filter(Boolean).join(' + ')}`}
+                    />
+                  ))}
+                </Stack>
+              )
+            )}
           </Box>
           <Button variant="contained" startIcon={<QrCodeScannerRoundedIcon />} onClick={() => navigate('/officer/scan')}>
             Open scanner
@@ -288,14 +313,16 @@ export default function OfficerDashboardPage() {
         Stamp requests
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Review and approve pending stamp requests from attendees.
+        {user?.role === 'admin'
+          ? 'Review and approve pending stamp requests from attendees.'
+          : 'Requests for events where you’re on the stamp team.'}
       </Typography>
 
-      {pendingStamps.length === 0 ? (
+      {myStampRequests.length === 0 ? (
         <Typography color="text.secondary">No pending stamp requests.</Typography>
       ) : (
         <Stack spacing={2}>
-          {pendingStamps.map(stamp => {
+          {myStampRequests.map(stamp => {
             const session = sessions.find(s => s.id === stamp.sessionId);
             const attendee = people.find(p => p.id === stamp.attendeeId);
 

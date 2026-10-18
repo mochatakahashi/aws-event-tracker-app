@@ -21,6 +21,7 @@ import { updateProfile } from '../services/authService';
 import { notifyInApp } from '../services/notificationService';
 import { affiliation, memberLabel, officerTitle } from '../utils/people';
 import { BADGES } from '../utils/badges';
+import { officerBadgesFor } from '../utils/officerBadges';
 import { attendeeBoard } from '../utils/leaderboard';
 import SocialLinksRow from '../components/SocialLinksRow';
 
@@ -124,6 +125,7 @@ export default function PersonProfilePage() {
   }
 
   const badges = row?.badges ?? [];
+  const officerBadges = person.role === 'officer' && data ? officerBadgesFor(person, data) : [];
 
   return (
     <Box sx={{ maxWidth: 820, mx: 'auto' }}>
@@ -204,6 +206,29 @@ export default function PersonProfilePage() {
             );
           })}
         </Stack>
+        {person.role === 'officer' && (
+          <>
+            <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>
+              Officer badges · {officerBadges.reduce((n, b) => n + b.count, 0)}
+            </Typography>
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 0.5, mb: 2 }} data-testid="profile-officer-badges">
+              {officerBadges.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  None yet.
+                </Typography>
+              ) : (
+                officerBadges.map((b) => (
+                  <Tooltip key={b.badge.id} title={b.events.length ? b.events.join(', ') : b.badge.description}>
+                    <Chip
+                      label={`${b.badge.emoji} ${b.badge.name}${b.count > 1 ? ` ×${b.count}` : ''}`}
+                      color={b.badge.awarded ? 'primary' : 'success'}
+                    />
+                  </Tooltip>
+                ))
+              )}
+            </Stack>
+          </>
+        )}
         {attended.length > 0 && (
           <>
             <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>
