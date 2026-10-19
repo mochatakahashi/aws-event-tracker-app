@@ -106,7 +106,7 @@ export default function SignoffPanel({ viewer }: { viewer: { personId: string; n
           {x.status !== 'pending' && (
             <Typography variant="body2" color={x.status === 'returned' ? 'error' : 'success.main'} sx={{ mt: 0.5 }}>
               {x.status === 'approved' ? 'Approved' : 'Returned'} by {x.reviewedByName} · {when(x.reviewedAt)}
-              {x.comment ? ` — “${x.comment}”` : ''}
+              {x.comment ? ` - “${x.comment}”` : ''}
             </Typography>
           )}
         </Box>
@@ -180,7 +180,7 @@ export default function SignoffPanel({ viewer }: { viewer: { personId: string; n
         </Stack>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
           {isAdviser
-            ? 'Requests from officers and admins. Approve, or return with what needs to change — they are notified either way.'
+            ? 'Requests from officers and admins. Approve, or return with what needs to change - they are notified either way.'
             : 'Send a document or plan to the adviser for approval (papirma). You are notified when it’s signed or returned.'}
         </Typography>
         {error && (

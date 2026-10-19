@@ -35,6 +35,7 @@ import {
 import type { User } from '../types/auth';
 import type { AppEvent } from '../types/event';
 import { SUBCOMMITTEE_LABELS } from '../utils/people';
+import TaskThread from './TaskThread';
 
 const STAGE_COLOR: Record<PubmatStage, string> = {
   'not-started': '#9CA3AF',
@@ -64,7 +65,7 @@ interface Props {
   onChange: (items: OfficerTask[]) => void;
 }
 
-/** Marketing Content Tracker — the pubmat sheet, inside the app. */
+/** Marketing Content Tracker - the pubmat sheet, inside the app. */
 export default function ContentTracker({ items, officers, events, me, isAdmin, onChange }: Props) {
   const [eventFilter, setEventFilter] = useState<string>('all');
   const [showForm, setShowForm] = useState(false);
@@ -107,7 +108,7 @@ export default function ContentTracker({ items, officers, events, me, isAdmin, o
         personIds: targets,
         kind: 'task-assigned',
         title: `Pubmat: ${task.title}`,
-        message: `You're the ${role.label.toLowerCase()} — please ${role.verb} this pubmat${p.postDate ? ` (post date ${fmtDate(p.postDate)})` : ''}.`,
+        message: `You're the ${role.label.toLowerCase()} - please ${role.verb} this pubmat${p.postDate ? ` (post date ${fmtDate(p.postDate)})` : ''}.`,
         link: '/officer',
       });
     }
@@ -192,7 +193,7 @@ export default function ContentTracker({ items, officers, events, me, isAdmin, o
             Content Tracker
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Pubmats for Marketing — {SUBCOMMITTEE_LABELS.creatives} designs, caption writers and posters.
+            Pubmats for Marketing - {SUBCOMMITTEE_LABELS.creatives} designs, caption writers and posters.
           </Typography>
         </Box>
         <Stack direction="row" spacing={1}>
@@ -348,7 +349,7 @@ export default function ContentTracker({ items, officers, events, me, isAdmin, o
                               {role.label}
                             </Typography>
                             <Typography variant="body2" sx={{ fontWeight: p[role.key].includes(me.personId) ? 800 : 500 }}>
-                              {p[role.key].length ? p[role.key].map(nameOf).join(', ') : '—'}
+                              {p[role.key].length ? p[role.key].map(nameOf).join(', ') : '-'}
                               {p[role.key].includes(me.personId) && ' (you)'}
                             </Typography>
                           </Box>
@@ -411,7 +412,7 @@ export default function ContentTracker({ items, officers, events, me, isAdmin, o
                       />
                     ) : (
                       <Typography variant="body2">
-                        <strong>Post date:</strong> {fmtDate(p.postDate) || '—'}
+                        <strong>Post date:</strong> {fmtDate(p.postDate) || '-'}
                       </Typography>
                     )}
                     {t.dueAt && (
@@ -440,6 +441,14 @@ export default function ContentTracker({ items, officers, events, me, isAdmin, o
                       .
                     </Typography>
                   </Box>
+                )}
+                {(isAdmin || mine) && (
+                  <TaskThread
+                    task={t}
+                    me={me}
+                    adminIds={officers.filter((o) => o.role === 'admin').map((o) => o.personId)}
+                    onChange={(updated) => onChange(items.map((x) => (x.id === updated.id ? updated : x)))}
+                  />
                 )}
               </Paper>
             );

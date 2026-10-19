@@ -147,7 +147,7 @@ export default function SessionDetailPage() {
                 {event && event.participants > 0 && (
                   <Typography variant="caption" color="text.secondary">
                     {event.participantsEstimated ? 'Est. ' : ''}
-                    {event.participants} expected for the whole event — everyone registered can join any session.
+                    {event.participants} expected for the whole event - everyone registered can join any session.
                   </Typography>
                 )}
               </Box>

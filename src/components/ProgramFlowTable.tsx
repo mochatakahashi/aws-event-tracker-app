@@ -70,7 +70,7 @@ const HEADERS = /^(comprehensive program design|program flow|time|duration|activ
 
 /**
  * Turn a program pasted from a document into rows. Accepts the usual
- * "Time / Duration / Activity / Person-in-Charge" layout — one cell per line,
+ * "Time / Duration / Activity / Person-in-Charge" layout - one cell per line,
  * or tab-separated rows.
  */
 export function parseProgramFlow(text: string): ProgramRow[] {

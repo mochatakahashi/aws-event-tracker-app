@@ -34,6 +34,7 @@ import { TASK_STATUS_LABELS, type OfficerTask, type TaskStatus } from '../types/
 import type { AppEvent } from '../types/event';
 import { canDo, staffEvents } from '../utils/eventStaff';
 import { deskChanged } from '../hooks/useDeskCounts';
+import AnnouncementBanner from '../components/AnnouncementBanner';
 import { useAuth } from '../context/AuthContext';
 import type { Stamp, Session } from '../types/session';
 import type { Person, Registration } from '../types/attendee';
@@ -199,6 +200,7 @@ export default function OfficerDashboardPage() {
           {officerTitle(user)}
         </Typography>
       )}
+      {user && <AnnouncementBanner viewer={user} />}
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
@@ -224,7 +226,7 @@ export default function OfficerDashboardPage() {
             <Box sx={{ flex: 1, minWidth: 200 }}>
               <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Event Desk</Typography>
               <Typography variant="body2" color="text.secondary">
-                Check people in with the QR scanner, approve their stamps after check-in, and see who’s here — all in one place.
+                Check people in with the QR scanner, approve their stamps after check-in, and see who’s here - all in one place.
               </Typography>
               {user?.role === 'officer' && (
                 <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 1 }} data-testid="my-duties">
@@ -247,7 +249,7 @@ export default function OfficerDashboardPage() {
         </Card>
       )}
 
-      {/* Requests for my duties — each shown only if I have that duty somewhere */}
+      {/* Requests for my duties - each shown only if I have that duty somewhere */}
       {(stampDutyEvents.length > 0 || checkinDutyEvents.length > 0) && (
         <Box
           sx={{
@@ -564,7 +566,7 @@ export default function OfficerDashboardPage() {
                         </>
                       )}
                     </Stack>
-                    {!waiting && !declined && user && (
+                    {user && (
                       <TaskThread
                         task={task}
                         me={user}

@@ -18,7 +18,7 @@ export default function StampBadge({ earned, status, size = 'medium' }: StampBad
 
   if (!earned) {
     return (
-      <Tooltip title="Stamp available — complete this activity!">
+      <Tooltip title="Stamp available - complete this activity!">
         <Box
           sx={{
             width: sz,

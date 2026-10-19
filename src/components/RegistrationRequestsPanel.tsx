@@ -12,6 +12,7 @@ import { notifyInApp } from '../services/notificationService';
 import { memberLabel } from '../utils/people';
 import type { AppEvent } from '../types/event';
 import type { Person, Registration, RsvpStatus } from '../types/attendee';
+import { imageSrc } from '../utils/imageUrl';
 
 /**
  * Registrations waiting for the check-in team at one event (Officer
@@ -79,7 +80,7 @@ export default function RegistrationRequestsPanel({
               sx={{ p: 1.25, borderRadius: '12px', border: `1px solid ${alpha(brand.primary, 0.12)}` }}
             >
               <Stack direction="row" spacing={1.25} alignItems="center" sx={{ flex: 1, minWidth: 0 }}>
-                <Avatar src={p?.avatarUrl || undefined} sx={{ width: 34, height: 34, fontSize: '0.8rem' }}>
+                <Avatar src={imageSrc(p?.avatarUrl)} sx={{ width: 34, height: 34, fontSize: '0.8rem' }}>
                   {(p?.name || '?').split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()}
                 </Avatar>
                 <Box sx={{ minWidth: 0 }}>

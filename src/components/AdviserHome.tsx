@@ -25,6 +25,7 @@ import type { AppEvent } from '../types/event';
 import type { Registration } from '../types/attendee';
 import type { User } from '../types/auth';
 import AnnouncementsCard from './AnnouncementsCard';
+import AnnouncementBanner from './AnnouncementBanner';
 import SignoffPanel from './SignoffPanel';
 import { StatRow, StatTile } from './AdminUi';
 import { DeadlineChip } from './TaskThread';
@@ -81,8 +82,9 @@ export default function AdviserHome() {
         👋 Hello, {user.firstName || user.name.split(' ')[0]}!
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Adviser view of AWS SBG-APC — announcements, sign-offs and how the org is doing.
+        Adviser view of AWS SBG-APC - announcements, sign-offs and how the org is doing.
       </Typography>
+      <AnnouncementBanner viewer={user} />
 
       <StatRow>
         <StatTile label="Officers" value={officers.length} />

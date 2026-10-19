@@ -30,6 +30,7 @@ import AddToCalendarButton from '../components/AddToCalendarButton';
 import CertificateButton from '../components/CertificateButton';
 import type { AppEvent } from '../types/event';
 import type { Registration } from '../types/attendee';
+import { imageSrc } from '../utils/imageUrl';
 
 /** Pick the most relevant pass: ?event=, then the selected event, then the next one coming up. */
 function pickDefault(regs: Registration[], events: Map<string, AppEvent>, wanted?: string | null, selected?: string) {
@@ -233,7 +234,7 @@ export default function EventPassPage() {
                 )}
               </Box>
               <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="center" sx={{ mt: 2 }}>
-                <Avatar src={user.avatarUrl || undefined} sx={{ width: 40, height: 40 }}>
+                <Avatar src={imageSrc(user.avatarUrl)} sx={{ width: 40, height: 40 }}>
                   {initials}
                 </Avatar>
                 <Box sx={{ textAlign: 'left', minWidth: 0 }}>
@@ -241,8 +242,8 @@ export default function EventPassPage() {
                     {user.name}
                   </Typography>
                   <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
-                    {/* Name only — no member type beside it */}
-                    {affiliation(user) !== '—' ? affiliation(user) : ''}
+                    {/* Name only - no member type beside it */}
+                    {affiliation(user) !== '-' ? affiliation(user) : ''}
                   </Typography>
                 </Box>
               </Stack>

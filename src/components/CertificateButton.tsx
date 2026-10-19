@@ -52,7 +52,7 @@ export default function CertificateButton({
         ? `You're checked in. Your certificate unlocks after the event ends (${when(event?.endAt)}).`
         : state === 'needs-check-in'
           ? 'Get checked in at the event to earn a certificate. It unlocks after the event ends.'
-          : "No certificate for this event — you weren't checked in at the venue.";
+          : "No certificate for this event - you weren't checked in at the venue.";
     return (
       <Box
         data-testid="certificate-locked"
@@ -71,7 +71,7 @@ export default function CertificateButton({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      /* clipboard blocked — the Verify link still works */
+      /* clipboard blocked - the Verify link still works */
     }
   }
 

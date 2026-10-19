@@ -26,6 +26,7 @@ import GroupsIcon from '@mui/icons-material/Groups';
 import BusinessIcon from '@mui/icons-material/Business';
 import AlternateEmailIcon from '@mui/icons-material/AlternateEmail';
 import { uploadImageToS3 } from '../services/storageService';
+import { fileToDataUrl } from '../services/uploadStorageService';
 import { updateProfile } from '../services/authService';
 import ChangePasswordForm from '../components/ChangePasswordForm';
 import { startTour } from '../components/TutorialTour';
@@ -40,6 +41,7 @@ import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import HandshakeOutlinedIcon from '@mui/icons-material/HandshakeOutlined';
 import { isPartnerStaff } from '../utils/eventStaff';
 import type { SocialLinks } from '../types/auth';
+import { imageSrc } from '../utils/imageUrl';
 
 export default function ProfilePage() {
   const { user, setCurrentUser } = useAuth();
@@ -146,10 +148,17 @@ export default function ProfilePage() {
     setUploadingAvatar(true);
     setUploadProgress(0);
     try {
-      const s3Url = await uploadImageToS3(croppedFile, (pct) => setUploadProgress(pct));
+      let photoUrl: string;
+      try {
+        photoUrl = await uploadImageToS3(croppedFile, (pct) => setUploadProgress(pct));
+      } catch {
+        // Cloud storage not set up or failing: keep a small copy on the account instead
+        photoUrl = await fileToDataUrl(croppedFile, 120_000, 480);
+        setUploadProgress(100);
+      }
       // Save it on the account so every login and device sees the new photo
-      if (user) setCurrentUser(await updateProfile(user.personId, { avatarUrl: s3Url }));
-      setAvatarUrl(s3Url);
+      if (user) setCurrentUser(await updateProfile(user.personId, { avatarUrl: photoUrl }));
+      setAvatarUrl(photoUrl);
       setAdjustSource(null);
     } catch (err: any) {
       alert(err.message || 'Failed to upload profile photo');
@@ -169,7 +178,7 @@ export default function ProfilePage() {
     infoRows.push({ label: 'Member Type', value: memberLabel(user), icon: <BadgeIcon /> });
   }
   if (user?.memberType === 'outside') {
-    infoRows.push({ label: 'School / Organization', value: user.organization || '—', icon: <BusinessIcon /> });
+    infoRows.push({ label: 'School / Organization', value: user.organization || '-', icon: <BusinessIcon /> });
   } else if (user?.studentId) {
     infoRows.push({ label: 'Student ID', value: user.studentId, icon: <SchoolIcon /> });
   }
@@ -183,7 +192,7 @@ export default function ProfilePage() {
         My Profile
       </Typography>
 
-      {/* Avatar adjuster — shown when a file is selected or re-adjusting */}
+      {/* Avatar adjuster - shown when a file is selected or re-adjusting */}
       {adjustSource && (
         <Box sx={{ mb: 3, maxWidth: 420 }}>
           <AvatarImageAdjuster
@@ -221,7 +230,7 @@ export default function ProfilePage() {
           {/* Avatar with upload overlay */}
           <Box sx={{ position: 'relative', width: 90, mt: -6, mb: 2 }}>
             <Avatar
-              src={avatarUrl || undefined}
+              src={imageSrc(avatarUrl)}
               sx={{
                 width: 90,
                 height: 90,
@@ -274,7 +283,7 @@ export default function ProfilePage() {
               size="small"
               variant="outlined"
               startIcon={<PhotoCameraIcon />}
-              onClick={() => setAdjustSource(avatarUrl)}
+              onClick={() => setAdjustSource(imageSrc(avatarUrl) || avatarUrl)}
               sx={{ mb: 2, textTransform: 'none', fontSize: '0.75rem' }}
             >
               Re-adjust Photo
@@ -415,7 +424,7 @@ export default function ProfilePage() {
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
               Social links
             </Typography>
-            <SocialLinksRow socials={user?.socials} align="flex-start" empty="No links yet — tap Edit profile to add Facebook, Instagram, LinkedIn and more." />
+            <SocialLinksRow socials={user?.socials} align="flex-start" empty="No links yet - tap Edit profile to add Facebook, Instagram, LinkedIn and more." />
           </Box>
           </>
           )}

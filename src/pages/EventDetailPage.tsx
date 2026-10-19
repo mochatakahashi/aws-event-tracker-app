@@ -29,6 +29,7 @@ import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
 import { alpha } from '@mui/material/styles';
 import { getEvent, updateEvent } from '../services/eventService';
 import { getSpeakersByIds } from '../services/speakerService';
+import { getSessionsByEvent } from '../services/sessionService';
 import {
   getRegistrationsByEvent,
   findRegistration,
@@ -61,6 +62,16 @@ import { useAuth } from '../context/AuthContext';
 import { brand, PARTNER } from '../theme/theme';
 
 
+/** The event's speakers plus everyone speaking in its sessions (in session order). */
+async function lineupFor(data: AppEvent) {
+  const list = await getSessionsByEvent(data.id).catch(() => []);
+  const ids = [...(data.speakerIds || [])];
+  for (const ses of [...list].sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''))) {
+    for (const sid of ses.speakerIds || []) if (!ids.includes(sid)) ids.push(sid);
+  }
+  return getSpeakersByIds(ids);
+}
+
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -91,7 +102,8 @@ export default function EventDetailPage() {
     }
     setEvent(data);
     const [lineup, team, regs, mine, people] = await Promise.all([
-      getSpeakersByIds(data.speakerIds),
+      // The lineup is the event's speakers plus everyone speaking in its sessions
+      lineupFor(data),
       getPeopleByIds(data.officerIds || []),
       getRegistrationsByEvent(id),
       personId ? findRegistration(id, personId) : Promise.resolve(null),
@@ -101,7 +113,7 @@ export default function EventDetailPage() {
     setOfficers(team);
     setRegistrations(regs);
     setMyReg(mine);
-    // Officers (hierarchy order), then co-organizer staff — matching this event's co-organizers first
+    // Officers (hierarchy order), then co-organizer staff - matching this event's co-organizers first
     const partners = people
       .filter((p) => p.role === 'attendee' && p.partnerOrg)
       .sort(
@@ -283,7 +295,7 @@ export default function EventDetailPage() {
               </Button>
             )}
             {user?.role !== 'admin' && (
-              <Tooltip title={isSaved(event.id) ? 'Saved — tap to remove' : 'Save event'}>
+              <Tooltip title={isSaved(event.id) ? 'Saved - tap to remove' : 'Save event'}>
               <IconButton
                 onClick={() => void toggle(event.id)}
                 aria-label={isSaved(event.id) ? 'Remove from saved' : 'Save event'}
@@ -415,7 +427,7 @@ export default function EventDetailPage() {
               </>
             )}
 
-            <SessionsSection event={event} refreshKey={`${myReg?.id ?? ''}:${myReg?.rsvp ?? ''}`} isAdmin={user?.role === 'admin'} />
+            <SessionsSection event={event} refreshKey={`${myReg?.id ?? ''}:${myReg?.rsvp ?? ''}`} isAdmin={user?.role === 'admin'} onSessionsChanged={() => void lineupFor(event).then(setSpeakers).catch(() => undefined)} />
 
             {/* Your stamp passport for this event (registered, event not over, has stamps) */}
             {myReg && myReg.rsvp !== 'declined' && event.status !== 'accomplished' && event.status !== 'cancelled' && (
@@ -589,7 +601,7 @@ export default function EventDetailPage() {
           </Paper>
         </Grid>
 
-        {/* Registration Sidebar Panel (not for admins or the adviser — view only) */}
+        {/* Registration Sidebar Panel (not for admins or the adviser - view only) */}
         {user?.role !== 'admin' && user?.role !== 'adviser' && (
         <Grid size={{ xs: 12, md: 4 }}>
           <Paper sx={{ p: 3, borderRadius: '15px', position: { md: 'sticky' }, top: 88 }}>
@@ -695,7 +707,7 @@ export default function EventDetailPage() {
                   disabled={!canRegister || working}
                   sx={{ borderRadius: '24px', py: 1.2, fontWeight: 800 }}
                 >
-                  Register — I'm going
+                  Register - I'm going
                 </Button>
                 <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
                   An officer reviews each registration; you'll be notified when it's approved.

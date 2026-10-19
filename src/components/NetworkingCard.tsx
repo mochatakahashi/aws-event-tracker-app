@@ -80,7 +80,7 @@ export default function NetworkingCard({ open = true, onClose, personId, name, s
       <CardContent sx={{ p: 3, textAlign: 'center' }}>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           Let someone scan this from <strong>Connect → Scan QR</strong> (or any camera) to see your profile, links and
-          achievements — and add you as a connection.
+          achievements - and add you as a connection.
         </Typography>
         <Box sx={{ display: 'inline-flex', p: 1.5, borderRadius: 3, border: `1px solid ${alpha(brand.primary, 0.15)}`, mb: 2 }}>
           {qr ? (

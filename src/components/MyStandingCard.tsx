@@ -27,7 +27,7 @@ function Stat({ value, label }: { value: number; label: string }) {
   );
 }
 
-/** Your own achievement stats (as attendee and officer) and badges — no rankings. */
+/** Your own achievement stats (as attendee and officer) and badges - no rankings. */
 export default function MyStandingCard() {
   const { user } = useAuth();
   const { data, loading } = useBoardData();

@@ -25,6 +25,7 @@ import { DUTY_LABELS, defaultDutiesForRole, dutyIds, type StaffDuty } from '../u
 import { formatDateRange } from '../utils/eventDisplay';
 import type { AppEvent } from '../types/event';
 import type { Person } from '../types/attendee';
+import { imageSrc } from '../utils/imageUrl';
 
 const ROLES = ['lead', 'host', 'usher', 'registration booth', 'creatives', 'media', 'co-organizer'];
 const isPartner = (p?: Person) => Boolean(p && p.role === 'attendee' && p.partnerOrg);
@@ -61,7 +62,7 @@ function DutyChips({ event, personId }: { event: AppEvent; personId: string }) {
 
 /**
  * The event's staff list. Admins assign officers, give each a role, and tick
- * who may approve stamps and check people in — nobody else can.
+ * who may approve stamps and check people in - nobody else can.
  */
 export default function EventStaffPanel({
   event,
@@ -161,7 +162,7 @@ export default function EventStaffPanel({
       {isAdmin && (
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           Only officers and co-organizer staff ticked here can approve stamps or check people in at this event. Admins can
-          always do both. Co-organizer staff get only the duties you tick — no officer features.
+          always do both. Co-organizer staff get only the duties you tick - no officer features.
         </Typography>
       )}
 
@@ -203,7 +204,7 @@ export default function EventStaffPanel({
               )}
               {available.map((p) => (
                 <MenuItem key={p.id} value={p.id}>
-                  {p.name} — {p.role === 'admin' ? 'Admin' : isPartner(p) ? `Co-organizer staff · ${p.partnerOrg}` : officerTitle(p)}
+                  {p.name} - {p.role === 'admin' ? 'Admin' : isPartner(p) ? `Co-organizer staff · ${p.partnerOrg}` : officerTitle(p)}
                 </MenuItem>
               ))}
             </TextField>
@@ -255,7 +256,7 @@ export default function EventStaffPanel({
 
       {isAdmin && nobodyOnDuty && team.length > 0 && (
         <Alert severity="info" sx={{ mb: 2 }}>
-          No officer can approve stamps or check people in here yet — tick them below.
+          No officer can approve stamps or check people in here yet - tick them below.
         </Alert>
       )}
       {error && (
@@ -285,7 +286,7 @@ export default function EventStaffPanel({
                 data-testid={`staff-${o.id}`}
               >
                 <Stack direction="row" spacing={1.5} alignItems="center" sx={{ flex: 1, minWidth: 0 }}>
-                  <Avatar src={o.avatarUrl || undefined} sx={{ width: 40, height: 40, bgcolor: alpha(brand.secondary, 0.1), color: brand.secondary }}>
+                  <Avatar src={imageSrc(o.avatarUrl)} sx={{ width: 40, height: 40, bgcolor: alpha(brand.secondary, 0.1), color: brand.secondary }}>
                     {initials(o.name)}
                   </Avatar>
                   <Box sx={{ minWidth: 0 }}>

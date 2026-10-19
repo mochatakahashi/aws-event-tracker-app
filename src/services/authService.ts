@@ -138,7 +138,12 @@ export async function login(credentials: Credentials): Promise<User> {
   if (!match) throw new Error('Invalid email or password.');
   const blocked = statusError(match);
   if (blocked) throw blocked;
-  return strip(match);
+  const firstSignIn = !match.lastLoginAt && !match.tutorialSeen;
+  const users = loadLocalUsers().map((u) =>
+    u.personId === match.personId ? { ...u, lastLoginAt: new Date().toISOString(), loginCount: (u.loginCount ?? 0) + 1 } : u,
+  );
+  local.save(users);
+  return { ...strip(users.find((u) => u.personId === match.personId)!), firstSignIn };
 }
 
 /** Create a new account. It stays `pending` until an admin approves it. */

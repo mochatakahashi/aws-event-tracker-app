@@ -116,7 +116,7 @@ function CertificateRow({ reg, event, personId }: { reg: Registration; event: Ap
 }
 
 /**
- * My achievements: what you've completed — progress and badges, certificates,
+ * My achievements: what you've completed - progress and badges, certificates,
  * stamps you've earned and events you attended. Stamp passports for events
  * that are still coming up live on the Dashboard and the event page.
  */
@@ -201,7 +201,7 @@ export default function AchievementsPage() {
       </SectionTitle>
       {certificates.length === 0 ? (
         <Typography variant="body2" color="text.secondary" data-testid="no-certificates">
-          No certificates yet. You get one for every event you’re checked in at — it unlocks after the event ends.
+          No certificates yet. You get one for every event you’re checked in at - it unlocks after the event ends.
         </Typography>
       ) : (
         <Stack spacing={1.25}>

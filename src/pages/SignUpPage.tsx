@@ -257,7 +257,7 @@ export default function SignUpPage() {
               fullWidth
               margin="normal"
               placeholder="you@gmail.com"
-              helperText="Optional — e.g. your Gmail"
+              helperText="Optional - e.g. your Gmail"
             />
           )}
 

@@ -9,10 +9,12 @@ import Button from '@mui/material/Button';
 import Alert from '@mui/material/Alert';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
+import Autocomplete from '@mui/material/Autocomplete';
+import Chip from '@mui/material/Chip';
 import { alpha } from '@mui/material/styles';
 import { brand } from '../theme/theme';
 import { createSession, updateSession, type SessionInput } from '../services/sessionService';
-import { getSpeakers } from '../services/speakerService';
+import { getSpeakers, createSpeaker } from '../services/speakerService';
 import { getEvents } from '../services/eventService';
 import type { AppEvent } from '../types/event';
 import type { Session, SessionType } from '../types/session';
@@ -64,8 +66,9 @@ export default function SessionEditor({
   const [room, setRoom] = useState(session?.room ?? '');
   const [type, setType] = useState<SessionType>(session?.type ?? 'workshop');
   const [requiresStamp, setRequiresStamp] = useState(session?.requiresStamp ?? false);
-  const [speakerIds, setSpeakerIds] = useState<string[]>(session?.speakerIds ?? []);
   const [speakers, setSpeakers] = useState<Speaker[]>([]);
+  // Picked speakers: directory entries, or plain names typed in (created on save).
+  const [chosen, setChosen] = useState<Array<Speaker | string>>([]);
   // Which event the session belongs to (lets an admin move a session that's under the wrong event)
   const [eventId, setEventId] = useState(session?.eventId ?? event.id);
   const [events, setEvents] = useState<AppEvent[]>([]);
@@ -74,7 +77,11 @@ export default function SessionEditor({
 
   useEffect(() => {
     getSpeakers()
-      .then(setSpeakers)
+      .then((list) => {
+        setSpeakers(list);
+        const ids = session?.speakerIds ?? [];
+        setChosen(ids.map((id) => list.find((sp) => sp.id === id)).filter((sp): sp is Speaker => Boolean(sp)));
+      })
       .catch(() => setSpeakers([]));
     if (session) getEvents().then(setEvents).catch(() => setEvents([]));
   }, []);
@@ -85,6 +92,29 @@ export default function SessionEditor({
     if (!title.trim()) return setError('Give the session a title.');
     if (!start || !end) return setError('Set when the session starts and ends.');
     if (fromLocalInput(end) <= fromLocalInput(start)) return setError('The session must end after it starts.');
+    setSaving(true);
+    let speakerIds: string[];
+    try {
+      speakerIds = [];
+      const resolved: Speaker[] = [];
+      for (const c of chosen) {
+        const sp = typeof c !== 'string' ? c : await createSpeaker({ name: c, headline: '', company: '', bio: '' });
+        resolved.push(sp);
+        speakerIds.push(sp.id);
+      }
+      // Remember the new ones so a retry doesn't create them twice.
+      if (resolved.some((sp) => !speakers.some((x) => x.id === sp.id))) {
+        setSpeakers((prev) => [...prev, ...resolved.filter((sp) => !prev.some((x) => x.id === sp.id))]);
+        setChosen(resolved);
+      }
+      // Keep speakers the list couldn't show (e.g. directory failed to load).
+      for (const id of session?.speakerIds ?? []) {
+        if (!speakers.some((sp) => sp.id === id) && !speakerIds.includes(id)) speakerIds.push(id);
+      }
+    } catch (err) {
+      setSaving(false);
+      return setError(err instanceof Error ? `Could not add the new speaker: ${err.message}` : 'Could not add the new speaker.');
+    }
     const input: SessionInput = {
       eventId,
       title: title.trim(),
@@ -96,7 +126,6 @@ export default function SessionEditor({
       requiresStamp,
       speakerIds,
     };
-    setSaving(true);
     try {
       const saved = session ? await updateSession(session.id, input, actorId) : await createSession(input, actorId);
       await onSaved(saved);
@@ -163,31 +192,62 @@ export default function SessionEditor({
             </MenuItem>
           ))}
         </TextField>
-        <TextField
-          select
+        <Autocomplete
+          multiple
+          freeSolo
           size="small"
-          label="Speakers"
-          value={speakerIds}
-          onChange={(e) => setSpeakerIds(typeof e.target.value === 'string' ? e.target.value.split(',') : (e.target.value as string[]))}
-          SelectProps={{
-            multiple: true,
-            renderValue: (v) =>
-              (v as string[]).map((id) => speakers.find((s) => s.id === id)?.name ?? id).join(', ') || 'None',
+          options={speakers}
+          value={chosen}
+          filterSelectedOptions
+          getOptionLabel={(o) => (typeof o === 'string' ? o : o.name)}
+          isOptionEqualToValue={(a, b) => typeof a !== 'string' && typeof b !== 'string' && a.id === b.id}
+          onChange={(_, next) => {
+            // Typed names that match someone in the directory use that speaker.
+            const cleaned: Array<Speaker | string> = [];
+            for (const item of next) {
+              if (typeof item === 'string') {
+                const name = item.trim();
+                if (!name) continue;
+                const match = speakers.find((sp) => sp.name.trim().toLowerCase() === name.toLowerCase());
+                const pick = match ?? name;
+                if (!cleaned.some((c) => (typeof c === 'string' ? c : c.name).toLowerCase() === name.toLowerCase())) cleaned.push(pick);
+              } else if (!cleaned.some((c) => typeof c !== 'string' && c.id === item.id)) {
+                cleaned.push(item);
+              }
+            }
+            setChosen(cleaned);
           }}
-          sx={{ gridColumn: { sm: '1 / -1' } }}
-        >
-          {speakers.length === 0 && (
-            <MenuItem value="" disabled>
-              No speakers in the directory yet
-            </MenuItem>
+          renderOption={(props, o) => (
+            <li {...props} key={typeof o === 'string' ? o : o.id}>
+              {typeof o === 'string' ? o : `${o.name}${o.company ? ` - ${o.company}` : ''}`}
+            </li>
           )}
-          {speakers.map((s) => (
-            <MenuItem key={s.id} value={s.id}>
-              {s.name}
-              {s.company ? ` — ${s.company}` : ''}
-            </MenuItem>
-          ))}
-        </TextField>
+          renderTags={(value, getTagProps) =>
+            value.map((o, index) => {
+              const { key, ...tagProps } = getTagProps({ index });
+              const isNew = typeof o === 'string';
+              return (
+                <Chip
+                  key={key}
+                  size="small"
+                  label={isNew ? `${o} (new)` : o.name}
+                  color={isNew ? 'secondary' : 'default'}
+                  {...tagProps}
+                />
+              );
+            })
+          }
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label="Speakers"
+              placeholder={chosen.length ? '' : 'Pick or type a name, then press Enter'}
+              helperText="Type a name and press Enter to add someone new. You can add their details later in Speakers."
+              inputProps={{ ...params.inputProps, 'data-testid': 'session-speakers-input' }}
+            />
+          )}
+          sx={{ gridColumn: { sm: '1 / -1' } }}
+        />
         <TextField
           size="small"
           label="Description"

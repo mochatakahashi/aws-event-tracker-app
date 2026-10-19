@@ -36,12 +36,13 @@ import type { User, UserRole } from '../types/auth';
 import type { Stamp } from '../types/session';
 import { AdminHeader, EmptyNote, StatRow, StatTile, formatDateTime } from '../components/AdminUi';
 import { ACCOUNT_TYPE_LABELS, affiliation, generateTempPassword, memberLabel, officerTitle } from '../utils/people';
+import { imageSrc } from '../utils/imageUrl';
 
-/** What the person picked on the sign-up form, e.g. "Officer — Director — Marketing (Creatives)". */
+/** What the person picked on the sign-up form, e.g. "Officer - Director - Marketing (Creatives)". */
 function signedUpAs(u: User): string {
   const type = u.signupType ?? (u.requestedRole === 'officer' || u.officerPosition ? 'officer' : u.memberType === 'outside' ? 'outside' : 'apc-student');
   const base = ACCOUNT_TYPE_LABELS[type];
-  return type === 'officer' && u.officerPosition ? `${base} — ${officerTitle(u)}` : base;
+  return type === 'officer' && u.officerPosition ? `${base} - ${officerTitle(u)}` : base;
 }
 
 type Filter = 'all' | 'admin' | 'adviser' | 'officer' | 'attendee' | 'partner' | 'rejected';
@@ -94,7 +95,7 @@ export default function AdminDashboardPage() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [resetFor, setResetFor] = useState<{ id: string; password: string; done?: boolean } | null>(null);
-  /** Editing who is co-organizer staff (partner org) — attendee accounts only. */
+  /** Editing who is co-organizer staff (partner org) - attendee accounts only. */
   const [partnerFor, setPartnerFor] = useState<{ id: string; org: string } | null>(null);
 
   useEffect(() => {
@@ -292,7 +293,7 @@ export default function AdminDashboardPage() {
                     <TextField
                       size="small"
                       fullWidth
-                      placeholder="Or type a reason — it's shown to them and emailed"
+                      placeholder="Or type a reason - it's shown to them and emailed"
                       value={declineReason}
                       onChange={(e) => setDeclineReason(e.target.value)}
                       sx={{ bgcolor: 'background.paper' }}
@@ -389,7 +390,7 @@ export default function AdminDashboardPage() {
             return (
               <Card key={u.personId} variant="outlined">
                 <CardContent sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <Avatar src={u.avatarUrl || undefined}>
+                  <Avatar src={imageSrc(u.avatarUrl)}>
                     {initials(u.name)}
                   </Avatar>
                   <Box sx={{ flex: '1 1 200px', minWidth: 0 }}>
@@ -404,7 +405,7 @@ export default function AdminDashboardPage() {
                       {u.role === 'officer' && u.officerPosition && (
                         <Chip size="small" variant="outlined" label={officerTitle(u)} />
                       )}
-                      {affiliation(u) !== '—' && <Chip size="small" variant="outlined" label={affiliation(u)} />}
+                      {affiliation(u) !== '-' && <Chip size="small" variant="outlined" label={affiliation(u)} />}
                       {u.role === 'attendee' && <Chip size="small" variant="outlined" label={`${stampCount} stamps`} />}
                       {u.role === 'attendee' && u.partnerOrg && (
                         <Chip
@@ -430,6 +431,11 @@ export default function AdminDashboardPage() {
                         {signedUpAs(u)}
                       </Typography>
                     )}
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }} data-testid={`last-login-${u.personId}`}>
+                      {u.lastLoginAt
+                        ? `Last signed in ${new Date(u.lastLoginAt).toLocaleString('en-PH', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Manila' })}${u.loginCount ? ` · ${u.loginCount} sign-in${u.loginCount === 1 ? '' : 's'}` : ''}`
+                        : 'Not signed in yet (since sign-in tracking started)'}
+                    </Typography>
                     {u.mustChangePassword && (
                       <Chip size="small" color="warning" variant="outlined" label="Temp password not changed yet" sx={{ mt: 0.5 }} />
                     )}
@@ -472,7 +478,7 @@ export default function AdminDashboardPage() {
                       <Box sx={{ mt: 1, p: 1.25, borderRadius: 2, bgcolor: alpha(brand.primary, 0.05) }} data-testid={`partner-editor-${u.personId}`}>
                         <Typography variant="body2" sx={{ mb: 1 }}>
                           Co-organizer staff can be put on a co-organized event’s staff list for <strong>check-in</strong> or{' '}
-                          <strong>stamps</strong> only — no officer tasks or other officer features.
+                          <strong>stamps</strong> only - no officer tasks or other officer features.
                         </Typography>
                         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }}>
                           <TextField

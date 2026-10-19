@@ -269,7 +269,7 @@ export async function toggleCheckIn(registrationId: string, actorId = 'per-1'): 
 }
 
 /**
- * Link that opens the certificate PDF — inline to view, or `download` to save
+ * Link that opens the certificate PDF - inline to view, or `download` to save
  * it (deployed app only; null when running without the API).
  */
 export async function certificateLink(registrationId: string, personId: string, download = false): Promise<string | null> {
@@ -277,7 +277,7 @@ export async function certificateLink(registrationId: string, personId: string, 
   return `${API}?action=certificate&id=${encodeURIComponent(registrationId)}&personId=${encodeURIComponent(personId)}${download ? '&download=1' : ''}`;
 }
 
-/** Public PDF link for a certificate code — anyone with the link can view or download it. */
+/** Public PDF link for a certificate code - anyone with the link can view or download it. */
 export function publicCertificatePdf(certificateId: string, download = false): string {
   return `${API}?action=certificate&certificateId=${encodeURIComponent(certificateId)}${download ? '&download=1' : ''}`;
 }

@@ -16,7 +16,7 @@ import { CUSTOM_LINK_ICON, SOCIAL_PLATFORMS, type SocialKey } from '../utils/soc
 
 /**
  * Pick which links to show: Facebook, Instagram, LinkedIn, GitHub, X, TikTok,
- * YouTube, Website — or any other link with your own name for it.
+ * YouTube, Website - or any other link with your own name for it.
  */
 export default function SocialLinksEditor({ value, onChange }: { value: SocialLinks; onChange: (v: SocialLinks) => void }) {
   const [anchor, setAnchor] = useState<null | HTMLElement>(null);
@@ -92,7 +92,7 @@ export default function SocialLinksEditor({ value, onChange }: { value: SocialLi
         ))}
         {shown.length === 0 && custom.length === 0 && (
           <Typography variant="body2" color="text.secondary">
-            Add the links you want people to see — Facebook, Instagram, LinkedIn and more.
+            Add the links you want people to see - Facebook, Instagram, LinkedIn and more.
           </Typography>
         )}
       </Stack>

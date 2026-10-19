@@ -30,6 +30,7 @@ import { getUser, updateProfile } from '../services/authService';
 import ConnectButton from '../components/ConnectButton';
 import SocialLinksEditor from '../components/SocialLinksEditor';
 import SocialLinksRow from '../components/SocialLinksRow';
+import { imageSrc } from '../utils/imageUrl';
 
 export default function ConnectPage() {
   const { user, setCurrentUser } = useAuth();
@@ -121,7 +122,7 @@ export default function ConnectPage() {
         />
         <CardContent sx={{ pt: 0, pb: 3, px: 3, position: 'relative' }}>
           <Avatar
-            src={user?.avatarUrl || undefined}
+            src={imageSrc(user?.avatarUrl)}
             sx={{
               width: 80,
               height: 80,
@@ -181,7 +182,7 @@ export default function ConnectPage() {
         </CardContent>
       </Card>
 
-      {/* Networking Card — Inline (No Overlays) */}
+      {/* Networking Card - Inline (No Overlays) */}
       {showQR && (
         <NetworkingCard
           open={showQR}
@@ -235,7 +236,7 @@ export default function ConnectPage() {
                     data-testid={`request-${p.id}`}
                   >
                     <Stack direction="row" spacing={1.25} alignItems="center" sx={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => navigate(`/people/${p.id}`)}>
-                      <Avatar src={p.avatarUrl || undefined} sx={{ width: 40, height: 40 }}>
+                      <Avatar src={imageSrc(p.avatarUrl)} sx={{ width: 40, height: 40 }}>
                         {p.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()}
                       </Avatar>
                       <Box sx={{ minWidth: 0 }}>
@@ -308,7 +309,7 @@ export default function ConnectPage() {
                   '&:hover': { bgcolor: alpha(brand.primary, 0.04) },
                 }}
               >
-                <Avatar src={person.avatarUrl || undefined} sx={{ width: 40, height: 40 }}>
+                <Avatar src={imageSrc(person.avatarUrl)} sx={{ width: 40, height: 40 }}>
                   {person.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()}
                 </Avatar>
                 <Box sx={{ minWidth: 0, flex: 1 }}>
@@ -392,7 +393,7 @@ export default function ConnectPage() {
           {editing ? (
             <SocialLinksEditor value={socials} onChange={setSocials} />
           ) : (
-            <SocialLinksRow socials={socials} align="flex-start" empty="No links yet — tap Edit to add Facebook, Instagram, LinkedIn and more." />
+            <SocialLinksRow socials={socials} align="flex-start" empty="No links yet - tap Edit to add Facebook, Instagram, LinkedIn and more." />
           )}
 
           {editing && (

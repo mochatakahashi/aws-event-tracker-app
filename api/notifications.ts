@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand, DeleteCommand, BatchWriteCommand } from '@aws-sdk/lib-dynamodb';
 
 /**
  * In-app notifications (single-table DynamoDB, entityType = 'notification').
@@ -13,8 +13,12 @@ import { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand, DeleteComm
  * DELETE /api/notifications?id=ntf-1
  *
  * Adviser (role 'adviser'):
- * GET  ?action=announcements&viewerId=          → announcements this person can see (officers, admins, adviser)
- * POST ?action=announce { actorId, title, message }   → adviser / admin posts to the officers (bell for each)
+ * GET  ?action=announcements&viewerId=          → announcements this person can see
+ *                                                  (officers, admins, adviser: all; members: the ones for everyone)
+ * POST ?action=announce { actorId, title, message, audience? }   → adviser / admin posts (bell for each).
+ *                                                  audience 'officers' (default) or 'everyone' (admin only).
+ *                                                  Pinned at the top of dashboards for 24 hours (expiresAt).
+ * PUT  ?action=announcement-edit { actorId, id, title, message }  → its author or an admin edits it
  * DELETE ?action=announcement&id=&actorId=       → its author or an admin removes it
  * GET  ?action=signoffs&viewerId=               → sign-off requests (adviser/admin: all; officer: their own)
  * POST ?action=signoff { actorId, title, details?, link?, eventId? }   → officer / admin asks the adviser to sign
@@ -108,11 +112,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     };
     const bell = async (personIds: string[], kind: string, title: string, message: string, link: string) => {
       const now = new Date().toISOString();
-      for (const personId of [...new Set(personIds)].slice(0, 500)) {
-        await client.send(
-          new PutCommand({
-            TableName: tableName,
-            Item: { id: `ntf-${Date.now()}-${Math.floor(Math.random() * 1e6)}`, entityType: 'notification', personId, kind, title: text(title, 140), message: text(message, 600), link, read: false, createdAt: now },
+      const items = [...new Set(personIds)].slice(0, 1000).map((personId, i) => ({
+        id: `ntf-${Date.now()}-${i}-${Math.floor(Math.random() * 1e6)}`,
+        entityType: 'notification',
+        personId,
+        kind,
+        title: text(title, 140),
+        message: text(message, 600),
+        link,
+        read: false,
+        createdAt: now,
+      }));
+      // 25 per request (DynamoDB's batch limit), a few requests at a time, so posting to everyone stays fast
+      const chunks: (typeof items)[] = [];
+      for (let i = 0; i < items.length; i += 25) chunks.push(items.slice(i, i + 25));
+      for (let i = 0; i < chunks.length; i += 4) {
+        await Promise.all(
+          chunks.slice(i, i + 4).map(async (chunk) => {
+            let pending: any = { [tableName]: chunk.map((Item) => ({ PutRequest: { Item } })) };
+            for (let tries = 0; tries < 4 && pending && Object.keys(pending).length; tries++) {
+              const out = await client.send(new BatchWriteCommand({ RequestItems: pending }));
+              pending = out.UnprocessedItems;
+            }
           }),
         );
       }
@@ -122,8 +143,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // ── Adviser announcements (to the officers) ──
     if (action === 'announcements' && req.method === 'GET') {
       const viewer = await getUser(q.viewerId);
-      if (!viewer || !staffRoles.includes(viewer.role)) return res.status(200).json([]);
+      if (!viewer || (viewer.status ?? 'approved') !== 'approved') return res.status(200).json([]);
+      const isStaff = staffRoles.includes(viewer.role);
       const list = (await scanType(client, tableName, 'announcement'))
+        .filter((a) => isStaff || a.audience === 'everyone')
         .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
         .slice(0, 50);
       return res.status(200).json(list.map(clean));
@@ -137,22 +160,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const title = text(body.title, 140);
       const message = text(body.message, 2000);
       if (!title || !message) return res.status(400).json({ error: 'Add a title and a message.' });
+      // Only an admin can post to everyone; the adviser writes to the officers
+      const audience = body.audience === 'everyone' && actor.role === 'admin' ? 'everyone' : 'officers';
+      const now = Date.now();
       const item = {
-        id: `ann-${Date.now()}-${Math.floor(Math.random() * 1e5)}`,
+        id: `ann-${now}-${Math.floor(Math.random() * 1e5)}`,
         entityType: 'announcement',
-        audience: 'officers',
+        audience,
         title,
         message,
         authorId: actor.id,
         authorName: actor.name,
         authorRole: actor.role,
-        createdAt: new Date().toISOString(),
+        createdAt: new Date(now).toISOString(),
+        // Pinned at the top of dashboards for a day
+        expiresAt: new Date(now + 24 * 3600 * 1000).toISOString(),
       };
       await client.send(new PutCommand({ TableName: tableName, Item: item }));
       const users = await scanType(client, tableName, 'user');
-      const to = users.filter((u) => (u.role === 'officer' || u.role === 'admin') && (u.status ?? 'approved') === 'approved' && u.id !== actor.id).map((u) => u.id);
+      const to = users
+        .filter((u) => (audience === 'everyone' || u.role === 'officer' || u.role === 'admin' || u.role === 'adviser') && (u.status ?? 'approved') === 'approved' && u.id !== actor.id)
+        .map((u) => u.id);
       await bell(to, 'adviser-announcement', `📣 ${actor.role === 'adviser' ? 'Adviser' : 'Admin'}: ${title}`, message, '/home');
       return res.status(201).json({ ...clean(item), notified: to.length });
+    }
+    if (action === 'announcement-edit' && req.method === 'PUT') {
+      const body = req.body || {};
+      const actor = await getUser(body.actorId);
+      const item = str(body.id) ? (await client.send(new GetCommand({ TableName: tableName, Key: { id: String(body.id) } }))).Item : null;
+      if (!item || item.entityType !== 'announcement') return res.status(404).json({ error: 'Announcement not found' });
+      if (!actor || (actor.id !== item.authorId && actor.role !== 'admin')) return res.status(403).json({ error: 'Only its author or an admin can edit it.' });
+      const title = text(body.title, 140);
+      const message = text(body.message, 2000);
+      if (!title || !message) return res.status(400).json({ error: 'Add a title and a message.' });
+      const updated = { ...item, title, message, editedAt: new Date().toISOString(), editedBy: actor.id };
+      await client.send(new PutCommand({ TableName: tableName, Item: updated }));
+      return res.status(200).json(clean(updated));
     }
     if (action === 'announcement' && req.method === 'DELETE') {
       const actor = await getUser(q.actorId);

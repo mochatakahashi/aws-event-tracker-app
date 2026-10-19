@@ -154,14 +154,14 @@ Accounts, registrations and officer data lived in in-memory mock services, so si
 
 ### Consequences
 - **Positive**: One source of truth across logins and devices; admins control who gets in; officer work (events, stamps, tasks) can be monitored and exported.
-- **Negative**: There are no server-side sessions yet — the API trusts the `actorId` sent by the app for admin actions (it checks that account's role, but the id itself is not signed). Moving sign-in to Amazon Cognito (or signed tokens) is the next step before handling sensitive data. Table scans are fine at club scale but would need indexes for large data.
+- **Negative**: There are no server-side sessions yet - the API trusts the `actorId` sent by the app for admin actions (it checks that account's role, but the id itself is not signed). Moving sign-in to Amazon Cognito (or signed tokens) is the next step before handling sensitive data. Table scans are fine at club scale but would need indexes for large data.
 
 ---
 
 ## ADR-009: Email Notifications with Amazon SES and Vercel Cron
 
 ### Status
-**Accepted** — sending partly superseded by ADR-012 (Gmail SMTP is preferred when configured; SES remains the fallback)
+**Accepted** - sending partly superseded by ADR-012 (Gmail SMTP is preferred when configured; SES remains the fallback)
 
 ### Context
 Officers and attendees need reminders (assignment, event tomorrow, event day, tasks) and the admin needs to know about new sign-ups and failures, without anyone keeping the app open.
@@ -281,7 +281,7 @@ Officers at workshop booths had to leave the scanner to approve stamps; certific
 ### Decision
 - **Scanner stamps** reuse the existing stamp API (create-if-missing, then approve) instead of a new endpoint, so the Officer Dashboard queue and the scanner stay consistent.
 - **Verification** is a public route outside sign-in. The API answers by certificate ID with only the fields printed on the certificate; certificate IDs are random (32-character alphabet, 8 characters) so they can't be guessed. Undoing a check-in marks the certificate *revoked* instead of deleting it.
-- **Leaderboard and badges** are computed in the browser from stamps, sessions, registrations, tasks and events (`utils/leaderboard.ts`, `utils/badges.ts`, unit-tested) — no new table or API function. (With `api/uploads.ts` added in v0.6.5 the project now has 12 functions, the Vercel Hobby maximum, so new server features should be added as `?action=` routes inside existing files.)
+- **Leaderboard and badges** are computed in the browser from stamps, sessions, registrations, tasks and events (`utils/leaderboard.ts`, `utils/badges.ts`, unit-tested) - no new table or API function. (With `api/uploads.ts` added in v0.6.5 the project now has 12 functions, the Vercel Hobby maximum, so new server features should be added as `?action=` routes inside existing files.)
 - Rankings use **achievement points** so everyone is listed (not only people with stamps), with separate **Attendees** and **Officers** boards so attendance and officer work are both visible; officers appear on both. Personal standing and badges live on the Achievements page, while the leaderboard page stays a shared ranking.
 
 ### Consequences
@@ -320,7 +320,7 @@ The club needed to onboard people directly (hand over an email and temporary pas
 ### Decision
 - **Temporary passwords** are hashed like any password; the account is flagged `mustChangePassword` and the client route guard allows only the change-password page until it's cleared. Admins can reset to a new temporary password; there is no email-based reset yet.
 - **Pubmats are tasks** (`kind: 'pubmat'`) in the existing tasks API instead of a new function (the project is at Vercel Hobby's 12-function limit). Roles (designee, caption writer, poster) live in the `pubmat` object; their union is `assigneeIds`, so notifications, reminders and dashboards reuse task logic.
-- **Connections** are a one-way list on the user record (the other person is notified and can add back). Profile summaries show only public profile data and achievements — no email.
+- **Connections** are a one-way list on the user record (the other person is notified and can add back). Profile summaries show only public profile data and achievements - no email.
 - **Leaderboard admin-only**: attendees and officers see their own progress and badges; rankings are a monitoring tool.
 - **Event status is derived from dates** on read, so a forgotten status update can't hide a past event.
 
@@ -361,7 +361,7 @@ Event-day work was spread over several pages; registrations, certificates, conne
 ### Decision
 - **Event Desk** (`/officer/scan`) holds scan, stamp requests and attendees per event; stamps are approved only after check-in.
 - **Approval gates** everywhere it matters: registrations (Pending → Approved/Declined by admins or the check-in team), certificates (unlock after the event, checked-in people only), AWS SBG-APC connections (the other person approves), and **officer-added tasks** (an admin approves before they count).
-- **Co-organizer staff are attendee accounts with an admin-set `partnerOrg`**, not a new role. They reuse the existing per-event duty lists (ADR-017), so the same server checks apply; everything officer-only keeps checking `role === 'officer'`. Admins create them (or mark an existing attendee) — no self sign-up for staff.
+- **Co-organizer staff are attendee accounts with an admin-set `partnerOrg`**, not a new role. They reuse the existing per-event duty lists (ADR-017), so the same server checks apply; everything officer-only keeps checking `role === 'officer'`. Admins create them (or mark an existing attendee) - no self sign-up for staff.
 - New server features stay inside existing functions as `?action=` routes (12-function limit).
 
 ### Consequences

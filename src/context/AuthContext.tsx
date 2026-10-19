@@ -9,6 +9,7 @@ import {
 } from 'react';
 import type { Credentials, User } from '../types/auth';
 import { login as loginService, getUser } from '../services/authService';
+import { clearSavedCopies } from '../services/apiClient';
 
 const STORAGE_KEY = 'aws-event-tracker.user';
 
@@ -74,6 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
+    clearSavedCopies();
     setUser(null);
   }, []);
 

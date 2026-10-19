@@ -33,6 +33,7 @@ import { useAuth } from '../context/AuthContext';
 import { useEvent } from '../context/EventContext';
 import { brand } from '../theme/theme';
 import BottomNav from './BottomNav';
+import OfflineNotice from './OfflineNotice';
 import EventOrganizerLogo from './EventOrganizerLogo';
 import { useUnreadNotifications } from '../hooks/useUnreadNotifications';
 import QrCode2RoundedIcon from '@mui/icons-material/QrCode2Rounded';
@@ -44,6 +45,7 @@ import ButtonBase from '@mui/material/ButtonBase';
 import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded';
 import TutorialTour, { startTour } from './TutorialTour';
 import SchoolRoundedIcon from '@mui/icons-material/SchoolRounded';
+import { imageSrc } from '../utils/imageUrl';
 
 const DRAWER_WIDTH = 260;
 
@@ -226,7 +228,7 @@ export default function AppLayout() {
           sx={{ width: '100%', justifyContent: 'flex-start', textAlign: 'left', borderRadius: 2, p: 0.5, mb: 1, '&:hover': { bgcolor: alpha(brand.primary, 0.06) } }}
         >
           <Stack direction="row" alignItems="center" spacing={1.5} sx={{ minWidth: 0, flex: 1 }}>
-            <Avatar src={user?.avatarUrl || undefined} sx={{ width: 36, height: 36, fontSize: '0.85rem' }}>{initials}</Avatar>
+            <Avatar src={imageSrc(user?.avatarUrl)} sx={{ width: 36, height: 36, fontSize: '0.85rem' }}>{initials}</Avatar>
             <Box sx={{ minWidth: 0, flex: 1 }}>
               <Typography variant="body2" noWrap sx={{ fontWeight: 600 }}>
                 {user?.name}
@@ -274,7 +276,7 @@ export default function AppLayout() {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, minHeight: '100vh' }}>
-      {/* AppBar — mobile only */}
+      {/* AppBar - mobile only */}
       <AppBar
         position="sticky"
         elevation={2}
@@ -313,7 +315,7 @@ export default function AppLayout() {
             aria-label="account menu"
             data-tour="profile"
           >
-            <Avatar src={user?.avatarUrl || undefined} sx={{ width: 32, height: 32, fontSize: '0.75rem' }}>
+            <Avatar src={imageSrc(user?.avatarUrl)} sx={{ width: 32, height: 32, fontSize: '0.75rem' }}>
               {initials}
             </Avatar>
           </IconButton>
@@ -421,12 +423,13 @@ export default function AppLayout() {
       >
         {/* Page content */}
         <Box sx={{ p: { xs: 2, md: 3, lg: 4 }, pb: { xs: 10, md: 4 }, maxWidth: 1280, mx: 'auto', width: '100%' }}>
+          <OfflineNotice />
           <Outlet />
           <TutorialTour />
         </Box>
       </Box>
 
-      {/* Bottom navigation — mobile only */}
+      {/* Bottom navigation - mobile only */}
       <BottomNav />
     </Box>
   );

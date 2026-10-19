@@ -79,7 +79,7 @@ async function checkedInForSession(client: DynamoDBDocumentClient, tableName: st
   return false;
 }
 
-const NOT_CHECKED_IN = 'Check this attendee in first — stamps are approved after check-in.';
+const NOT_CHECKED_IN = 'Check this attendee in first - stamps are approved after check-in.';
 
 const NOT_ON_STAFF =
   'You are not on the stamp team for this event. Ask an admin to tick "Approve stamps" for you on the event page.';
@@ -179,7 +179,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(201).json(itemToSave);
     }
 
-    // PUT /api/stamps?id=… { actorId, status } (stamp team approves — attendee must be checked in; status 'pending' un-approves)
+    // PUT /api/stamps?id=… { actorId, status } (stamp team approves - attendee must be checked in; status 'pending' un-approves)
     if (req.method === 'PUT') {
       const { id } = req.query;
       const updates = req.body;

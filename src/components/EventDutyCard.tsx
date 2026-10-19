@@ -22,7 +22,7 @@ import type { AppEvent } from '../types/event';
 const titleCase = (s: string) => s.replace(/\b\w/g, (c) => c.toUpperCase());
 
 /**
- * "Your access at this event" — shown on the event page to an officer (or
+ * "Your access at this event" - shown on the event page to an officer (or
  * co-organizer staff) an admin put on the staff list: their role, what they
  * may do (check-in, stamps) and shortcuts with the waiting counts.
  */
@@ -72,7 +72,7 @@ export default function EventDutyCard({ event, user }: { event: AppEvent; user: 
         </Stack>
         {!stamps && !checkin ? (
           <Typography variant="body2" color="text.secondary">
-            You’re on the event team{role ? ` as ${titleCase(role)}` : ''}. You don’t have check-in or stamp access here — an admin can
+            You’re on the event team{role ? ` as ${titleCase(role)}` : ''}. You don’t have check-in or stamp access here - an admin can
             add it on this page.
           </Typography>
         ) : (

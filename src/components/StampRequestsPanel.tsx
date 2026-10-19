@@ -20,6 +20,7 @@ import { canDo } from '../utils/eventStaff';
 import type { AppEvent } from '../types/event';
 import type { Person, Registration } from '../types/attendee';
 import type { Session, Stamp } from '../types/session';
+import { imageSrc } from '../utils/imageUrl';
 
 const manila = (iso?: string) =>
   iso ? new Date(iso).toLocaleTimeString('en-US', { timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit' }) : '';
@@ -163,7 +164,7 @@ export default function StampRequestsPanel({
               >
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ sm: 'center' }}>
                   <Stack direction="row" spacing={1.25} alignItems="center" sx={{ flex: 1, minWidth: 0 }}>
-                    <Avatar src={p?.avatarUrl || undefined} sx={{ width: 40, height: 40, fontSize: '0.85rem' }}>
+                    <Avatar src={imageSrc(p?.avatarUrl)} sx={{ width: 40, height: 40, fontSize: '0.85rem' }}>
                       {initials(p?.name)}
                     </Avatar>
                     <Box sx={{ minWidth: 0 }}>

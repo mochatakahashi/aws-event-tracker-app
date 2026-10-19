@@ -71,7 +71,7 @@ export function positionNeedsCommittee(position?: OfficerPosition | null): boole
   return position === 'director' || position === 'assistant-director' || position === 'associate';
 }
 
-/** "Director — Marketing", "VP Internal", or "Officer" when no position is set. */
+/** "Director - Marketing", "VP Internal", or "Officer" when no position is set. */
 export function officerTitle(person: {
   officerPosition?: OfficerPosition | null;
   committee?: Committee | null;
@@ -83,7 +83,7 @@ export function officerTitle(person: {
     const sub = person.subcommittee && subcommitteesOf(person.committee).includes(person.subcommittee)
       ? ` (${SUBCOMMITTEE_LABELS[person.subcommittee]})`
       : '';
-    return `${position} — ${COMMITTEE_LABELS[person.committee]}${sub}`;
+    return `${position} - ${COMMITTEE_LABELS[person.committee]}${sub}`;
   }
   return position;
 }
@@ -165,8 +165,8 @@ export function memberLabel(person: { role?: User['role']; memberType?: MemberTy
 
 /** Student ID for APC people, organization for outsiders. */
 export function affiliation(person: { memberType?: MemberType; studentId?: string; organization?: string }): string {
-  if (person.memberType === 'outside') return person.organization || '—';
-  return person.studentId || '—';
+  if (person.memberType === 'outside') return person.organization || '-';
+  return person.studentId || '-';
 }
 
 /**

@@ -61,7 +61,7 @@ export default function ProgramFlowEditor({ value, onChange }: { value: ProgramR
                 const rows = parseProgramFlow(text);
                 if (!rows.length) return setNote('Could not find any rows. Each row should start with a time like “01:00 PM - 01:30 PM”.');
                 onChange(rows);
-                setNote(`Made a table with ${rows.length} rows — check it below.`);
+                setNote(`Made a table with ${rows.length} rows - check it below.`);
                 setText('');
                 setPasting(false);
               }}

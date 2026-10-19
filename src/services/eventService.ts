@@ -5,6 +5,7 @@ import type {
 } from '../types/event';
 import { seedEvents } from './seedData';
 import { withLiveStatus } from '../utils/eventStatus';
+import { cachedGet, hasSavedCopy } from './apiClient';
 
 /**
  * Event service with hybrid support:
@@ -38,15 +39,14 @@ async function checkRemoteApi(): Promise<boolean> {
   if (useRemoteApi !== null) return useRemoteApi;
   try {
     const res = await fetch('/api/events', { method: 'GET' });
-    if (res.status === 503 || !res.ok) {
-      useRemoteApi = false;
-      return false;
-    }
-    useRemoteApi = true;
-    return true;
+    // JSON answer = the API exists (even if the database is failing right now:
+    // reads then use the saved copy). 503 = no database configured (local mode).
+    useRemoteApi = res.status !== 503 && (res.headers.get('content-type') || '').includes('application/json');
+    return useRemoteApi;
   } catch {
-    useRemoteApi = false;
-    return false;
+    // No connection: still "remote" if we have a saved copy to show
+    useRemoteApi = hasSavedCopy('/api/events');
+    return useRemoteApi;
   }
 }
 
@@ -55,9 +55,8 @@ export async function getEvents(): Promise<AppEvent[]> {
   try {
     const isRemote = await checkRemoteApi();
     if (isRemote) {
-      const res = await fetch('/api/events');
-      if (res.ok) {
-        const data = await res.json();
+      const data = await cachedGet<any>('/api/events');
+      if (data !== null) {
         if (Array.isArray(data) && data.length > 0) {
           return data
             .map((e: AppEvent) => withLiveStatus(e))
@@ -80,9 +79,9 @@ export async function getEvent(id: string): Promise<AppEvent | null> {
   try {
     const isRemote = await checkRemoteApi();
     if (isRemote) {
-      const res = await fetch(`/api/events?id=${encodeURIComponent(id)}`);
-      if (res.ok) {
-        return withLiveStatus(await res.json());
+      const data = await cachedGet<AppEvent>(`/api/events?id=${encodeURIComponent(id)}`);
+      if (data !== null) {
+        return withLiveStatus(data);
       }
     }
   } catch (err) {

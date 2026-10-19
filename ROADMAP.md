@@ -1,4 +1,4 @@
-# AWS SBG-APC Event Tracker — Product Roadmap 🗺️
+# AWS SBG-APC Event Tracker - Product Roadmap 🗺️
 
 This document outlines the development milestones, current status, and future technical roadmap for the **AWS SBG-APC Event Tracker** application.
 
@@ -12,7 +12,7 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 
 ## 🏁 Completed Milestones
 
-### ✅ Version 0.1.0 — Initial MVP & Core Architecture
+### ✅ Version 0.1.0 - Initial MVP & Core Architecture
 - [x] Initial React + Vite + TypeScript application setup.
 - [x] Mock data layer with simulated latency for Events, Sessions, Speakers, and Registrations.
 - [x] React Context authentication (`AuthContext`) with multi-role mock accounts (replaced by real accounts in v0.4.0).
@@ -22,7 +22,7 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 
 ---
 
-### ✅ Version 0.2.0 — Mobile-First Optimization & No-Overlay UX
+### ✅ Version 0.2.0 - Mobile-First Optimization & No-Overlay UX
 - [x] **Zero-Overlay UI Refactor**: Removed screen-obscuring backdrop modals (`Dialog`, modal drawers) across mobile viewports.
 - [x] **Inline Navigation Drawer**: Converted mobile navigation drawer into a collapsible inline panel (`Collapse`) under top header.
 - [x] **Full-Width Edge-to-Edge Header**: Fixed navbar rounded corners (`borderRadius: 0`) and sticky layout positioning (`position="sticky"`).
@@ -31,7 +31,7 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 
 ---
 
-### ✅ Version 0.2.5 — Automatic Event Stamp Passport (`EventStampCard`)
+### ✅ Version 0.2.5 - Automatic Event Stamp Passport (`EventStampCard`)
 - [x] **Dynamic Session Stamp Passport**: Built the `EventStampCard` component that automatically generates circle slots for every required session in the selected event.
 - [x] **Visual Circle Statuses**:
   - 🟢 **STAMP APPROVED**: Emerald gradient badge seal with checkmark & officer verification info.
@@ -42,7 +42,7 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 
 ---
 
-### ✅ Version 0.3.1 — Cloud Assets Pipeline & Live DynamoDB Backend
+### ✅ Version 0.3.1 - Cloud Assets Pipeline & Live DynamoDB Backend
 - [x] **Amazon S3 Asset Pipeline**: Cloud storage for event banners and speaker/profile avatars via secure pre-signed URLs (`/api/upload-url`, `storageService.ts`).
 - [x] **16:9 Banner Image Adjuster (`ImageBannerAdjuster`)**: Interactive drag, zoom (1× to 3×), and fit-to-frame editor with instant 1280×720 export and dashboard synchronization.
 - [x] **Circular Avatar Image Adjuster (`AvatarImageAdjuster`)**: Circular crop preview, pan/drag, and zoom controls for attendee profiles and event speakers.
@@ -53,7 +53,7 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 
 ---
 
-### ✅ Version 0.4.0 — Real Accounts, Approval & Admin Monitoring
+### ✅ Version 0.4.0 - Real Accounts, Approval & Admin Monitoring
 - [x] **Accounts in DynamoDB** (`/api/users`) with scrypt-hashed passwords; email sign-in; Google sign-in removed.
 - [x] **Sign-up types**: APC Student, Outside Attendee, Officer (position + committee); First / M.I. / Last name.
 - [x] **Admin approval** for every new account.
@@ -63,7 +63,7 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 
 ---
 
-### ✅ Version 0.5.0 — Email Notifications, Archive Batches, No Demo Accounts
+### ✅ Version 0.5.0 - Email Notifications, Archive Batches, No Demo Accounts
 - [x] **Amazon SES emails**: approval/decline (with reason), event assignment, new task, daily reminders (Vercel Cron), admin alerts to `aws.apcofficial@gmail.com`.
 - [x] **Decline reasons** (optional, with quick picks).
 - [x] **Archive officers by school year** (alumni attendees, Past batches) and delete accounts.
@@ -71,21 +71,21 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 
 ---
 
-### ✅ Version 0.5.1 — Phone & Laptop Layouts
+### ✅ Version 0.5.1 - Phone & Laptop Layouts
 - [x] Sidebar layout from 768px; laptop grids and side-by-side sections; phones unchanged.
 
 ---
 
-### ✅ Version 0.6.0 — Notification Center, QR Check-in, Calendar & Certificates
+### ✅ Version 0.6.0 - Notification Center, QR Check-in, Calendar & Certificates
 - [x] **In-app notification center + bell badge** (stamps, account review, event assignment, tasks, check-in, new sign-ups for admins).
 - [x] **Attendee digital event pass** with a personal QR code.
 - [x] **Officer camera scanner** that opens the attendee's stamp passport and checks them in with one tap (plus name search fallback).
-- [x] **Add to Calendar** — Google Calendar link and `.ics` download.
-- [x] **Certificate of participation** — PDF issued at check-in and stored in S3.
+- [x] **Add to Calendar** - Google Calendar link and `.ics` download.
+- [x] **Certificate of participation** - PDF issued at check-in and stored in S3.
 
 ---
 
-### ✅ Version 0.6.7 — Accounts, Committees, Content Tracker, Connect & Dashboard
+### ✅ Version 0.6.7 - Accounts, Committees, Content Tracker, Connect & Dashboard
 - [x] **Password rules** (capital, small letter, number, symbol, 6+), **admin-created accounts with temporary passwords**, forced first change, admin password reset.
 - [x] **Sub-committees** (Marketing: Creatives, Media · Secretariat: Finance, Documents) and **"Signed up as"** for admins.
 - [x] **Committee task board** with deadlines and the **Marketing Content Tracker** (designee, caption writer, poster, status, post date, file link) + caption guidelines.
@@ -94,21 +94,21 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 
 ---
 
-### ✅ Version 0.6.8 — Session Picks, Event Staff Permissions & Officer Badges
+### ✅ Version 0.6.8 - Session Picks, Event Staff Permissions & Officer Badges
 - [x] **Pick your sessions**: one expected count per event; each session shows its real "going" count; events can have no sessions.
 - [x] **Event staff list**: only officers an admin ticks can approve stamps / check people in at that event (server-enforced).
 - [x] **Officer badges**: automatic (incl. Event Host, Content Creator) and admin-awarded (Best Host, Best in Pubmat, MVP, Team Player, Rising Star).
 
 ---
 
-### ✅ Version 0.6.9 — Event Desk
+### ✅ Version 0.6.9 - Event Desk
 - [x] **Event Desk**: scanner, stamp requests and attendee list for each event in one page; stamps approved after check-in (**Check in & approve**).
 
 ---
 
 ## 🔮 Upcoming Milestones & Next Steps
 
-### 🚧 Version 0.6.5 — On-site Extras & Email Notification Delivery
+### 🚧 Version 0.6.5 - On-site Extras & Email Notification Delivery
 - [ ] **Instant Email Delivery via Official AWS Email (Amazon SES)**: Migrate email delivery from personal Gmail App Password to the official AWS sender address through Amazon SES for instant automated notifications (account approval/decline with reason, event assignments, officer tasks, and daily cron reminders).
 - [x] **Approve stamps from the scanner** (officer picks the session and approves on the spot).
 - [ ] **`.ics` attached to event emails** and a custom email domain for deliverability.
@@ -121,14 +121,14 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 
 ---
 
-### 📅 Version 0.7.0 — Production Auth & Real-Time Sync
+### 📅 Version 0.7.0 - Production Auth & Real-Time Sync
 - [ ] **AWS Cognito Authentication / signed sessions**: Replace the current app-level account checks with signed tokens (and optionally APC Google Workspace SSO and MFA).
 - [ ] **Real-Time Stamp Approvals & Notifications**: Live WebSockets or Server-Sent Events (SSE) notifying attendees immediately when an officer approves their stamp.
 - [ ] **Officer In-App Notification Feed**: Push alerts for incoming stamp requests to assigned session officers.
 
 ---
 
-### 🚀 Version 1.0.0 — Leaderboard, Gamification & Certificates
+### 🚀 Version 1.0.0 - Leaderboard, Gamification & Certificates
 - [x] **Builder Leaderboard & Badges**: delivered in v0.6.5.
 - [ ] **Certificate of Completion**: a second certificate for attendees who complete 100% of event stamps.
 - [ ] **Multi-Event Analytics**: Officer/Admin reporting dashboard showing attendance retention and workshop completion rates.

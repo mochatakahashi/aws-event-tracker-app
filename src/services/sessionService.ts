@@ -1,5 +1,6 @@
 import type { Session, Stamp, NewStampInput } from '../types/session';
 import { seedSessions, seedStamps } from './seedData';
+import { cachedGet, hasSavedCopy } from './apiClient';
 
 const SESSIONS_KEY = 'aws-event-tracker.sessions.v5';
 const STAMPS_KEY = 'aws-event-tracker.stamps.v5';
@@ -20,15 +21,14 @@ async function checkRemoteApi(): Promise<boolean> {
   if (useRemoteApi !== null) return useRemoteApi;
   try {
     const res = await fetch('/api/sessions', { method: 'GET' });
-    if (res.status === 503 || !res.ok) {
-      useRemoteApi = false;
-      return false;
-    }
-    useRemoteApi = true;
-    return true;
+    // JSON answer = the API exists (even if the database is failing right now:
+    // reads then use the saved copy). 503 = no database configured (local mode).
+    useRemoteApi = res.status !== 503 && (res.headers.get('content-type') || '').includes('application/json');
+    return useRemoteApi;
   } catch {
-    useRemoteApi = false;
-    return false;
+    // No connection: still "remote" if we have a saved copy to show
+    useRemoteApi = hasSavedCopy('/api/sessions');
+    return useRemoteApi;
   }
 }
 
@@ -77,9 +77,8 @@ function ensureLocalSeeded() {
 export async function getSessions(): Promise<Session[]> {
   try {
     if (await checkRemoteApi()) {
-      const res = await fetch('/api/sessions');
-      if (res.ok) {
-        const data = await res.json();
+      const data = await cachedGet<any>('/api/sessions');
+      if (data !== null) {
         // The live database is the source of truth, even when it has no sessions
         if (Array.isArray(data)) return data;
       }
@@ -95,9 +94,8 @@ export async function getSessions(): Promise<Session[]> {
 export async function getSessionsByEvent(eventId: string): Promise<Session[]> {
   try {
     if (await checkRemoteApi()) {
-      const res = await fetch(`/api/sessions?eventId=${encodeURIComponent(eventId)}`);
-      if (res.ok) {
-        const data = await res.json();
+      const data = await cachedGet<any>(`/api/sessions?eventId=${encodeURIComponent(eventId)}`);
+      if (data !== null) {
         if (Array.isArray(data)) return data;
       }
     }
@@ -113,9 +111,9 @@ export async function getSessionsByEvent(eventId: string): Promise<Session[]> {
 export async function getSessionById(id: string): Promise<Session | undefined> {
   try {
     if (await checkRemoteApi()) {
-      const res = await fetch(`/api/sessions?id=${encodeURIComponent(id)}`);
-      if (res.ok) {
-        return await res.json();
+      const data = await cachedGet<any>(`/api/sessions?id=${encodeURIComponent(id)}`);
+      if (data !== null) {
+        return data;
       }
     }
   } catch (err) {
@@ -192,9 +190,8 @@ export async function deleteSession(id: string, actorId: string): Promise<void> 
 export async function getStamps(): Promise<Stamp[]> {
   try {
     if (await checkRemoteApi()) {
-      const res = await fetch('/api/stamps');
-      if (res.ok) {
-        const data = await res.json();
+      const data = await cachedGet<any>('/api/stamps');
+      if (data !== null) {
         if (Array.isArray(data)) {
           saveLocalStamps(data);
           return data;
@@ -212,9 +209,8 @@ export async function getStamps(): Promise<Stamp[]> {
 export async function getStampsByAttendee(attendeeId: string): Promise<Stamp[]> {
   try {
     if (await checkRemoteApi()) {
-      const res = await fetch(`/api/stamps?attendeeId=${encodeURIComponent(attendeeId)}`);
-      if (res.ok) {
-        const data = await res.json();
+      const data = await cachedGet<any>(`/api/stamps?attendeeId=${encodeURIComponent(attendeeId)}`);
+      if (data !== null) {
         if (Array.isArray(data)) {
           return data;
         }
@@ -232,9 +228,8 @@ export async function getStampsByAttendee(attendeeId: string): Promise<Stamp[]> 
 export async function getStampsBySession(sessionId: string): Promise<Stamp[]> {
   try {
     if (await checkRemoteApi()) {
-      const res = await fetch(`/api/stamps?sessionId=${encodeURIComponent(sessionId)}`);
-      if (res.ok) {
-        const data = await res.json();
+      const data = await cachedGet<any>(`/api/stamps?sessionId=${encodeURIComponent(sessionId)}`);
+      if (data !== null) {
         if (Array.isArray(data)) {
           return data;
         }
@@ -315,7 +310,7 @@ export async function approveStamp(stampId: string, officerId: string): Promise<
   return delay(stamps[idx]);
 }
 
-/** Decline (delete) a stamp request — stamp team only (server-checked). */
+/** Decline (delete) a stamp request - stamp team only (server-checked). */
 export async function declineStamp(stampId: string, officerId?: string): Promise<boolean> {
   if (await checkRemoteApi()) {
     const qs = `id=${encodeURIComponent(stampId)}${officerId ? `&actorId=${encodeURIComponent(officerId)}` : ''}`;

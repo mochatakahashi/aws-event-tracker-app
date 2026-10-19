@@ -38,7 +38,7 @@ export default function ImageBannerAdjuster({
   const [baseSize, setBaseSize] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
   // Zoom needed for the image to fully cover the frame (used to size the slider range)
   const [coverZoom, setCoverZoom] = useState<number>(1);
-  // Zoom is a pure multiplier on top of baseSize — 1 means "fit to frame"
+  // Zoom is a pure multiplier on top of baseSize - 1 means "fit to frame"
   const [zoom, setZoom] = useState<number>(1);
   const [position, setPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState<boolean>(false);
@@ -312,7 +312,7 @@ export default function ImageBannerAdjuster({
               pointerEvents: 'none',
             }}
           >
-            16:9 — 1280×720
+            16:9 - 1280×720
           </Box>
         </Box>
 

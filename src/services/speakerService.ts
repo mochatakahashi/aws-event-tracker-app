@@ -45,8 +45,8 @@ export async function getSpeaker(id: string): Promise<Speaker | null> {
 
 /**
  * Resolve several speakers by id (used to show an event's lineup), keeping the
- * given order. Speakers linked to an account — chosen in the event form, or an
- * outside speaker who later signed up with the same email — get that account's
+ * given order. Speakers linked to an account - chosen in the event form, or an
+ * outside speaker who later signed up with the same email - get that account's
  * live name, photo and social links in `profile`.
  */
 export async function getSpeakersByIds(ids: string[]): Promise<Speaker[]> {
@@ -107,7 +107,7 @@ export async function updateSpeaker(id: string, changes: UpdateSpeakerInput): Pr
  * approved partner integration, so this simulates the shape of what such an
  * integration would return: it derives a plausible name from the URL slug and
  * fills placeholder professional details. Swap this out for a real integration
- * (or a backend proxy) later — the signature can stay the same.
+ * (or a backend proxy) later - the signature can stay the same.
  */
 export async function lookupLinkedInProfile(
   url: string,

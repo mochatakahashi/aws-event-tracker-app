@@ -7,13 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.20] - 2026-10-20
+
+### Added
+- **Pinned announcements**: a new announcement from the admin or adviser stays at the top of the dashboard for 24 hours (attendee/officer home, the Officer Dashboard, Admin Home, Adviser Home). Its author or an admin can **Edit** or **Remove** it right there; edits show "edited". After 24 hours it moves to the announcements list.
+- **Who sees an announcement**: admins choose **Officers** (default) or **Everyone**. Members only see the ones for everyone; the adviser writes to the officers.
+- **Last sign-in time** on each account in Admin Home ("Last signed in Oct 20, 9:15 AM · 4 sign-ins").
+- **Saved copy when the database can't be reached**: the app keeps the last data it loaded (events, sessions, and other lists) in the browser. If the database or the connection fails, pages keep showing that copy with a notice ("Can't reach the database right now. Showing saved info from ..."), and changes show an error instead of silently saving only on this device. The saved copy is cleared on sign-out.
+- **Officers can comment on all their tasks**, including ones still waiting for approval or declined, and on their pubmats in the Content Tracker (the button now reads **Add a comment**).
+
+### Changed
+- **The app tour only opens on a person's first sign-in** (it no longer pops up on every new browser). It can still be replayed from the profile menu.
+- **Session speakers**: the speakers field is now a type-in box. Pick someone from the directory or type a new name and press Enter; new names are added to the Speakers directory when the session is saved.
+- **Speakers lineup** on an event page now also includes everyone speaking in its sessions.
+- No em dashes in the app's text and docs (plain hyphens instead).
+- Rodmina Jhoy Ibe's speaker card: "President, AWS SBG-APC", no old bio (in the built-in data; the live database gets it from Admin Home → **Update them**).
+
+### Fixed
+- **Profile photo not showing after upload**: photos are shown through the app's image link (works with a private S3 bucket), on every page with an avatar. If cloud storage isn't available, a small copy of the photo is saved on the account so it still shows everywhere.
+
+---
+
 ## [0.6.19] - 2026-10-20
 
 ### Added
-- **Officers-only events** (event form → *Officers only*): everyone can see the event (marked **Officers only**, no participant count), but only officers and admins can register — attendees see that it's an internal officers' meeting. Server-checked.
+- **Officers-only events** (event form → *Officers only*): everyone can see the event (marked **Officers only**, no participant count), but only officers and admins can register - attendees see that it's an internal officers' meeting. Server-checked.
 
 ### Changed
-- Official event info, version 4 — **AWS Launchpad: Core Services Session Operational Briefing**: an officers-only internal working session, Tuesday May 19, 2026, 11:30 AM – 1:30 PM, Room 309; description from the officers' announcement; no participant count or speakers.
+- Official event info, version 4 - **AWS Launchpad: Core Services Session Operational Briefing**: an officers-only internal working session, Tuesday May 19, 2026, 11:30 AM – 1:30 PM, Room 309; description from the officers' announcement; no participant count or speakers.
 
 ---
 
@@ -21,7 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Official event info, version 3 (Admin Home → **Update them** again):
-  - **Cloud Watch: Demo Day x Spider-Man: Brand New Day** — October 17, 2026, 1:30–4:00 PM, Room 309, hybrid; the "Look but Don't Touch" AWS Console demo; ~30 participants; program flow; speakers Francis Anciro (Technicals Assistant Director — Parts 1–2), Rodmina Jhoy Ibe (President — Part 3), Vince Nelmar Alobin (Technicals Director — Part 4).
+  - **Cloud Watch: Demo Day x Spider-Man: Brand New Day** - October 17, 2026, 1:30–4:00 PM, Room 309, hybrid; the "Look but Don't Touch" AWS Console demo; ~30 participants; program flow; speakers Francis Anciro (Technicals Assistant Director - Parts 1–2), Rodmina Jhoy Ibe (President - Part 3), Vince Nelmar Alobin (Technicals Director - Part 4).
   - **Tech Barangay** venue: MPH1, Comlab 204 & Comlab 206.
   - **Mini-Org Fair**: APC Cafeteria; 100 participants (max 100).
   - Speaker bios no longer carry one event's topic (topics are in each event's program flow).
@@ -31,7 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.6.17] - 2026-10-20
 
 ### Added
-- **Program flow** on events: a *Program flow* section in the event form — **Paste from document** turns a pasted program (Time / Duration / Activity / Person-in-Charge, one cell per line or tab-separated) into a table, or add/edit rows; the event page shows it as a table (a stacked list on phones).
+- **Program flow** on events: a *Program flow* section in the event form - **Paste from document** turns a pasted program (Time / Duration / Activity / Person-in-Charge, one cell per line or tab-separated) into a table, or add/edit rows; the event page shows it as a table (a stacked list on phones).
 - **Updated official info for the club's events** (`src/data/clubEventInfo.ts`): Admin Home shows *New official info is ready for N events* → **Update them** applies it to the live database (descriptions, dates & venues, co-organizers, expected participants, program flow, speakers; Tech Barangay's three stamp sessions get the program's titles and times). Event pictures, staff lists and registrations are kept. API: `POST /api/seed?action=update-events` (admin).
   - **Tech Barangay**: co-organized with JPCS – APC and WordPress Manila (community partner); 7:00 AM–5:00 PM program; ~130 participants; speakers WordPress Manila, AWS SBG-APC Technical Team, Notion Community Leads.
   - **AWS Launchpad: Intro to Cloud and AWS Ecosystem**: May 21, 2026, 1:00 PM, APC Auditorium (12F); ~170; speakers John Lexter Reyes (guest), Rodmina Jhoy Ibe (President), Vince Nelmar Alobin (Technicals Director); program flow.
@@ -44,7 +65,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.6.16] - 2026-10-19
 
 ### Added
-- **"Your access at this event" on the event page** for officers (and co-organizer staff) an admin put on the staff list: their role, what they may do (*Check people in & approve registrations*, *Approve stamps*) and shortcuts — **Check people in**, **Registrations** and **Stamp requests**, each with the number waiting — straight into the Event Desk for that event. Team members without a duty are told so.
+- **"Your access at this event" on the event page** for officers (and co-organizer staff) an admin put on the staff list: their role, what they may do (*Check people in & approve registrations*, *Approve stamps*) and shortcuts - **Check people in**, **Registrations** and **Stamp requests**, each with the number waiting - straight into the Event Desk for that event. Team members without a duty are told so.
 
 ---
 
@@ -56,14 +77,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Event picker in the session editor** (admins): move any session that's under the wrong event.
 - **Speakers linked to accounts**: in the event form, each speaker can be linked to an app account (an officer who speaks, or any member). Their name, photo and social links come from their profile and stay up to date; officers get an *AWS SBG-APC officer* label and tapping a speaker opens their profile.
-- **Outside speakers**: name, title, bio, photo, **social links** (any platform) and an optional **email** — if they later create an account with that email, the speaker links to it automatically and shows their own links too.
+- **Outside speakers**: name, title, bio, photo, **social links** (any platform) and an optional **email** - if they later create an account with that email, the speaker links to it automatically and shows their own links too.
 
 ---
 
 ## [0.6.14] - 2026-10-19
 
 ### Added
-- **Adviser account** (role `adviser`, created by an admin — Add account → Role: Adviser, or change the role in Manage Accounts). View-only: an **Adviser dashboard** with officers, upcoming events, open / done-on-time / late tasks, officer tasks (Open · Done · Late) and events with attendance; Events (view only, no Register) and the Leaderboard. No attendee pages; can't edit events, accounts or tasks (server-checked).
+- **Adviser account** (role `adviser`, created by an admin - Add account → Role: Adviser, or change the role in Manage Accounts). View-only: an **Adviser dashboard** with officers, upcoming events, open / done-on-time / late tasks, officer tasks (Open · Done · Late) and events with attendance; Events (view only, no Register) and the Leaderboard. No attendee pages; can't edit events, accounts or tasks (server-checked).
 - **Announcements to the officers**: the adviser (or an admin) posts a title + message; every officer and admin gets a notification and sees it under *From the adviser* on their Dashboard. Attendees don't. API: `/api/notifications?action=announcements|announce|announcement`.
 - **Adviser sign-off ("papirma")**: officers and admins send *Ask the adviser to sign* (what, details, file link); the adviser **Approves** (optional note) or **Returns** with what needs to change; the requester is notified and the record stays (who, when, comment). API: `?action=signoffs|signoff|signoff-review`.
 - **Task comments**: admins and the officers assigned can comment on a task (Officer Dashboard and Officer Tasks); the others on the task are notified. API: `POST /api/tasks?action=comment`.
@@ -79,14 +100,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.6.13] - 2026-10-19
 
 ### Added
-- **Co-organizer staff for co-organized events** (partner orgs that aren't AWS SBG-APC): events get **Co-organizer(s)** (shown as *Co-organized by AWS SBG-APC and …*); an admin marks an attendee account as **Co-organizer staff · <org>** (Add account → *Co-organizer staff for*, or the 🤝 button on any attendee) and puts them on an event's staff list (*Co-organizer* role, check-in pre-ticked). They get only the Event Desk for those events and only their duties' tabs, plus a Dashboard card — no officer features. Server-checked in the stamps and registrations APIs; `partnerOrg` is admin-only.
+- **Co-organizer staff for co-organized events** (partner orgs that aren't AWS SBG-APC): events get **Co-organizer(s)** (shown as *Co-organized by AWS SBG-APC and …*); an admin marks an attendee account as **Co-organizer staff · <org>** (Add account → *Co-organizer staff for*, or the 🤝 button on any attendee) and puts them on an event's staff list (*Co-organizer* role, check-in pre-ticked). They get only the Event Desk for those events and only their duties' tabs, plus a Dashboard card - no officer features. Server-checked in the stamps and registrations APIs; `partnerOrg` is admin-only.
 - **Officers add their own tasks** → *Waiting for approval* → an admin approves (joins the board, counts on the leaderboard) or declines with a reason; both sides are notified. API: `POST /api/tasks?action=propose | review`. Pending tasks can't be marked done.
 - **Officer Dashboard request lists by duty**: *Stamp requests* (approve / decline inline) only for stamp-team officers, *Registration & check-in* (approve / decline waiting registrations) only for check-in-team officers.
 - **Edit profile** (Profile → Edit profile): name, M.I., student ID or school/organization, personal email, bio and social links; the display name follows. Email / sign-in stays locked.
 - **Replay the app tour from your profile picture** (top-bar avatar on phones, sidebar avatar on laptops → *Replay the app tour*).
 
 ### Fixed
-- **App tour on phones**: the *My Event Pass* step highlighted nothing (it isn't in the bottom bar) — it now points at your profile picture and says *Tap your picture → My Event Pass*. The tour animation is smoother: the highlight box moves with GPU transforms, the pulse ring animates only transform/opacity, and scroll/resize updates are limited to one per frame.
+- **App tour on phones**: the *My Event Pass* step highlighted nothing (it isn't in the bottom bar) - it now points at your profile picture and says *Tap your picture → My Event Pass*. The tour animation is smoother: the highlight box moves with GPU transforms, the pulse ring animates only transform/opacity, and scroll/resize updates are limited to one per frame.
 - **Admin saw a stamp-request count with no requests on the Event Desk**: the menu badge counted every event while the desk showed one, and it only refreshed every minute. The badge now counts only what the desk can show, updates right after approving/declining, the event picker shows each event's count, and the desk links to requests waiting at another event.
 
 ### Changed
@@ -128,7 +149,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The event pass appears once a registration is approved; checking in at the door also approves.
 - Event photos / uploads on the event page are admin-only.
 - Sessions API: only admins can add, change or delete sessions; only session fields are stored.
-- Event form: the "Officer IDs" text box is gone — officers, roles and duties are set under **Event staff** on the event page.
+- Event form: the "Officer IDs" text box is gone - officers, roles and duties are set under **Event staff** on the event page.
 
 ### Fixed
 - **Uploaded event picture didn't show**: pictures now open through the app (`/api/uploads?action=image`, a signed link), so they work with a private S3 bucket; old public S3 links are converted automatically. Without S3, the picture is shrunk to fit the database instead of silently failing, and saving an event shows the real error instead of pretending it saved.
@@ -172,7 +193,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Pick your sessions**: the event keeps one expected-participants number; registered attendees tap **I'll attend** on the sessions they'll go to (event page, session page). Each session shows its own real **"N going"** count. API: `PUT /api/registrations?id=` with `{ personId, sessionIds }` (own registration only; only that event's sessions are kept).
 - **Event staff list** on the event page (admins): assign officers with a role and tick **Approve stamps** / **Check people in** per officer (roles pre-tick a default: Lead → both, Registration Booth → check-in, Usher → stamps). Officers are notified of new duties; officers can be removed from an event. API: `PUT /api/events?id=…&action=staff` (admin only).
 - **Officer duties** on the Officer Dashboard, and a warning on Admin Home for upcoming events with nobody on stamps or check-in.
-- **Officer badges**: automatic (First Duty, Stamp Master, Door Keeper, Task Finisher, Content Creator, Event Host, Event Regular) and **admin-awarded** (Best Host, Best in Pubmat, Event MVP, Team Player, Rising Star — optionally per event, with a note). Shown on Achievements, profiles and the admin leaderboard (+20 points each). API: `POST /api/users?action=award|unaward` (admin only).
+- **Officer badges**: automatic (First Duty, Stamp Master, Door Keeper, Task Finisher, Content Creator, Event Host, Event Regular) and **admin-awarded** (Best Host, Best in Pubmat, Event MVP, Team Player, Rising Star - optionally per event, with a note). Shown on Achievements, profiles and the admin leaderboard (+20 points each). API: `POST /api/users?action=award|unaward` (admin only).
 
 ### Changed
 - **Only officers on an event's staff list can approve/decline stamps and check people in** at that event (admins always can). Enforced in `/api/stamps` and `/api/registrations`; the scanner only lists the officer's events and hides buttons they can't use; the stamp queue only shows their events.
@@ -187,7 +208,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The info button on *Select Event* cards was a button inside a button (same bug as the old bookmark); it now sits outside the card's click area.
 
 ### Notes
-- **No new packages** — `npm install` isn't needed for this update.
+- **No new packages** - `npm install` isn't needed for this update.
 - After deploying, set the **Event staff** for upcoming events; until then only admins can approve stamps or check people in.
 
 ---
@@ -198,7 +219,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Password rules for everyone**: at least 6 characters with a capital letter, a small letter, a number and a special symbol, with a live checklist (sign-up, change password, admin forms); enforced by the server too.
 - **Admin "Add account"**: create approved accounts (APC student, outside attendee or officer with position/committee/sub-committee) with a generated temporary password and *Copy login details*. **Reset password** per account. Temporary passwords must be changed at first sign-in (**Set your own password** page; the rest of the app is blocked until then).
 - **Change password page** (`/change-password`), linked from the profile menu and Profile.
-- **Sub-committees**: Marketing → Creatives, Media; Secretariat → Finance, Documents — at sign-up, in Add account, and in the admin Officers page.
+- **Sub-committees**: Marketing → Creatives, Media; Secretariat → Finance, Documents - at sign-up, in Add account, and in the admin Officers page.
 - **"Signed up as …"** on every account in Manage Accounts (type, position, committee, sub-committee).
 - **Committee task board**: Officer Tasks grouped by committee with sub-committee filters; tasks have a required deadline (date + time), committee and sub-committee; emails include the committee.
 - **Marketing Content Tracker** (pubmats): designee, caption writer, poster, status, post date, file link, notes, draft deadline; assigned officers notified with their role and can update their items from the Officer Dashboard; **caption guidelines** link.
@@ -214,7 +235,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `/api/seed` no longer overwrites events: `GET` only reports missing club events, `POST` (admin only) adds just the missing ones.
 
 ### Fixed
-- **Bookmark icon opened the event instead of saving it** — the button was inside the clickable card (a button inside a button). It now sits outside the card's click area.
+- **Bookmark icon opened the event instead of saving it** - the button was inside the clickable card (a button inside a button). It now sits outside the card's click area.
 - Long titles no longer push cards off the screen on phones (grid columns can shrink).
 
 ---
@@ -235,7 +256,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **🎯 Approve stamps from the Check-in Scanner**: after scanning a pass, every stamp session of the event is listed with **Approve stamp** (sessions happening now first, marked *Now*; requested ones marked *Requested*). Works whether or not the attendee requested the stamp, updates the passport progress immediately, and notifies the attendee.
 - **📜 Certificate verification page** (`/#/verify` and `/#/verify/:id`, public): look up a certificate ID or scan the new **"Scan to verify" QR code** printed on certificates. Shows *Verified*, *No longer valid* (check-in undone) or *Not found*, with only the details printed on the certificate. The pass and event page link to it next to the certificate ID. API: `GET /api/registrations?action=verify&certificateId=`.
-- **🏆 Builder Leaderboard & achievement badges** (`/leaderboard`, sidebar + Achievements page): ranking by approved stamps and completed workshops per event or across all events, top-3 podium, *Your standing*, and five badges — First Stamp, Workshop Warrior, Cloud Explorer, Full Passport Complete, Multi-Event Builder.
+- **🏆 Builder Leaderboard & achievement badges** (`/leaderboard`, sidebar + Achievements page): ranking by approved stamps and completed workshops per event or across all events, top-3 podium, *Your standing*, and five badges - First Stamp, Workshop Warrior, Cloud Explorer, Full Passport Complete, Multi-Event Builder.
 - **🖼️ Persistent Event Picture Storage & Recent Uploads Database**:
   - Implemented persistent client-side file storage using IndexedDB (`uploadStorageService.ts`) and a serverless DynamoDB endpoint (`/api/uploads`) for all uploaded event pictures, banners, and speaker photos.
   - Added the **Recent Uploads Shelf (`RecentUploadsShelf`)** component in both `EventBuilderPage` and `EventDetailPage`: automatically displays the recent uploads on load with a prominent **"⭐ Recent Upload"** badge, thumbnail previews, file sizes, upload timestamps, 1-click **"Use as Banner"** application, full-screen lightbox preview, and delete controls.
@@ -285,7 +306,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.6.0] - 2026-10-16
 
 ### Added
-- **🔔 In-app notification center + bell badge**: the Notifications page now shows real notifications stored in DynamoDB (`/api/notifications`) instead of sample data — stamp approved / declined, account approved / declined, assigned to an event, new task, checked in, and new sign-ups (sent to every admin). Unread count on the phone top-bar bell and the laptop sidebar; tap to open the related page; *Mark all as read*; remove. Registered events that are live or start within 24 h are pinned on top.
+- **🔔 In-app notification center + bell badge**: the Notifications page now shows real notifications stored in DynamoDB (`/api/notifications`) instead of sample data - stamp approved / declined, account approved / declined, assigned to an event, new task, checked in, and new sign-ups (sent to every admin). Unread count on the phone top-bar bell and the laptop sidebar; tap to open the related page; *Mark all as read*; remove. Registered events that are live or start within 24 h are pinned on top.
 - **🎟️ Attendee digital event pass (`/pass`)** with a personal QR code per registered event, linked from the Dashboard, the event page ("Show my event pass"), the sidebar and the profile menu. The pass refreshes and turns green after check-in.
 - **📷 Officer check-in scanner (`/officer/scan`)** for officers and admins: camera QR scanning (back camera on phones), attendee details and stamp passport, **one-tap Check in**, "already checked in by …" on repeat scans, warning when a pass is for a different event, live "checked in" count, and a name / email / student ID search when the camera can't be used. Opened from the Officer Dashboard and an Admin Dashboard card. Scanning a pass with a phone's normal camera app also opens it.
 - **🏅 Certificate of participation**: issued automatically at check-in (`pdf-lib`), stored in S3 under `certificates/<eventId>/<certificateId>.pdf`, downloaded through a short-lived signed link from the pass or event page. If S3 isn't configured or the upload fails, check-in still succeeds and the PDF is generated on download / retried on the next scan.
@@ -337,7 +358,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Delete accounts** (admin only, with an inline confirmation) from Manage Accounts and the Officers page.
 
 ### Changed
-- **Removed all demo accounts** and the demo sign-in panel. The only built-in account is the admin **`awsapc.admin`**, whose password comes from the `ADMIN_PASSWORD` environment variable (deployed) or `VITE_LOCAL_ADMIN_PASSWORD` in `.env.local` (local) — no password is stored in the code.
+- **Removed all demo accounts** and the demo sign-in panel. The only built-in account is the admin **`awsapc.admin`**, whose password comes from the `ADMIN_PASSWORD` environment variable (deployed) or `VITE_LOCAL_ADMIN_PASSWORD` in `.env.local` (local) - no password is stored in the code.
 - `/api/seed` no longer creates sample stamps for demo people.
 
 ---

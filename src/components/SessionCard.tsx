@@ -18,6 +18,7 @@ import HourglassTopRoundedIcon from '@mui/icons-material/HourglassTopRounded';
 import ImageNotSupportedOutlinedIcon from '@mui/icons-material/ImageNotSupportedOutlined';
 import type { Session } from '../types/session';
 import type { Speaker } from '../types/speaker';
+import { imageSrc } from '../utils/imageUrl';
 
 function formatMonthDay(iso: string): { month: string; day: string } {
   const d = new Date(iso);
@@ -150,7 +151,7 @@ export default function SessionCard({
             {speakers && speakers.length > 0 && (
               <AvatarGroup max={3} sx={{ '& .MuiAvatar-root': { width: 22, height: 22, fontSize: '0.65rem' } }}>
                 {speakers.map((s) => (
-                  <Avatar key={s.id} src={s.avatarUrl} alt={s.name}>
+                  <Avatar key={s.id} src={imageSrc(s.avatarUrl)} alt={s.name}>
                     {s.name.charAt(0)}
                   </Avatar>
                 ))}
@@ -219,7 +220,7 @@ export default function SessionCard({
 
       {/* Pick / unpick this session (outside the clickable card) */}
       {onToggleAttend && (
-        <Tooltip title={attending ? "You're going — tap to remove it from your plan" : 'Add to my sessions'}>
+        <Tooltip title={attending ? "You're going - tap to remove it from your plan" : 'Add to my sessions'}>
           <IconButton
             size="small"
             aria-label={attending ? `Remove ${session.title} from my sessions` : `I'll attend ${session.title}`}

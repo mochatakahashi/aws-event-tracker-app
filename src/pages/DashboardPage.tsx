@@ -39,6 +39,7 @@ import type { Session, Stamp } from '../types/session';
 import type { AppNotification } from '../types/notification';
 import type { OfficerTask } from '../types/task';
 import AnnouncementsCard from '../components/AnnouncementsCard';
+import AnnouncementBanner from '../components/AnnouncementBanner';
 
 const TZ = 'Asia/Manila';
 const dayTime = (iso: string) =>
@@ -198,9 +199,11 @@ export default function DashboardPage() {
         {today} · Here's what's happening at AWS SBG-APC
       </Typography>
 
+      {/* New announcements stay at the top for 24 hours */}
+      {user && <AnnouncementBanner viewer={user} />}
       {user && isPartnerStaff(user) && <MyDutiesCard user={user} />}
-      {/* Adviser announcements reach the officers on their dashboard */}
-      {user?.role === 'officer' && <AnnouncementsCard viewer={user} limit={3} />}
+      {/* Earlier announcements */}
+      {user && <AnnouncementsCard viewer={user} limit={3} />}
 
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 3fr) minmax(0, 2fr)' }, gap: { xs: 0, lg: 3 }, alignItems: 'start' }}>
         <Box>
@@ -217,9 +220,9 @@ export default function DashboardPage() {
                 </Typography>
                 <Typography sx={{ color: alpha('#fff', 0.9), mt: 0.5 }}>
                   {reg.checkedIn
-                    ? "You're checked in — enjoy the event!"
+                    ? "You're checked in - enjoy the event!"
                     : reg.rsvp === 'pending'
-                      ? `Your registration is waiting for approval — ask at the registration booth · ${event.venue}`
+                      ? `Your registration is waiting for approval - ask at the registration booth · ${event.venue}`
                       : `Show your event pass at the registration booth · ${event.venue}`}
                 </Typography>
                 <Button
@@ -314,7 +317,7 @@ export default function DashboardPage() {
                 {!sessionNow && !sessionNext && (
                   <Typography variant="body2" color="text.secondary">
                     {sessions.length === 0
-                      ? 'This event is one program — no separate sessions.'
+                      ? 'This event is one program - no separate sessions.'
                       : 'All sessions are done for this event.'}
                   </Typography>
                 )}
@@ -406,7 +409,7 @@ export default function DashboardPage() {
               </Typography>
               {nextDeadline && (
                 <Typography variant="body2" color={new Date(nextDeadline.dueAt!) < new Date() ? 'error' : 'text.secondary'}>
-                  Next deadline: {nextDeadline.title} — {dayTime(nextDeadline.dueAt!)}
+                  Next deadline: {nextDeadline.title} - {dayTime(nextDeadline.dueAt!)}
                 </Typography>
               )}
             </Section>

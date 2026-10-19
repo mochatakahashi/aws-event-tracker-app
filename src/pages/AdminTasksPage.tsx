@@ -381,7 +381,7 @@ export default function AdminTasksPage() {
                   ? `${COMMITTEE_LABELS[formCommittee]} committee`
                   : formCommittee
                     ? 'Other officers'
-                    : officerTitle(o).split(' — ')[0]
+                    : officerTitle(o).split(' - ')[0]
               }
               renderOption={(props, o) => (
                 <li {...props} key={o.personId}>

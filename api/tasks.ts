@@ -138,7 +138,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       );
       if (!task || task.entityType !== 'task') return res.status(404).json({ error: 'Task not found' });
       const active = actor?.entityType === 'user' && (actor.status ?? 'approved') === 'approved';
-      const allowed = active && (actor!.role === 'admin' || (Array.isArray(task.assigneeIds) && task.assigneeIds.includes(actor!.id)));
+      const onTask =
+        (Array.isArray(task.assigneeIds) && task.assigneeIds.includes(actor!.id)) || task.proposedBy === actor!.id || task.createdBy === actor!.id;
+      const allowed = active && (actor!.role === 'admin' || onTask);
       if (!allowed) return res.status(403).json({ error: 'Only admins and the officers on this task can comment.' });
       const comment = {
         id: `cmt-${Date.now()}-${Math.floor(Math.random() * 100000)}`,

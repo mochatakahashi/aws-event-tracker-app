@@ -49,6 +49,7 @@ import {
 } from '../utils/people';
 import ArchiveOutlinedIcon from '@mui/icons-material/ArchiveOutlined';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import { imageSrc } from '../utils/imageUrl';
 
 function initials(name: string) {
   return name
@@ -268,7 +269,7 @@ export default function AdminOfficersPage() {
     <Box>
       <AdminHeader
         title="Officers"
-        subtitle="Officer achievements, events they volunteered for, and their tasks — in hierarchy order."
+        subtitle="Officer achievements, events they volunteered for, and their tasks - in hierarchy order."
         actions={
           <Button
             variant="contained"
@@ -367,7 +368,7 @@ export default function AdminOfficersPage() {
                     onClick={() => setOpen(isOpen ? null : o.personId)}
                     sx={{ cursor: 'pointer' }}
                   >
-                    <Avatar src={o.avatarUrl || undefined}>
+                    <Avatar src={imageSrc(o.avatarUrl)}>
                       {initials(o.name)}
                     </Avatar>
                     <Box sx={{ flex: 1, minWidth: 0 }}>

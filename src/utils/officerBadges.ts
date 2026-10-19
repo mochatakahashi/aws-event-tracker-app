@@ -108,7 +108,7 @@ export function officerBadgesFor(person: Pick<Person, 'id' | 'awards'>, d: Board
   return out;
 }
 
-/** Number of officer badges (awards count each time) — used for points. */
+/** Number of officer badges (awards count each time) - used for points. */
 export function officerBadgeCount(person: Pick<Person, 'id' | 'awards'>, d: BoardData): number {
   return officerBadgesFor(person, d).reduce((n, e) => n + e.count, 0);
 }

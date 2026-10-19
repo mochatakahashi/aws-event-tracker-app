@@ -78,9 +78,20 @@ export default function TutorialTour() {
   const [stepText, setStepText] = useState('');
   const reduceMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
-  // First visit: offer the tour (their choice to take it or skip)
+  // Offered only on someone's very first sign-in (their choice to take it or
+  // skip); later it's in the profile menu
   useEffect(() => {
-    if (!user || user.mustChangePassword) return;
+    if (!user) return;
+    // Remember "first sign-in" for this browser session (e.g. through the forced password change)
+    const firstKey = `aws-event-tracker.tour.first.${user.personId}`;
+    let first = Boolean(user.firstSignIn);
+    try {
+      if (first) sessionStorage.setItem(firstKey, '1');
+      else first = sessionStorage.getItem(firstKey) === '1';
+    } catch {
+      /* storage blocked */
+    }
+    if (user.mustChangePassword || !first) return;
     let seen = Boolean(user.tutorialSeen);
     try {
       seen = seen || localStorage.getItem(seenKey(user.personId)) === '1';
@@ -103,6 +114,7 @@ export default function TutorialTour() {
     setMode('off');
     if (!user) return;
     try {
+      sessionStorage.removeItem(`aws-event-tracker.tour.first.${user.personId}`);
       localStorage.setItem(seenKey(user.personId), '1');
     } catch {
       /* ignore */

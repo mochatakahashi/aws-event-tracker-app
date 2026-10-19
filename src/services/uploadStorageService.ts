@@ -233,9 +233,8 @@ function readAsDataUrl(file: Blob): Promise<string> {
  * record must stay small (DynamoDB items max out at 400 KB). Shrink and
  * re-encode as JPEG until the text form is under ~250 KB.
  */
-async function fileToDataUrl(file: File): Promise<string> {
+export async function fileToDataUrl(file: File, LIMIT = 250_000, maxWidth = 1280): Promise<string> {
   const original = await readAsDataUrl(file);
-  const LIMIT = 250_000;
   if (original.length <= LIMIT || typeof document === 'undefined') return original;
   try {
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {
@@ -244,7 +243,7 @@ async function fileToDataUrl(file: File): Promise<string> {
       el.onerror = () => reject(new Error('Could not read the picture.'));
       el.src = original;
     });
-    let width = Math.min(img.naturalWidth, 1280);
+    let width = Math.min(img.naturalWidth, maxWidth);
     let quality = 0.82;
     for (let i = 0; i < 8; i++) {
       const height = Math.round((img.naturalHeight / img.naturalWidth) * width);

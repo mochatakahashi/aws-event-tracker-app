@@ -418,7 +418,7 @@ export default function EventsPage() {
                     </Stack>
                   </CardContent>
                 </CardActionArea>
-                    {/* Bookmark or Edit Icon (Top Right) — outside the card's click area so it doesn't open the event */}
+                    {/* Bookmark or Edit Icon (Top Right) - outside the card's click area so it doesn't open the event */}
                     <IconButton
                       size="small"
                       sx={{

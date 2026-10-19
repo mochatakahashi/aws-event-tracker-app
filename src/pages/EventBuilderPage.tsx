@@ -47,6 +47,7 @@ import { getPeople } from '../services/registrationService';
 import { officerTitle } from '../utils/people';
 import type { Person } from '../types/attendee';
 import type { SocialLinks } from '../types/auth';
+import { imageSrc } from '../utils/imageUrl';
 
 interface SpeakerDraft {
   /** Set when the speaker is already saved in the directory. */
@@ -57,7 +58,7 @@ interface SpeakerDraft {
   avatarUrl: string;
   /** Linked account (officer or member who speaks). */
   personId?: string;
-  /** Outside speaker's email — links to their account if they sign up with it. */
+  /** Outside speaker's email - links to their account if they sign up with it. */
   email?: string;
   /** Links typed in for an outside speaker. */
   socials?: SocialLinks;
@@ -417,7 +418,7 @@ export default function EventBuilderPage() {
                 onChange={(e) => setFormData((prev) => ({ ...prev, audience: e.target.checked ? 'officers' : 'everyone' }))}
               />
             }
-            label="Officers only — an internal meeting: everyone can see it, only officers can register"
+            label="Officers only - an internal meeting: everyone can see it, only officers can register"
           />
 
           {/* Partner orgs (not AWS) running the event with us */}
@@ -436,7 +437,7 @@ export default function EventBuilderPage() {
               <TextField
                 {...params}
                 label="Co-organizer(s)"
-                placeholder="Partner org, e.g. GDSC APC — press Enter"
+                placeholder="Partner org, e.g. GDSC APC - press Enter"
                 helperText="Optional. Their staff can be put on this event's staff list for check-in or stamps (Manage Accounts → Co-organizer staff)."
                 inputProps={{ ...params.inputProps, 'data-testid': 'co-organizers-input' }}
               />
@@ -473,7 +474,7 @@ export default function EventBuilderPage() {
             onChange={handleChange('description')}
           />
           
-          {/* AWS S3 Banner — Interactive Adjuster / Upload */}
+          {/* AWS S3 Banner - Interactive Adjuster / Upload */}
           {
             /* Priority: active adjusting session (new file or explicit re-adjust) */
             adjustSource ? (
@@ -492,7 +493,7 @@ export default function EventBuilderPage() {
                 />
               </Box>
             ) : formData.imageUrl ? (
-              /* Saved banner — show the current picture */
+              /* Saved banner - show the current picture */
               <Box>
                 <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
                   Event Banner
@@ -547,7 +548,7 @@ export default function EventBuilderPage() {
                 )}
               </Box>
             ) : (
-              /* Empty state — show upload button + URL paste field */
+              /* Empty state - show upload button + URL paste field */
               <Paper
                 variant="outlined"
                 sx={{
@@ -707,7 +708,7 @@ export default function EventBuilderPage() {
                       {/* Avatar with upload overlay */}
                       <Box sx={{ position: 'relative', flexShrink: 0 }}>
                         <Avatar
-                          src={sp.avatarUrl || undefined}
+                          src={imageSrc(sp.avatarUrl)}
                           sx={{ width: 64, height: 64, border: '2px solid', borderColor: 'divider' }}
                         >
                           <PersonIcon />
@@ -790,7 +791,7 @@ export default function EventBuilderPage() {
                           options={people}
                           value={people.find((p) => p.id === sp.personId) ?? null}
                           onChange={(_e, p) => linkSpeaker(idx, p)}
-                          getOptionLabel={(p) => `${p.name} — ${p.role === 'officer' ? officerTitle(p) : p.role === 'admin' ? 'Admin' : 'Member'}`}
+                          getOptionLabel={(p) => `${p.name} - ${p.role === 'officer' ? officerTitle(p) : p.role === 'admin' ? 'Admin' : 'Member'}`}
                           isOptionEqualToValue={(a, b) => a.id === b.id}
                           renderInput={(params) => (
                             <TextField

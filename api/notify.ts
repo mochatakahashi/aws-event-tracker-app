@@ -301,7 +301,7 @@ async function certificateNotices(
             personId: u.id,
             kind: 'certificate',
             title: `Your certificate for ${ev.title} is ready 🎓`,
-            message: `View or download it from your event pass. Certificate code: ${r.certificateId || '—'}.`,
+            message: `View or download it from your event pass. Certificate code: ${r.certificateId || '-'}.`,
             link: `/pass?event=${ev.id}`,
             read: false,
             createdAt: new Date().toISOString(),
@@ -356,7 +356,7 @@ async function runReminders(client: DynamoDBDocumentClient, tableName: string, a
     try {
       return await sendMail(mail, appUrl);
     } catch (err: any) {
-      failures.push(`${mail.to.join(', ')} — "${mail.subject}": ${err?.message || err}`);
+      failures.push(`${mail.to.join(', ')} - "${mail.subject}": ${err?.message || err}`);
       return false;
     }
   };
@@ -393,7 +393,7 @@ async function runReminders(client: DynamoDBDocumentClient, tableName: string, a
   sent += await certificateNotices(client, tableName, events, regs, users, emailOn ? trySend : null);
 
   // Unfinished tasks: a reminder the day before the deadline, then when it's overdue
-  // (and every 3 days after) until it's done — bell + email to each assignee.
+  // (and every 3 days after) until it's done - bell + email to each assignee.
   const DAY = 24 * 3600 * 1000;
   for (const task of tasks) {
     if (task.status === 'done' || !task.dueAt) continue;
@@ -570,7 +570,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (u?.entityType !== 'user' || u.status !== 'pending') return res.status(404).json({ error: 'No pending sign-up' });
         const type =
           u.requestedRole === 'officer'
-            ? `Officer${u.officerPosition ? ` (${titleCase(String(u.officerPosition).replace(/-/g, ' '))}${u.committee ? ` — ${titleCase(u.committee)}` : ''})` : ''}`
+            ? `Officer${u.officerPosition ? ` (${titleCase(String(u.officerPosition).replace(/-/g, ' '))}${u.committee ? ` - ${titleCase(u.committee)}` : ''})` : ''}`
             : u.memberType === 'outside'
               ? 'Outside attendee'
               : 'APC student';
@@ -579,7 +579,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           [
             `Type: ${type}`,
             `Email: ${u.email}${u.personalEmail ? ` (personal: ${u.personalEmail})` : ''}`,
-            u.memberType === 'outside' ? `Organization: ${u.organization || '—'}` : `Student ID: ${u.studentId || '—'}`,
+            u.memberType === 'outside' ? `Organization: ${u.organization || '-'}` : `Student ID: ${u.studentId || '-'}`,
           ],
           appUrl,
           { label: 'Review sign-ups', path: '/#/admin' },

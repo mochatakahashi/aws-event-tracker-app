@@ -1,13 +1,27 @@
-/** A message from the adviser (or an admin) to the officers, shown on their dashboards. */
+/**
+ * A message from the adviser (or an admin). Pinned at the top of the
+ * dashboard for 24 hours, then kept in the announcements list.
+ * 'officers': officers, admins and the adviser. 'everyone': all members (admin only).
+ */
 export interface Announcement {
   id: string;
-  audience: 'officers';
+  audience: 'officers' | 'everyone';
   title: string;
   message: string;
   authorId: string;
   authorName: string;
   authorRole: 'adviser' | 'admin';
   createdAt: string;
+  /** Pinned on dashboards until this time (24 hours after posting). */
+  expiresAt?: string;
+  editedAt?: string;
+}
+
+const DAY = 24 * 3600 * 1000;
+/** Whether the announcement is still pinned at the top of dashboards. */
+export function isPinned(a: Announcement, now = Date.now()): boolean {
+  const until = Date.parse(a.expiresAt || '') || Date.parse(a.createdAt) + DAY;
+  return now < until;
 }
 
 export type SignoffStatus = 'pending' | 'approved' | 'returned';

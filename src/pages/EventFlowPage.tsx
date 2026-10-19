@@ -140,7 +140,7 @@ export default function EventFlowPage() {
 
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontSize: '0.8rem' }}>
         {sessions.length > 0
-          ? 'Everyone registered for the event can join any session. Tap + on the sessions you’ll go to — each session shows how many picked it.'
+          ? 'Everyone registered for the event can join any session. Tap + on the sessions you’ll go to - each session shows how many picked it.'
           : 'This event has no separate sessions.'}
       </Typography>
       {selectedEvent.participants > 0 && (
@@ -235,7 +235,7 @@ export default function EventFlowPage() {
             fontWeight: 600,
           }}
         >
-          {sessions.length} sessions available — change event
+          {sessions.length} sessions available - change event
         </Button>
       )}
     </Box>

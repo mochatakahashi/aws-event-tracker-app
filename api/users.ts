@@ -318,7 +318,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             : 'Your sign-up was declined by an admin. Please contact the AWS SBG-APC officers.',
         });
       }
-      return res.status(200).json(sanitize(user));
+      // Remember when they sign in (admins see it); the app tour is offered only
+      // on someone's very first sign-in (new accounts, not ones that predate this)
+      const now = new Date();
+      const since = Date.parse(user.approvedAt || user.createdAt || '') || 0;
+      const firstSignIn = !user.lastLoginAt && !user.tutorialSeen && now.getTime() - since < 14 * 24 * 3600 * 1000;
+      const signedIn = { ...user, lastLoginAt: now.toISOString(), loginCount: (Number(user.loginCount) || 0) + 1 };
+      await client.send(new PutCommand({ TableName: tableName, Item: signedIn }));
+      return res.status(200).json({ ...sanitize(signedIn), firstSignIn });
     }
 
     if (req.method === 'POST' && action === 'signup') {
@@ -372,7 +379,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         approvedBy: actorId,
         createdBy: actorId,
         mustChangePassword: true,
-        // Co-organizer staff (partner org) — attendee accounts only
+        // Co-organizer staff (partner org) - attendee accounts only
         partnerOrg: role === 'attendee' ? cleanPartnerOrg(account.partnerOrg) : null,
       };
       await client.send(new PutCommand({ TableName: tableName, Item: item }));

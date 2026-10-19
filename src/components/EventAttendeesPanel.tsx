@@ -26,6 +26,7 @@ import { affiliation, memberLabel } from '../utils/people';
 import type { AppEvent } from '../types/event';
 import type { Person, Registration } from '../types/attendee';
 import type { Session, Stamp } from '../types/session';
+import { imageSrc } from '../utils/imageUrl';
 
 type Filter = 'all' | 'pending' | 'waiting' | 'in' | 'declined';
 
@@ -206,7 +207,7 @@ export default function EventAttendeesPanel({
                     sx={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
                     onClick={() => onOpen(r.id)}
                   >
-                    <Avatar src={p?.avatarUrl || undefined} sx={{ width: 36, height: 36, fontSize: '0.8rem' }}>
+                    <Avatar src={imageSrc(p?.avatarUrl)} sx={{ width: 36, height: 36, fontSize: '0.8rem' }}>
                       {initials(p?.name)}
                     </Avatar>
                     <Box sx={{ minWidth: 0 }}>

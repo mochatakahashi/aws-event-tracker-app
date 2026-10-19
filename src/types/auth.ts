@@ -91,12 +91,17 @@ export interface User {
   sentConnectionRequests?: string[];
   /** Event ids saved with the bookmark icon. */
   savedEventIds?: string[];
+  /** When they last signed in, and how many times (admins see this). */
+  lastLoginAt?: string;
+  loginCount?: number;
+  /** Set on the sign-in response only: this is their very first sign-in (offer the app tour). */
+  firstSignIn?: boolean;
   /** Finished or skipped the first-time app tour. */
   tutorialSeen?: boolean;
   /**
    * Co-organizer staff: the partner org (not AWS SBG-APC) this person works for at
    * co-organized events. Set by an admin; lets the account be put on an event's
-   * staff list for check-in / stamps only — no officer features.
+   * staff list for check-in / stamps only - no officer features.
    */
   partnerOrg?: string | null;
   /** Badges an admin awarded (set through the admin-only award action). */

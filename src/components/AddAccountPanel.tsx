@@ -96,7 +96,7 @@ export default function AddAccountPanel({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      /* clipboard blocked — the text is selectable */
+      /* clipboard blocked - the text is selectable */
     }
   }
 
@@ -127,7 +127,7 @@ export default function AddAccountPanel({
       {created ? (
         <Box>
           <Alert severity="success" sx={{ mb: 1.5 }}>
-            Account created for <strong>{created.user.name}</strong>. Share these details — they'll set their own
+            Account created for <strong>{created.user.name}</strong>. Share these details - they'll set their own
             password at first sign-in.
           </Alert>
           <Box
@@ -201,7 +201,7 @@ export default function AddAccountPanel({
           {!isOfficer && role === 'adviser' && (
             <Alert severity="info" sx={{ mt: 1 }}>
               Adviser: sees how the org is doing (events, attendance, officer tasks, leaderboard), posts announcements to the
-              officers and signs requests they send. View-only — can’t edit events, accounts or tasks. Use “Outside attendee”
+              officers and signs requests they send. View-only - can’t edit events, accounts or tasks. Use “Outside attendee”
               with the department/office as the organization if they don’t have a student ID.
             </Alert>
           )}
@@ -214,7 +214,7 @@ export default function AddAccountPanel({
               placeholder="Partner org, e.g. GDSC APC"
               value={partnerOrg}
               onChange={(e) => setPartnerOrg(e.target.value)}
-              helperText="For people from a partner org who'll help at a co-organized event. They can be put on an event's staff list for check-in or stamps only — no officer features."
+              helperText="For people from a partner org who'll help at a co-organized event. They can be put on an event's staff list for check-in or stamps only - no officer features."
               inputProps={{ maxLength: 60 }}
             />
           )}

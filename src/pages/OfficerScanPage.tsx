@@ -45,6 +45,7 @@ import QrScanner from '../components/QrScanner';
 import type { AppEvent } from '../types/event';
 import type { Person, Registration } from '../types/attendee';
 import type { Session, Stamp } from '../types/session';
+import { imageSrc } from '../utils/imageUrl';
 
 interface Scanned {
   reg: Registration;
@@ -321,7 +322,7 @@ export default function OfficerScanPage() {
         </Alert>
       )}
       <Stack direction="row" spacing={2} alignItems="center">
-        <Avatar src={scanned.person?.avatarUrl || undefined} sx={{ width: 64, height: 64, fontSize: '1.4rem' }}>
+        <Avatar src={imageSrc(scanned.person?.avatarUrl)} sx={{ width: 64, height: 64, fontSize: '1.4rem' }}>
           {initials(scanned.person?.name)}
         </Avatar>
         <Box sx={{ minWidth: 0 }}>
@@ -494,8 +495,8 @@ export default function OfficerScanPage() {
         Event Desk
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
-        Everything for the event in one place: scan passes to check people in, then approve their stamps — from the scan or
-        the stamp request list — and see who’s here.
+        Everything for the event in one place: scan passes to check people in, then approve their stamps - from the scan or
+        the stamp request list - and see who’s here.
       </Typography>
 
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ sm: 'center' }} sx={{ mb: 2.5 }}>
@@ -651,7 +652,7 @@ export default function OfficerScanPage() {
             {!q && (
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
                 {matches.length
-                  ? `Registered (${matches.length}) — tap a name. Not checked in yet are listed first.`
+                  ? `Registered (${matches.length}) - tap a name. Not checked in yet are listed first.`
                   : 'No one has registered for this event yet.'}
               </Typography>
             )}
@@ -674,7 +675,7 @@ export default function OfficerScanPage() {
                         sx={{ borderRadius: 2 }}
                       >
                         <ListItemAvatar>
-                          <Avatar src={p?.avatarUrl || undefined} sx={{ width: 32, height: 32, fontSize: '0.8rem' }}>
+                          <Avatar src={imageSrc(p?.avatarUrl)} sx={{ width: 32, height: 32, fontSize: '0.8rem' }}>
                             {initials(p?.name)}
                           </Avatar>
                         </ListItemAvatar>

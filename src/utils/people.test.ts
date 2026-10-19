@@ -41,7 +41,7 @@ describe('people utils', () => {
   });
 
   it('builds officer titles', () => {
-    expect(officerTitle({ officerPosition: 'director', committee: 'technicals' })).toBe('Director — Technicals');
+    expect(officerTitle({ officerPosition: 'director', committee: 'technicals' })).toBe('Director - Technicals');
     expect(officerTitle({ officerPosition: 'vp-internal' })).toBe('VP Internal');
     expect(officerTitle({})).toBe('Officer');
   });

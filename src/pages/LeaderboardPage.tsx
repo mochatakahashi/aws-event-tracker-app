@@ -26,6 +26,7 @@ import { BADGES, type BadgeId } from '../utils/badges';
 import type { EarnedOfficerBadge } from '../utils/officerBadges';
 import { ATTENDEE_POINTS, OFFICER_POINTS, attendeeBoard, officerBoard } from '../utils/leaderboard';
 import type { Person } from '../types/attendee';
+import { imageSrc } from '../utils/imageUrl';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 const MEDAL_COLORS = ['#F5B301', '#9CA3AF', '#CD7F32'];
@@ -60,7 +61,7 @@ function OfficerBadgeRow({ badges }: { badges: EarnedOfficerBadge[] }) {
   return (
     <Stack direction="row" spacing={0.25} sx={{ fontSize: 15, lineHeight: 1 }}>
       {badges.map((b) => (
-        <Tooltip key={b.badge.id} title={`${b.badge.name}${b.count > 1 ? ` ×${b.count}` : ''} — ${b.events.join(', ') || b.badge.description}`}>
+        <Tooltip key={b.badge.id} title={`${b.badge.name}${b.count > 1 ? ` ×${b.count}` : ''} - ${b.events.join(', ') || b.badge.description}`}>
           <Box component="span" role="img" aria-label={b.badge.name}>
             {b.badge.emoji}
           </Box>
@@ -75,7 +76,7 @@ function BadgeRow({ ids }: { ids: BadgeId[] }) {
   return (
     <Stack direction="row" spacing={0.25} sx={{ fontSize: 15, lineHeight: 1 }}>
       {BADGES.filter((b) => ids.includes(b.id)).map((b) => (
-        <Tooltip key={b.id} title={`${b.name} — ${b.description}`}>
+        <Tooltip key={b.id} title={`${b.name} - ${b.description}`}>
           <Box component="span" role="img" aria-label={b.name}>
             {b.emoji}
           </Box>
@@ -160,7 +161,7 @@ export default function LeaderboardPage() {
             <EmojiEventsRoundedIcon sx={{ color: '#F5B301', fontSize: 34 }} /> Builder Leaderboard
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Monitor who's most active — rankings and progress of all attendees and officers.
+            Monitor who's most active - rankings and progress of all attendees and officers.
           </Typography>
         </Box>
         <TextField
@@ -274,7 +275,7 @@ export default function LeaderboardPage() {
                     <Typography sx={{ fontSize: 30, lineHeight: 1 }} aria-label={`Rank ${r.rank}`}>
                       {MEDALS[place]}
                     </Typography>
-                    <Avatar src={p?.avatarUrl || undefined} sx={{ width: 56, height: 56, mx: 'auto', my: 1 }}>
+                    <Avatar src={imageSrc(p?.avatarUrl)} sx={{ width: 56, height: 56, mx: 'auto', my: 1 }}>
                       {initials(p?.name)}
                     </Avatar>
                     <Typography variant="subtitle1" sx={{ fontWeight: 800 }} noWrap>
@@ -307,7 +308,7 @@ export default function LeaderboardPage() {
             </Box>
           )}
 
-          {/* Full ranking — everyone, including 0 points */}
+          {/* Full ranking - everyone, including 0 points */}
           <Paper sx={{ borderRadius: '20px', overflow: 'hidden' }}>
             {rows.map((r, i) => {
               const p = peopleById.get(r.personId);
@@ -335,7 +336,7 @@ export default function LeaderboardPage() {
                   >
                     {r.rank}
                   </Typography>
-                  <Avatar src={p?.avatarUrl || undefined} sx={{ width: 36, height: 36, fontSize: '0.8rem', flexShrink: 0 }}>
+                  <Avatar src={imageSrc(p?.avatarUrl)} sx={{ width: 36, height: 36, fontSize: '0.8rem', flexShrink: 0 }}>
                     {initials(p?.name)}
                   </Avatar>
                   <Box sx={{ flex: 1, minWidth: 0 }}>

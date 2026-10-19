@@ -9,6 +9,7 @@ import { brand } from '../theme/theme';
 import SocialLinksRow from './SocialLinksRow';
 import type { Speaker } from '../types/speaker';
 import type { SocialLinks } from '../types/auth';
+import { imageSrc } from '../utils/imageUrl';
 
 /** What to show for a speaker: their account's live details when linked, else what was typed in. */
 export function speakerView(s: Speaker) {
@@ -21,7 +22,10 @@ export function speakerView(s: Speaker) {
     socials: p?.socials ? { ...(own || {}), ...p.socials } : own,
     personId: p?.personId,
     officer: p?.role === 'officer',
-    subtitle: [s.headline || p?.title, s.company].filter(Boolean).join(' · '),
+    // "President, AWS SBG-APC" already names the org, so don't repeat it
+    subtitle: [s.headline || p?.title, s.company && !(s.headline || '').includes(s.company) ? s.company : '']
+      .filter(Boolean)
+      .join(' · '),
   };
 }
 
@@ -41,7 +45,7 @@ export default function SpeakerItem({ speaker, showBio = true }: { speaker: Spea
   return (
     <Stack direction="row" spacing={1.5} alignItems="flex-start" data-testid={`speaker-${speaker.id}`}>
       <Avatar
-        src={v.avatarUrl || undefined}
+        src={imageSrc(v.avatarUrl)}
         sx={{ width: 44, height: 44, bgcolor: alpha(brand.primary, 0.15), color: brand.primary, cursor: v.personId ? 'pointer' : 'default' }}
         onClick={() => v.personId && navigate(`/people/${v.personId}`)}
       >

@@ -26,7 +26,7 @@ const pass: TourStep = {
   target: 'nav-pass',
   emoji: '🎟️',
   title: 'My Event Pass',
-  text: 'Your QR pass for approved registrations. Show it at the registration booth to check in. After the event ends, your certificate appears here — view it, download it or share its link.',
+  text: 'Your QR pass for approved registrations. Show it at the registration booth to check in. After the event ends, your certificate appears here - view it, download it or share its link.',
   fallback: {
     target: 'profile',
     text: 'Tap your picture → My Event Pass. It’s your QR pass for approved registrations: show it at the registration booth to check in. After the event ends, your certificate appears there too.',
@@ -82,7 +82,7 @@ export function tourSteps(role: UserRole | undefined, partnerStaff = false): Tou
         title: 'Adviser dashboard',
         text: 'Requests to sign (approve, or return with a comment), announcements to the officers, officer tasks (open, done on time, late) and events with attendance.',
       },
-      { target: 'nav-events', emoji: '📅', title: 'Events', text: 'Every event with its details, sessions and team — view only.' },
+      { target: 'nav-events', emoji: '📅', title: 'Events', text: 'Every event with its details, sessions and team - view only.' },
       { target: 'nav-leaderboard', emoji: '📊', title: 'Leaderboard', text: 'How active attendees and officers are.' },
       bell,
       profile,
@@ -138,7 +138,7 @@ export function tourSteps(role: UserRole | undefined, partnerStaff = false): Tou
       target: 'nav-event-desk',
       emoji: '🤝',
       title: 'Event Desk (co-organizer staff)',
-      text: 'When an admin puts you on a co-organized event’s staff list, you check people in and/or approve stamps here — only the duties you were given.',
+      text: 'When an admin puts you on a co-organized event’s staff list, you check people in and/or approve stamps here - only the duties you were given.',
     });
   }
   return [...base, profile, done];

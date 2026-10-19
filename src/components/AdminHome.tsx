@@ -28,6 +28,7 @@ import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
 import MarkEmailReadOutlinedIcon from '@mui/icons-material/MarkEmailReadOutlined';
 import AnnouncementsCard from './AnnouncementsCard';
+import AnnouncementBanner from './AnnouncementBanner';
 import SignoffPanel from './SignoffPanel';
 
 interface Item {
@@ -165,7 +166,7 @@ export default function AdminHome() {
     {
       title: 'Officer Tasks',
       description: taskRequests
-        ? `Assign tasks — ${taskRequests} added by officers waiting for your approval`
+        ? `Assign tasks - ${taskRequests} added by officers waiting for your approval`
         : 'Assign tasks that officers see on their dashboard',
       to: '/admin/tasks',
       icon: <AssignmentIcon sx={{ fontSize: 28 }} />,
@@ -196,6 +197,7 @@ export default function AdminHome() {
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
         Admin dashboard
       </Typography>
+      {user && <AnnouncementBanner viewer={user} />}
       {outdated.length > 0 && (
         <Alert
           severity="info"
@@ -257,7 +259,7 @@ export default function AdminHome() {
           }
         >
           {unstaffed.length === 1 ? unstaffed[0].title : `${unstaffed.length} upcoming events (e.g. ${unstaffed[0].title})`} ha
-          {unstaffed.length === 1 ? 's' : 've'} no officers for stamps or check-in yet — only admins can do them until you tick
+          {unstaffed.length === 1 ? 's' : 've'} no officers for stamps or check-in yet - only admins can do them until you tick
           officers under Event staff.
         </Alert>
       )}

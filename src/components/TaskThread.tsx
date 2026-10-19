@@ -74,7 +74,7 @@ export default function TaskThread({
   return (
     <Box sx={{ mt: 1 }} data-testid={`thread-${task.id}`}>
       <Button size="small" startIcon={<ChatBubbleOutlineRoundedIcon />} onClick={() => setOpen((v) => !v)} sx={{ px: 0.5 }}>
-        {open ? 'Hide comments' : comments.length ? `Comments (${comments.length})` : 'Comment'}
+        {open ? 'Hide comments' : comments.length ? `Comments (${comments.length})` : 'Add a comment'}
       </Button>
       <Collapse in={open} unmountOnExit>
         <Stack spacing={1} sx={{ mt: 1 }}>

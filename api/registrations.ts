@@ -120,7 +120,7 @@ function pdfSafe(s: string): string {
   return Array.from(String(s ?? ''))
     .map((ch) => {
       const c = ch.codePointAt(0) || 0;
-      if (c === 10 || (c >= 32 && c <= 126) || (c >= 160 && c <= 255) || '–—‘’“”•…€'.includes(ch)) return ch;
+      if (c === 10 || (c >= 32 && c <= 126) || (c >= 160 && c <= 255) || '–-‘’“”•…€'.includes(ch)) return ch;
       const plain = ch.normalize('NFKD').replace(/[̀-ͯ]/g, '');
       return /^[\x20-\x7e]+$/.test(plain) ? plain : '';
     })
@@ -164,7 +164,7 @@ export async function renderCertificate(d: {
   verifyUrl?: string;
 }): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
-  pdf.setTitle(`Certificate of Participation — ${pdfSafe(d.name)}`);
+  pdf.setTitle(`Certificate of Participation - ${pdfSafe(d.name)}`);
   pdf.setAuthor('AWS Student Builder Group – Asia Pacific College');
   const page = pdf.addPage([842, 595]); // A4 landscape
   const { width, height } = page.getSize();
@@ -358,7 +358,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // Certificate PDF — view (inline) or download (&download=1).
+    // Certificate PDF - view (inline) or download (&download=1).
     //   ?action=certificate&id=reg-1&personId=per-1   the attendee (or check-in staff / admin)
     //   ?action=certificate&certificateId=CERT-…      anyone with the certificate link
     // Only for people checked in at the event, and only once the event has ended.

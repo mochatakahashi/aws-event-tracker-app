@@ -21,6 +21,7 @@ import { BADGES } from '../utils/badges';
 import { officerBadgesFor } from '../utils/officerBadges';
 import { attendeeBoard } from '../utils/leaderboard';
 import SocialLinksRow from '../components/SocialLinksRow';
+import { imageSrc } from '../utils/imageUrl';
 
 const initials = (name = '?') =>
   name
@@ -43,7 +44,7 @@ function Stat({ value, label }: { value: number; label: string }) {
   );
 }
 
-/** Someone's profile summary — opened from their QR code or your connections. */
+/** Someone's profile summary - opened from their QR code or your connections. */
 export default function PersonProfilePage() {
   const { id = '' } = useParams<{ id: string }>();
   const { user, setCurrentUser } = useAuth();
@@ -114,7 +115,7 @@ export default function PersonProfilePage() {
         <Box sx={{ height: 90, background: brand.gradient }} />
         <Box sx={{ px: { xs: 2.5, sm: 3 }, pb: 3 }}>
           <Avatar
-            src={person.avatarUrl || undefined}
+            src={imageSrc(person.avatarUrl)}
             sx={{ width: 88, height: 88, fontSize: '1.9rem', border: '4px solid #fff', mt: -5.5, mb: 1 }}
           >
             {initials(person.name)}
@@ -127,7 +128,7 @@ export default function PersonProfilePage() {
               <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mt: 0.75 }}>
                 <Chip size="small" color="primary" label={memberLabel(person)} />
                 {person.role === 'officer' && <Chip size="small" variant="outlined" label={officerTitle(person)} />}
-                {affiliation(person) !== '—' && <Chip size="small" variant="outlined" label={affiliation(person)} />}
+                {affiliation(person) !== '-' && <Chip size="small" variant="outlined" label={affiliation(person)} />}
               </Stack>
             </Box>
             {!isMe && user && <ConnectButton personId={person.id} name={person.name} />}

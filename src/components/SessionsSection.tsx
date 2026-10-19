@@ -40,10 +40,13 @@ export default function SessionsSection({
   /** Changes when the viewer registers / cancels, so their picks reload. */
   refreshKey,
   isAdmin,
+  onSessionsChanged,
 }: {
   event: AppEvent;
   refreshKey?: string;
   isAdmin?: boolean;
+  /** Called after a session is added or edited (the page refreshes its speakers lineup). */
+  onSessionsChanged?: () => void;
 }) {
   const navigate = useNavigate();
   const [sessions, setSessions] = useState<Session[] | null>(null);
@@ -110,7 +113,7 @@ export default function SessionsSection({
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
           {event.participantsEstimated ? 'Est. ' : ''}
           {event.participants} {event.status === 'accomplished' ? 'attended' : 'expected'} for the whole event
-          {sessions && sessions.length > 0 ? ' — everyone registered can join any session and picks the ones they’ll go to.' : '.'}
+          {sessions && sessions.length > 0 ? ' - everyone registered can join any session and picks the ones they’ll go to.' : '.'}
         </Typography>
       )}
 
@@ -129,6 +132,7 @@ export default function SessionsSection({
               onSaved={() => {
                 setEditing(null);
                 loadSessions();
+                onSessionsChanged?.();
               }}
             />
           ) : (
@@ -145,7 +149,7 @@ export default function SessionsSection({
         <Typography color="text.secondary">
           {isAdmin
             ? 'No sessions yet. Add sessions if the event has several parts (talks, workshops); leave it empty for a single program.'
-            : 'This event has no separate sessions — it’s one program. Your registration covers all of it.'}
+            : 'This event has no separate sessions - it’s one program. Your registration covers all of it.'}
         </Typography>
       ) : (
         <>
@@ -153,7 +157,7 @@ export default function SessionsSection({
             <Alert severity={picked ? 'success' : 'info'} sx={{ mb: 1.5 }}>
               {picked
                 ? `You picked ${picked} of ${sessions.length} session${sessions.length === 1 ? '' : 's'}.`
-                : 'You’re registered — pick the sessions you’ll attend.'}
+                : 'You’re registered - pick the sessions you’ll attend.'}
             </Alert>
           ) : (
             !isAdmin &&
@@ -183,6 +187,7 @@ export default function SessionsSection({
                     onSaved={() => {
                       setEditing(null);
                       loadSessions();
+                      onSessionsChanged?.();
                     }}
                   />
                 );

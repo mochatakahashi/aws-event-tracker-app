@@ -5,7 +5,7 @@ import type { Person, Registration } from '../types/attendee';
 import type { Session, Stamp } from '../types/session';
 
 /**
- * Seed speakers — AWS SBG-APC themed.
+ * Seed speakers - AWS SBG-APC themed.
  */
 export const seedSpeakers: Speaker[] = [
   {
@@ -20,9 +20,9 @@ export const seedSpeakers: Speaker[] = [
   {
     id: 'spk-2',
     name: 'Rodmina Jhoy Ibe',
-    headline: 'Community Lead',
+    headline: 'President, AWS SBG-APC',
     company: 'AWS SBG-APC',
-    bio: 'Passionate about cloud computing and building the next generation of AWS builders at APC.',
+    bio: '',
     linkedInUrl: 'https://www.linkedin.com/in/rodmina-jhoy-ibe',
     avatarUrl: '',
   },

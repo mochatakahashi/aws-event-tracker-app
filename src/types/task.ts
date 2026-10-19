@@ -115,7 +115,7 @@ const DAY = 24 * 3600 * 1000;
 
 /**
  * Where a task stands against its deadline: days left, due today, overdue,
- * or — once done — finished on time / late.
+ * or - once done - finished on time / late.
  */
 export function deadlineInfo(
   t: Pick<OfficerTask, 'dueAt' | 'status' | 'completedAt'>,
