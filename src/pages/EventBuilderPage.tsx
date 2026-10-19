@@ -39,6 +39,11 @@ import { useEvent } from '../context/EventContext';
 import { brand, PARTNER } from '../theme/theme';
 import { EVENT_TAGS, type AppEvent } from '../types/event';
 import { tagColor, tagLabel } from '../utils/eventDisplay';
+import SocialLinksEditor from '../components/SocialLinksEditor';
+import { getPeople } from '../services/registrationService';
+import { officerTitle } from '../utils/people';
+import type { Person } from '../types/attendee';
+import type { SocialLinks } from '../types/auth';
 
 interface SpeakerDraft {
   /** Set when the speaker is already saved in the directory. */
@@ -47,6 +52,14 @@ interface SpeakerDraft {
   headline: string;
   bio: string;
   avatarUrl: string;
+  /** Linked account (officer or member who speaks). */
+  personId?: string;
+  /** Outside speaker's email — links to their account if they sign up with it. */
+  email?: string;
+  /** Links typed in for an outside speaker. */
+  socials?: SocialLinks;
+  /** Show the social links editor. */
+  showLinks?: boolean;
 }
 
 /** ISO string → value for <input type="datetime-local"> in the browser's own time zone. */
@@ -116,6 +129,9 @@ export default function EventBuilderPage() {
             headline: sp.headline || '',
             bio: sp.bio || '',
             avatarUrl: sp.avatarUrl || '',
+            personId: sp.personId,
+            email: sp.email || '',
+            socials: sp.socials,
           })));
         }
       }).finally(() => setLoading(false));
@@ -191,6 +207,37 @@ export default function EventBuilderPage() {
     }
   };
 
+  // People who can be linked as speakers (officers first)
+  const [people, setPeople] = useState<Person[]>([]);
+  useEffect(() => {
+    getPeople()
+      .then((all) =>
+        setPeople(
+          [...all].sort((a, b) => Number(b.role === 'officer') - Number(a.role === 'officer') || a.name.localeCompare(b.name)),
+        ),
+      )
+      .catch(() => setPeople([]));
+  }, []);
+  const linkSpeaker = (idx: number, p: Person | null) =>
+    setSpeakers((prev) =>
+      prev.map((sp, i) =>
+        i !== idx
+          ? sp
+          : p
+            ? {
+                ...sp,
+                personId: p.id,
+                name: p.name,
+                avatarUrl: p.avatarUrl || sp.avatarUrl,
+                headline: sp.headline || (p.role === 'officer' ? `${officerTitle(p)}, AWS SBG-APC` : ''),
+                bio: sp.bio || p.bio || '',
+              }
+            : { ...sp, personId: undefined },
+      ),
+    );
+  const setSpeakerExtra = (idx: number, patch: Partial<SpeakerDraft>) =>
+    setSpeakers((prev) => prev.map((sp, i) => (i === idx ? { ...sp, ...patch } : sp)));
+
   const updateSpeaker = (idx: number, field: keyof SpeakerDraft, value: string) => {
     setSpeakers(prev => prev.map((sp, i) => i === idx ? { ...sp, [field]: value } : sp));
   };
@@ -205,6 +252,9 @@ export default function EventBuilderPage() {
         headline: sp.headline.trim(),
         bio: sp.bio.trim(),
         avatarUrl: sp.avatarUrl || undefined,
+        personId: sp.personId || '',
+        email: sp.email?.trim() || '',
+        socials: sp.socials,
       };
       if (sp.id) {
         await saveSpeakerChanges(sp.id, fields);
@@ -714,6 +764,51 @@ export default function EventBuilderPage() {
                           value={sp.bio}
                           onChange={(e) => updateSpeaker(idx, 'bio', e.target.value)}
                         />
+                        {/* An officer / member who speaks: link their account (name, photo and links stay up to date) */}
+                        <Autocomplete
+                          size="small"
+                          options={people}
+                          value={people.find((p) => p.id === sp.personId) ?? null}
+                          onChange={(_e, p) => linkSpeaker(idx, p)}
+                          getOptionLabel={(p) => `${p.name} — ${p.role === 'officer' ? officerTitle(p) : p.role === 'admin' ? 'Admin' : 'Member'}`}
+                          isOptionEqualToValue={(a, b) => a.id === b.id}
+                          renderInput={(params) => (
+                            <TextField
+                              {...params}
+                              label="Linked account (optional)"
+                              placeholder="An officer or member who speaks"
+                              helperText={
+                                sp.personId
+                                  ? 'Their name, photo and social links come from their profile and stay up to date.'
+                                  : 'Leave empty for an outside speaker.'
+                              }
+                            />
+                          )}
+                          data-testid={`speaker-link-${idx}`}
+                        />
+                        {!sp.personId && (
+                          <>
+                            <TextField
+                              label="Email (optional)"
+                              size="small"
+                              type="email"
+                              fullWidth
+                              value={sp.email ?? ''}
+                              onChange={(e) => setSpeakerExtra(idx, { email: e.target.value })}
+                              helperText="If they create an account with this email, their profile links here automatically."
+                            />
+                            <Box>
+                              <Button size="small" onClick={() => setSpeakerExtra(idx, { showLinks: !sp.showLinks })} sx={{ textTransform: 'none', px: 0.5 }}>
+                                {sp.showLinks ? 'Hide social links' : `Social links${sp.socials && Object.keys(sp.socials).length ? ' ✓' : ''}`}
+                              </Button>
+                              {sp.showLinks && (
+                                <Box sx={{ mt: 1 }}>
+                                  <SocialLinksEditor value={sp.socials ?? {}} onChange={(v) => setSpeakerExtra(idx, { socials: v })} />
+                                </Box>
+                              )}
+                            </Box>
+                          </>
+                        )}
                       </Stack>
                     </Stack>
                   )}

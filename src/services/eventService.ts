@@ -263,6 +263,38 @@ export async function getMissingClubEvents(): Promise<{ id: string; title: strin
   }
 }
 
+export interface MisplacedSession {
+  id: string;
+  title: string;
+  from: string;
+  to: string;
+}
+
+/** Built-in Tech Barangay sessions that are attached to another event (e.g. Cloud Watch). */
+export async function getMisplacedSessions(): Promise<MisplacedSession[]> {
+  if (!(await checkRemoteApi())) return [];
+  try {
+    const res = await fetch('/api/seed');
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data.misplacedSessions) ? data.misplacedSessions : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Move them to the Tech Barangay event (admin). */
+export async function fixMisplacedSessions(actorId: string): Promise<string> {
+  const res = await fetch('/api/seed?action=fix-sessions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ actorId }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Could not move the sessions.');
+  return data.message as string;
+}
+
 /** Add the missing club events (admin). Never overwrites existing events. */
 export async function importClubEvents(actorId: string): Promise<string> {
   const res = await fetch('/api/seed', {

@@ -14,7 +14,7 @@ import AssignmentIcon from '@mui/icons-material/Assignment';
 import QrCodeScannerRoundedIcon from '@mui/icons-material/QrCodeScannerRounded';
 import LeaderboardRoundedIcon from '@mui/icons-material/LeaderboardRounded';
 import Alert from '@mui/material/Alert';
-import { getEvents, getMissingClubEvents, importClubEvents } from '../services/eventService';
+import { getEvents, getMissingClubEvents, getMisplacedSessions, fixMisplacedSessions, type MisplacedSession, importClubEvents } from '../services/eventService';
 import type { AppEvent } from '../types/event';
 import { alpha } from '@mui/material/styles';
 import { brand } from '../theme/theme';
@@ -53,6 +53,22 @@ export default function AdminHome() {
   const [importNote, setImportNote] = useState('');
   const [importing, setImporting] = useState(false);
   const [unstaffed, setUnstaffed] = useState<AppEvent[]>([]);
+  const [misplaced, setMisplaced] = useState<MisplacedSession[]>([]);
+  const [fixNote, setFixNote] = useState('');
+  const [fixing, setFixing] = useState(false);
+
+  async function fixSessions() {
+    if (!user) return;
+    setFixing(true);
+    try {
+      setFixNote(await fixMisplacedSessions(user.personId));
+      setMisplaced([]);
+    } catch (e) {
+      setFixNote(e instanceof Error ? e.message : 'Could not move the sessions.');
+    } finally {
+      setFixing(false);
+    }
+  }
 
   async function importEvents() {
     if (!user) return;
@@ -86,6 +102,7 @@ export default function AdminHome() {
       })
       .catch(() => undefined);
     getMissingClubEvents().then(setMissingEvents).catch(() => undefined);
+    getMisplacedSessions().then(setMisplaced).catch(() => undefined);
     // Upcoming / live events where no officer may approve stamps or check people in
     getEvents()
       .then((evts) =>
@@ -162,6 +179,26 @@ export default function AdminHome() {
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
         Admin dashboard
       </Typography>
+      {misplaced.length > 0 && (
+        <Alert
+          severity="warning"
+          sx={{ mb: 2 }}
+          data-testid="misplaced-sessions"
+          action={
+            <Button color="inherit" size="small" onClick={() => void fixSessions()} disabled={fixing}>
+              {fixing ? 'Moving…' : 'Move them'}
+            </Button>
+          }
+        >
+          {misplaced.length} {misplaced[0].to} session{misplaced.length === 1 ? '' : 's'} ({misplaced.map((m) => m.title).join(', ')}) are
+          attached to {misplaced[0].from}. Move them back to {misplaced[0].to}?
+        </Alert>
+      )}
+      {fixNote && (
+        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setFixNote('')}>
+          {fixNote}
+        </Alert>
+      )}
       {missingEvents.length > 0 && (
         <Alert
           severity="info"

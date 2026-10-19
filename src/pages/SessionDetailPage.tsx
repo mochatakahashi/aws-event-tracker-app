@@ -6,18 +6,16 @@ import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
-import Avatar from '@mui/material/Avatar';
-import IconButton from '@mui/material/IconButton';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import Divider from '@mui/material/Divider';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AccessTimeIcon from '@mui/icons-material/AccessTimeRounded';
 import PlaceIcon from '@mui/icons-material/PlaceRounded';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { alpha } from '@mui/material/styles';
 import { getSessionById, getStampsByAttendee, createStamp } from '../services/sessionService';
-import { getSpeakers } from '../services/speakerService';
+import { getSpeakersByIds } from '../services/speakerService';
+import SpeakerItem from '../components/SpeakerItem';
 import { useAuth } from '../context/AuthContext';
 import { brand } from '../theme/theme';
 import type { Session, Stamp } from '../types/session';
@@ -60,13 +58,13 @@ export default function SessionDetailPage() {
     if (!id) return;
     Promise.all([
       getSessionById(id),
-      getSpeakers(),
+      getSessionById(id).then((x) => (x ? getSpeakersByIds(x.speakerIds) : [])),
       user?.personId ? getStampsByAttendee(user.personId) : Promise.resolve([])
     ])
       .then(([sess, allSpeakers, stamps]) => {
         if (sess) {
           setSession(sess);
-          setSpeakers(allSpeakers.filter((s) => sess.speakerIds.includes(s.id)));
+          setSpeakers(allSpeakers);
           setMyStamp(stamps.find(s => s.sessionId === id) || null);
         }
       })
@@ -259,50 +257,13 @@ export default function SessionDetailPage() {
           </Typography>
 
           <Stack spacing={1.5}>
-            {speakers.map((speaker) => {
-              const initials = speaker.name
-                .split(' ')
-                .map((w) => w[0])
-                .join('')
-                .toUpperCase()
-                .slice(0, 2);
-
-              return (
-                <Card key={speaker.id} variant="outlined">
-                  <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                    <Stack direction="row" alignItems="center" spacing={2}>
-                      <Avatar
-                        sx={{
-                          width: 44,
-                          height: 44,
-                          fontSize: '0.9rem',
-                          bgcolor: alpha(brand.primary, 0.15),
-                          color: brand.primary,
-                        }}
-                      >
-                        {initials}
-                      </Avatar>
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography variant="h5" noWrap>
-                          {speaker.name}
-                        </Typography>
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          noWrap
-                          sx={{ fontStyle: 'italic' }}
-                        >
-                          {speaker.headline} · {speaker.company}
-                        </Typography>
-                      </Box>
-                      <IconButton size="small" sx={{ color: brand.textSecondary }}>
-                        <InfoOutlinedIcon />
-                      </IconButton>
-                    </Stack>
-                  </CardContent>
-                </Card>
-              );
-            })}
+            {speakers.map((speaker) => (
+              <Card key={speaker.id} variant="outlined">
+                <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                  <SpeakerItem speaker={speaker} />
+                </CardContent>
+              </Card>
+            ))}
           </Stack>
         </>
       )}

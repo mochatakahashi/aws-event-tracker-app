@@ -13,6 +13,7 @@ import { alpha } from '@mui/material/styles';
 import { brand } from '../theme/theme';
 import { createSession, updateSession, type SessionInput } from '../services/sessionService';
 import { getSpeakers } from '../services/speakerService';
+import { getEvents } from '../services/eventService';
 import type { AppEvent } from '../types/event';
 import type { Session, SessionType } from '../types/session';
 import type { Speaker } from '../types/speaker';
@@ -65,6 +66,9 @@ export default function SessionEditor({
   const [requiresStamp, setRequiresStamp] = useState(session?.requiresStamp ?? false);
   const [speakerIds, setSpeakerIds] = useState<string[]>(session?.speakerIds ?? []);
   const [speakers, setSpeakers] = useState<Speaker[]>([]);
+  // Which event the session belongs to (lets an admin move a session that's under the wrong event)
+  const [eventId, setEventId] = useState(session?.eventId ?? event.id);
+  const [events, setEvents] = useState<AppEvent[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -72,6 +76,7 @@ export default function SessionEditor({
     getSpeakers()
       .then(setSpeakers)
       .catch(() => setSpeakers([]));
+    if (session) getEvents().then(setEvents).catch(() => setEvents([]));
   }, []);
 
   async function submit(e: FormEvent) {
@@ -81,7 +86,7 @@ export default function SessionEditor({
     if (!start || !end) return setError('Set when the session starts and ends.');
     if (fromLocalInput(end) <= fromLocalInput(start)) return setError('The session must end after it starts.');
     const input: SessionInput = {
-      eventId: event.id,
+      eventId,
       title: title.trim(),
       description: description.trim(),
       startTime: fromLocalInput(start),
@@ -115,6 +120,23 @@ export default function SessionEditor({
       </Typography>
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'repeat(2, minmax(0, 1fr))' }, gap: 1.25 }}>
         <TextField size="small" label="Session title" value={title} onChange={(e) => setTitle(e.target.value)} required sx={{ gridColumn: { sm: '1 / -1' } }} />
+        {session && events.length > 0 && (
+          <TextField
+            select
+            size="small"
+            label="Event"
+            value={eventId}
+            onChange={(e) => setEventId(e.target.value)}
+            helperText={eventId !== event.id ? 'Saving moves this session (and its stamps) to that event.' : 'Under the wrong event? Pick the right one.'}
+            sx={{ gridColumn: { sm: '1 / -1' } }}
+          >
+            {events.map((ev) => (
+              <MenuItem key={ev.id} value={ev.id}>
+                {ev.title}
+              </MenuItem>
+            ))}
+          </TextField>
+        )}
         <TextField
           size="small"
           label="Starts (Manila time)"

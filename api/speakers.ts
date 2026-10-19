@@ -58,7 +58,33 @@ function pickSpeaker(body: any) {
     bio: String(body.bio || ''),
     linkedInUrl: body.linkedInUrl ? String(body.linkedInUrl) : undefined,
     avatarUrl: body.avatarUrl ? String(body.avatarUrl) : undefined,
+    // Linked account, outside speaker's email (links when they sign up) and their links
+    personId: typeof body.personId === 'string' && /^per-[\w-]{1,60}$/.test(body.personId) ? body.personId : undefined,
+    email: typeof body.email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email.trim()) ? body.email.trim().toLowerCase().slice(0, 120) : undefined,
+    socials: cleanLinks(body.socials),
   };
+}
+
+/** Social links: known platforms + up to 10 named links; http(s) / plain domains only. */
+function cleanLinks(v: unknown) {
+  if (!v || typeof v !== 'object') return undefined;
+  const ok = (x: unknown) => {
+    const s = typeof x === 'string' ? x.trim().slice(0, 300) : '';
+    return s && !/^\s*(javascript|data|vbscript):/i.test(s) ? s : '';
+  };
+  const out: Record<string, any> = {};
+  for (const k of ['linkedIn', 'github', 'twitterX', 'website', 'facebook', 'instagram', 'tiktok', 'youtube']) {
+    const s = ok((v as any)[k]);
+    if (s) out[k] = s;
+  }
+  const custom = Array.isArray((v as any).custom)
+    ? (v as any).custom
+        .map((c: any) => ({ label: String(c?.label || '').trim().slice(0, 40), url: ok(c?.url) }))
+        .filter((c: any) => c.label && c.url)
+        .slice(0, 10)
+    : [];
+  if (custom.length) out.custom = custom;
+  return Object.keys(out).length ? out : undefined;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

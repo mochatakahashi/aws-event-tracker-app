@@ -1,4 +1,7 @@
 import { imageSrc } from '../utils/imageUrl';
+import { getUsers } from './authService';
+import { officerTitle } from '../utils/people';
+import type { User } from '../types/auth';
 import type {
   Speaker,
   NewSpeakerInput,
@@ -40,10 +43,34 @@ export async function getSpeaker(id: string): Promise<Speaker | null> {
   return (await loadAll()).find((s) => s.id === id) ?? null;
 }
 
-/** Resolve several speakers by id (used to show an event's lineup), keeping the given order. */
+/**
+ * Resolve several speakers by id (used to show an event's lineup), keeping the
+ * given order. Speakers linked to an account — chosen in the event form, or an
+ * outside speaker who later signed up with the same email — get that account's
+ * live name, photo and social links in `profile`.
+ */
 export async function getSpeakersByIds(ids: string[]): Promise<Speaker[]> {
   const all = await loadAll();
-  return ids.map((id) => all.find((s) => s.id === id)).filter((s): s is Speaker => Boolean(s));
+  const list = ids.map((id) => all.find((s) => s.id === id)).filter((s): s is Speaker => Boolean(s));
+  if (!list.some((s) => s.personId || s.email)) return list;
+  const users = await getUsers().catch(() => [] as User[]);
+  return list.map((s) => {
+    const u =
+      users.find((x) => x.personId === s.personId) ??
+      (s.email ? users.find((x) => (x.email || '').toLowerCase() === s.email!.toLowerCase()) : undefined);
+    if (!u || (u.status && u.status !== 'approved')) return s;
+    return {
+      ...s,
+      profile: {
+        personId: u.personId,
+        name: u.name,
+        avatarUrl: imageSrc(u.avatarUrl) || undefined,
+        socials: u.socials,
+        role: u.role,
+        title: u.role === 'officer' ? officerTitle(u) : undefined,
+      },
+    };
+  });
 }
 
 /** Create a speaker in the directory. */

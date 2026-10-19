@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, PutCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, PutCommand, GetCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 
 const CLUB_NAME = 'AWS Student Builder Group - Asia Pacific College';
 
@@ -232,11 +232,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     const missingEvents = missing.filter((i) => initialEvents.includes(i));
 
+    // The club's built-in sessions (Tech Barangay workshops) that ended up under another
+    // event — e.g. an older database where they point at Cloud Watch. They belong to the
+    // Tech Barangay event (an admin-made copy is preferred over the built-in evt-1).
+    const events: any[] = [];
+    let start: Record<string, any> | undefined;
+    do {
+      const page = await docClient.send(
+        new ScanCommand({ TableName: tableName, FilterExpression: 'entityType = :t', ExpressionAttributeValues: { ':t': 'event' }, ExclusiveStartKey: start }),
+      );
+      events.push(...(page.Items || []));
+      start = page.LastEvaluatedKey;
+    } while (start);
+    const isTechBarangay = (e: any) => /^tech barangay/i.test(String(e?.title || ''));
+    const tb = events.filter(isTechBarangay).sort((a, b) => Number(a.id === 'evt-1') - Number(b.id === 'evt-1'))[0];
+    const misplaced: any[] = [];
+    if (tb) {
+      for (const seed of initialSessions) {
+        const stored = (await docClient.send(new GetCommand({ TableName: tableName, Key: { id: seed.id } }))).Item;
+        if (!stored || stored.entityType !== 'session' || stored.title !== seed.title) continue;
+        const owner = events.find((e) => e.id === stored.eventId);
+        if (!owner || !isTechBarangay(owner)) misplaced.push({ ...stored, fromTitle: owner?.title || 'a deleted event' });
+      }
+    }
+
     // GET: only report what's missing (never writes)
     if (req.method !== 'POST') {
       return res.status(200).json({
         missingEvents: missingEvents.map((e: any) => ({ id: e.id, title: e.title, startAt: e.startAt })),
         missingSessions: missing.length - missingEvents.length,
+        misplacedSessions: misplaced.map((x) => ({ id: x.id, title: x.title, from: x.fromTitle, to: tb?.title })),
       });
     }
 
@@ -247,6 +272,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       : undefined;
     if (actor?.entityType !== 'user' || actor.role !== 'admin') {
       return res.status(403).json({ error: 'Only an admin can import the club events.' });
+    }
+    // POST ?action=fix-sessions: move the misplaced built-in sessions to Tech Barangay
+    if (req.query?.action === 'fix-sessions') {
+      for (const x of misplaced) {
+        const { fromTitle: _f, ...item } = x;
+        void _f;
+        await docClient.send(new PutCommand({ TableName: tableName, Item: { ...item, eventId: tb.id, updatedAt: new Date().toISOString() } }));
+      }
+      return res.status(200).json({
+        success: true,
+        moved: misplaced.length,
+        message: misplaced.length ? `Moved ${misplaced.length} session(s) to ${tb.title}.` : 'All sessions are already under the right event.',
+      });
     }
     for (const item of missing) {
       await docClient.send(new PutCommand({ TableName: tableName, Item: item }));

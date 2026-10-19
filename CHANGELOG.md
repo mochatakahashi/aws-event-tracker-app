@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.15] - 2026-10-19
+
+### Fixed
+- **Tech Barangay sessions showing under Cloud Watch**: in the live database the built-in Tech Barangay workshops (WordPress Campus Connect, WordPress on AWS, Notion Productivity) could point at the Cloud Watch event. Admin Home now detects this and offers **Move them** (one tap moves them to the Tech Barangay event; other sessions are untouched). API: `GET /api/seed` reports `misplacedSessions`, `POST /api/seed?action=fix-sessions` (admin).
+
+### Added
+- **Event picker in the session editor** (admins): move any session that's under the wrong event.
+- **Speakers linked to accounts**: in the event form, each speaker can be linked to an app account (an officer who speaks, or any member). Their name, photo and social links come from their profile and stay up to date; officers get an *AWS SBG-APC officer* label and tapping a speaker opens their profile.
+- **Outside speakers**: name, title, bio, photo, **social links** (any platform) and an optional **email** — if they later create an account with that email, the speaker links to it automatically and shows their own links too.
+
+---
+
 ## [0.6.14] - 2026-10-19
 
 ### Added

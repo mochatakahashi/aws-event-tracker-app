@@ -7,12 +7,8 @@ import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
 import Grid from '@mui/material/Grid2';
-import Avatar from '@mui/material/Avatar';
-import Link from '@mui/material/Link';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
-import ListItemAvatar from '@mui/material/ListItemAvatar';
-import ListItemText from '@mui/material/ListItemText';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import IconButton from '@mui/material/IconButton';
@@ -51,6 +47,7 @@ import CertificateButton from '../components/CertificateButton';
 import RecentUploadsShelf from '../components/RecentUploadsShelf';
 import InlinePass from '../components/InlinePass';
 import EventStaffPanel from '../components/EventStaffPanel';
+import SpeakerItem from '../components/SpeakerItem';
 import HandshakeOutlinedIcon from '@mui/icons-material/HandshakeOutlined';
 import SessionsSection from '../components/SessionsSection';
 import EventStampCard from '../components/EventStampCard';
@@ -59,15 +56,6 @@ import { formatDateRange } from '../utils/eventDisplay';
 import { useAuth } from '../context/AuthContext';
 import { brand, PARTNER } from '../theme/theme';
 
-function initials(name: string): string {
-  return name
-    .split(' ')
-    .map((p) => p[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
-}
 
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -429,36 +417,8 @@ export default function EventDetailPage() {
             ) : (
               <List disablePadding>
                 {(showAllSpeakers ? speakers : speakers.slice(0, 2)).map((s) => (
-                  <ListItem key={s.id} alignItems="flex-start" disableGutters sx={{ mb: 1 }}>
-                    <ListItemAvatar>
-                      <Avatar src={s.avatarUrl || undefined} sx={{ width: 44, height: 44 }}>
-                        {initials(s.name)}
-                      </Avatar>
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={
-                        <Stack direction="row" spacing={1} alignItems="center">
-                          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                            {s.name}
-                          </Typography>
-                          {s.linkedInUrl && (
-                            <Link href={s.linkedInUrl} target="_blank" rel="noopener noreferrer">
-                              <LinkedInIcon fontSize="small" sx={{ color: '#0A66C2' }} />
-                            </Link>
-                          )}
-                        </Stack>
-                      }
-                      secondary={
-                        <>
-                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                            {[s.headline, s.company].filter(Boolean).join(' · ')}
-                          </Typography>
-                          <Typography variant="body2" sx={{ mt: 0.5 }}>
-                            {s.bio}
-                          </Typography>
-                        </>
-                      }
-                    />
+                  <ListItem key={s.id} disableGutters sx={{ mb: 1.5, display: 'block' }}>
+                    <SpeakerItem speaker={s} />
                   </ListItem>
                 ))}
               </List>
