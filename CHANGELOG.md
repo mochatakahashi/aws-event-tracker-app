@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Replay the app tour from your profile picture** (top-bar avatar on phones, sidebar avatar on laptops → *Replay the app tour*).
 
 ### Fixed
+- **App tour on phones**: the *My Event Pass* step highlighted nothing (it isn't in the bottom bar) — it now points at your profile picture and says *Tap your picture → My Event Pass*. The tour animation is smoother: the highlight box moves with GPU transforms, the pulse ring animates only transform/opacity, and scroll/resize updates are limited to one per frame.
 - **Admin saw a stamp-request count with no requests on the Event Desk**: the menu badge counted every event while the desk showed one, and it only refreshed every minute. The badge now counts only what the desk can show, updates right after approving/declining, the event picker shows each event's count, and the desk links to requests waiting at another event.
 
 ### Changed

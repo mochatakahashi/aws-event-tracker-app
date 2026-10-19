@@ -20,10 +20,11 @@ export function startTour() {
 
 const seenKey = (personId: string) => `aws-event-tracker.tour.v1.${personId}`;
 
+// Only transform/opacity animate (GPU-composited) so the tour stays smooth on phones
 const pulse = keyframes`
-  0% { box-shadow: 0 0 0 9999px rgba(26, 10, 46, 0.6), 0 0 0 0 rgba(168, 85, 200, 0.75); }
-  70% { box-shadow: 0 0 0 9999px rgba(26, 10, 46, 0.6), 0 0 0 12px rgba(168, 85, 200, 0); }
-  100% { box-shadow: 0 0 0 9999px rgba(26, 10, 46, 0.6), 0 0 0 0 rgba(168, 85, 200, 0); }
+  0% { transform: scale(1); opacity: 0.8; }
+  70% { transform: scale(1.12); opacity: 0; }
+  100% { transform: scale(1.12); opacity: 0; }
 `;
 const pop = keyframes`
   from { opacity: 0; transform: translateY(8px) scale(0.98); }
@@ -37,16 +38,30 @@ interface Rect {
   height: number;
 }
 
-/** The first visible element for a step (sidebar on laptops, bottom bar on phones). */
-function findTarget(step: TourStep): HTMLElement | null {
-  if (!step.target) return null;
-  const all = Array.from(document.querySelectorAll<HTMLElement>(`[data-tour="${step.target}"]`));
+function visible(target: string): HTMLElement | null {
+  const all = Array.from(document.querySelectorAll<HTMLElement>(`[data-tour="${target}"]`));
   return (
     all.find((el) => {
       const r = el.getBoundingClientRect();
       return r.width > 0 && r.height > 0;
     }) ?? null
   );
+}
+
+/**
+ * The first visible element for a step (sidebar on laptops, bottom bar on
+ * phones). If it isn't on screen, the step's fallback (e.g. the profile
+ * picture on phones for My Event Pass) and its own explanation.
+ */
+function findTarget(step: TourStep): { el: HTMLElement | null; text: string } {
+  if (!step.target) return { el: null, text: step.text };
+  const el = visible(step.target);
+  if (el) return { el, text: step.text };
+  if (step.fallback) {
+    const alt = visible(step.fallback.target);
+    if (alt) return { el: alt, text: step.fallback.text };
+  }
+  return { el: null, text: step.text };
 }
 
 /**
@@ -60,6 +75,7 @@ export default function TutorialTour() {
   const [mode, setMode] = useState<'off' | 'offer' | 'tour'>('off');
   const [index, setIndex] = useState(0);
   const [rect, setRect] = useState<Rect | null>(null);
+  const [stepText, setStepText] = useState('');
   const reduceMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
   // First visit: offer the tour (their choice to take it or skip)
@@ -105,22 +121,36 @@ export default function TutorialTour() {
   // Follow the highlighted element (scrolling, resizing)
   useLayoutEffect(() => {
     if (mode !== 'tour' || !step) return;
+    let frame = 0;
     const measure = () => {
-      const el = findTarget(step);
+      const { el, text } = findTarget(step);
+      setStepText(text);
       if (!el) return setRect(null);
       const r = el.getBoundingClientRect();
-      setRect({ top: r.top - 6, left: r.left - 6, width: r.width + 12, height: r.height + 12 });
+      const next = { top: Math.round(r.top - 6), left: Math.round(r.left - 6), width: Math.round(r.width + 12), height: Math.round(r.height + 12) };
+      // Skip re-renders when nothing moved
+      setRect((cur) =>
+        cur && cur.top === next.top && cur.left === next.left && cur.width === next.width && cur.height === next.height ? cur : next,
+      );
     };
-    const el = findTarget(step);
-    el?.scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' });
+    // At most one measurement per frame while scrolling / resizing
+    const onMove = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        measure();
+      });
+    };
+    findTarget(step).el?.scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' });
     measure();
     const t = window.setTimeout(measure, 350);
-    window.addEventListener('resize', measure);
-    window.addEventListener('scroll', measure, true);
+    window.addEventListener('resize', onMove);
+    window.addEventListener('scroll', onMove, { capture: true, passive: true });
     return () => {
       window.clearTimeout(t);
-      window.removeEventListener('resize', measure);
-      window.removeEventListener('scroll', measure, true);
+      if (frame) window.cancelAnimationFrame(frame);
+      window.removeEventListener('resize', onMove);
+      window.removeEventListener('scroll', onMove, { capture: true });
     };
   }, [mode, step, reduceMotion]);
 
@@ -166,18 +196,32 @@ export default function TutorialTour() {
       {mode === 'tour' && rect ? (
         <Box
           data-testid="tour-spotlight"
-          sx={{
-            position: 'fixed',
-            top: rect.top,
-            left: rect.left,
+          style={{
+            // Position with transform (no layout work while moving)
+            transform: `translate3d(${rect.left}px, ${rect.top}px, 0)`,
             width: rect.width,
             height: rect.height,
+          }}
+          sx={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
             borderRadius: '14px',
             border: `3px solid ${brand.accent ?? '#F59E0B'}`,
             boxShadow: '0 0 0 9999px rgba(26, 10, 46, 0.6)',
-            transition: reduceMotion ? 'none' : 'all 0.35s ease',
-            animation: reduceMotion ? 'none' : `${pulse} 1.6s ease-out infinite`,
+            transition: reduceMotion ? 'none' : 'transform 0.3s cubic-bezier(.2,.8,.2,1), width 0.3s cubic-bezier(.2,.8,.2,1), height 0.3s cubic-bezier(.2,.8,.2,1)',
+            willChange: 'transform',
             pointerEvents: 'none',
+            // Pulsing ring: its own layer, only transform + opacity animate
+            '&::after': {
+              content: '""',
+              position: 'absolute',
+              inset: -6,
+              borderRadius: '18px',
+              border: '3px solid rgba(168, 85, 200, 0.9)',
+              animation: reduceMotion ? 'none' : `${pulse} 1.6s ease-out infinite`,
+              willChange: 'transform, opacity',
+            },
           }}
         />
       ) : (
@@ -228,7 +272,7 @@ export default function TutorialTour() {
                 {step.title}
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
-                {step.text}
+                {stepText || step.text}
               </Typography>
               {/* Progress dots */}
               <Stack direction="row" spacing={0.5} sx={{ mt: 1.75 }} aria-hidden>

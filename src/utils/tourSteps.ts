@@ -6,6 +6,8 @@ export interface TourStep {
   emoji?: string;
   title: string;
   text: string;
+  /** When the target isn't on screen (e.g. not in the phone's bottom bar), highlight this instead and explain how to get there. */
+  fallback?: { target: string; text: string };
 }
 
 const dashboard: TourStep = {
@@ -25,6 +27,10 @@ const pass: TourStep = {
   emoji: '🎟️',
   title: 'My Event Pass',
   text: 'Your QR pass for approved registrations. Show it at the registration booth to check in. After the event ends, your certificate appears here — view it, download it or share its link.',
+  fallback: {
+    target: 'profile',
+    text: 'Tap your picture → My Event Pass. It’s your QR pass for approved registrations: show it at the registration booth to check in. After the event ends, your certificate appears there too.',
+  },
 };
 const achievements: TourStep = {
   target: 'nav-achievements',
