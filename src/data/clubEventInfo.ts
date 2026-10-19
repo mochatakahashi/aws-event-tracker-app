@@ -16,7 +16,7 @@ export interface ClubEventUpdate {
 }
 
 export const CLUB_EVENT_INFO: { version: number; speakers: { id: string; name: string; headline: string; company: string; bio: string; linkedInUrl?: string }[]; updates: ClubEventUpdate[] } = {
-  "version": 2,
+  "version": 3,
   "speakers": [
     {
       "id": "spk-wpm",
@@ -51,15 +51,22 @@ export const CLUB_EVENT_INFO: { version: number; speakers: { id: string; name: s
       "name": "Rodmina Jhoy Ibe",
       "headline": "President, AWS SBG-APC",
       "company": "AWS SBG-APC",
-      "bio": "Topic: Deep Dive: Core Services (Amazon EC2, Amazon S3, Amazon RDS).",
+      "bio": "",
       "linkedInUrl": "https://www.linkedin.com/in/rodmina-jhoy-ibe"
+    },
+    {
+      "id": "spk-fa",
+      "name": "Francis Anciro",
+      "headline": "Technicals Assistant Director, AWS SBG-APC",
+      "company": "AWS SBG-APC",
+      "bio": ""
     },
     {
       "id": "spk-vna",
       "name": "Vince Nelmar Alobin",
       "headline": "Technicals Director, AWS SBG-APC",
       "company": "AWS SBG-APC",
-      "bio": "Topic: Project Showcase — the Vibe-to-Cloud Playbook, an interactive guide to EC2, S3 and RDS."
+      "bio": ""
     }
   ],
   "updates": [
@@ -68,6 +75,7 @@ export const CLUB_EVENT_INFO: { version: number; speakers: { id: string; name: s
       "match": "^tech barangay",
       "fields": {
         "description": "The Tech Barangay Summit is the flagship academic event closing SOCIT Fest 2026 — a full day that takes students from building a website to running it in the cloud and organizing their work around it.\n\nOrganized by AWS Student Builder Group – APC with the Junior Philippine Computer Society – APC, and WordPress Manila as co-organizer and community partner.\n\n• Morning — WordPress Manila: the open-source WordPress ecosystem, building a site from scratch, hosting concepts, a hands-on workshop and careers in WordPress.\n• Afternoon — AWS SBG-APC: putting WordPress into production on Amazon EC2, Amazon RDS and CloudFront.\n• Closing — Notion Community Leads: workspace organization and developer productivity with Notion.\n\nYou leave with practical skills and portfolio-ready work.\n\nObjectives\n• Bridge web content management, scalable cloud infrastructure and workspace systems in one industry-aligned masterclass.\n• Show a live production deployment of WordPress on Amazon EC2, Amazon RDS and CloudFront.\n• Teach workspace organization and developer productivity with Notion.",
+        "venue": "MPH1, Comlab 204 & Comlab 206",
         "coOrganizers": [
           "Junior Philippine Computer Society – APC",
           "WordPress Manila"
@@ -203,6 +211,93 @@ export const CLUB_EVENT_INFO: { version: number; speakers: { id: string; name: s
       ]
     },
     {
+      "id": "evt-2",
+      "match": "^cloud watch",
+      "fields": {
+        "description": "Cloud Watch is a \"Look but Don't Touch\" session: our officers walk you through the AWS Management Console live, so you can see how common AWS services are found, set up and managed — no AWS account or credits needed on your side.\n\nThe run: a quick look at our website, AWS CloudWatch x Spider-Man: Brand New Day, how the setup behind it works, then a full CloudWatch demo, open Q&A and key takeaways.\n\nA safe first step into AWS before the hands-on labs.\n\nObjectives\n• Get familiar with the AWS Management Console's navigation and key features through a guided live demo.\n• Build foundational knowledge of AWS services and the console without using personal AWS accounts or credits.\n• Build confidence for upcoming hands-on cloud activities in a risk-free setting.",
+        "modality": "hybrid",
+        "startAt": "2026-10-17T13:30:00+08:00",
+        "endAt": "2026-10-17T16:00:00+08:00",
+        "venue": "Room 309",
+        "participants": 30,
+        "participantsEstimated": true,
+        "capacity": 30,
+        "speakerIds": [
+          "spk-fa",
+          "spk-2",
+          "spk-vna"
+        ],
+        "programFlow": [
+          {
+            "time": "01:30 PM – 02:00 PM",
+            "duration": "30 mins",
+            "activity": "Officer Ingress & Technical Setup",
+            "personInCharge": "AWS SBG Officers"
+          },
+          {
+            "time": "02:00 PM – 02:10 PM",
+            "duration": "10 mins",
+            "activity": "Registration",
+            "personInCharge": "AWS SBG Relations"
+          },
+          {
+            "time": "02:10 PM – 02:15 PM",
+            "duration": "5 mins",
+            "activity": "Opening Remarks",
+            "personInCharge": "AWS SBG President"
+          },
+          {
+            "time": "02:15 PM – 02:20 PM",
+            "duration": "5 mins",
+            "activity": "Part 1: Website Promotion",
+            "personInCharge": "AWS SBG Technicals — Francis Anciro"
+          },
+          {
+            "time": "02:20 PM – 02:30 PM",
+            "duration": "10 mins",
+            "activity": "Part 2: AWS CloudWatch x Spider-Man",
+            "personInCharge": "AWS SBG Technicals — Francis Anciro"
+          },
+          {
+            "time": "02:30 PM – 02:40 PM",
+            "duration": "10 mins",
+            "activity": "Part 3: Explanation of Infrastructure",
+            "personInCharge": "AWS SBG President — Rodmina Jhoy Ibe"
+          },
+          {
+            "time": "02:40 PM – 03:30 PM",
+            "duration": "50 mins",
+            "activity": "Part 4: CloudWatch Demo",
+            "personInCharge": "AWS SBG Technicals — Vince Nelmar Alobin"
+          },
+          {
+            "time": "03:30 PM – 03:45 PM",
+            "duration": "15 mins",
+            "activity": "Part 5: Open Q&A & Key Takeaways",
+            "personInCharge": "AWS SBG President & Technicals"
+          },
+          {
+            "time": "03:45 PM – 03:50 PM",
+            "duration": "5 mins",
+            "activity": "Closing Remarks, Photo Opportunity & Feedback",
+            "personInCharge": "AWS SBG Officers and Attendees"
+          },
+          {
+            "time": "03:50 PM – 04:00 PM",
+            "duration": "10 mins",
+            "activity": "Networking & Free Discussion",
+            "personInCharge": "AWS SBG Officers and Attendees"
+          },
+          {
+            "time": "04:00 PM – 05:30 PM",
+            "duration": "90 mins",
+            "activity": "Officer Egress",
+            "personInCharge": "AWS SBG Officers"
+          }
+        ]
+      }
+    },
+    {
       "id": "evt-7",
       "match": "^aws launchpad: intro to cloud",
       "fields": {
@@ -283,9 +378,10 @@ export const CLUB_EVENT_INFO: { version: number; speakers: { id: string; name: s
         "description": "Meet the AWS Student Builder Group – APC! At the Mini-Org Fair our officers introduce the org's mission and goals and what members get out of it — projects, activities and achievements, hands-on demos and interactive booths — and answer your questions about joining.\n\nObjectives\n• Introduce the organization's mission, vision and core initiatives to prospective members.\n• Encourage participation by showcasing our programs and opportunities for personal, academic and professional growth.\n• Build connections between officers, members and interested students.",
         "startAt": "2026-07-10T08:00:00+08:00",
         "endAt": "2026-07-10T16:30:00+08:00",
+        "venue": "APC Cafeteria",
         "participants": 100,
         "participantsEstimated": true,
-        "capacity": 120,
+        "capacity": 100,
         "speakerIds": []
       }
     },

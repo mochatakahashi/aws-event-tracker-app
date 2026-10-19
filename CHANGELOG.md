@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.18] - 2026-10-20
+
+### Changed
+- Official event info, version 3 (Admin Home → **Update them** again):
+  - **Cloud Watch: Demo Day x Spider-Man: Brand New Day** — October 17, 2026, 1:30–4:00 PM, Room 309, hybrid; the "Look but Don't Touch" AWS Console demo; ~30 participants; program flow; speakers Francis Anciro (Technicals Assistant Director — Parts 1–2), Rodmina Jhoy Ibe (President — Part 3), Vince Nelmar Alobin (Technicals Director — Part 4).
+  - **Tech Barangay** venue: MPH1, Comlab 204 & Comlab 206.
+  - **Mini-Org Fair**: APC Cafeteria; 100 participants (max 100).
+  - Speaker bios no longer carry one event's topic (topics are in each event's program flow).
+
+---
+
 ## [0.6.17] - 2026-10-20
 
 ### Added
