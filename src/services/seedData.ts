@@ -1,3 +1,4 @@
+import { CLUB_EVENT_INFO } from '../data/clubEventInfo';
 import type { AppEvent } from '../types/event';
 import type { Speaker } from '../types/speaker';
 import type { Person, Registration } from '../types/attendee';
@@ -381,3 +382,19 @@ export const seedRegistrations: Registration[] = [
     registeredAt: '2026-11-05T09:00:00+08:00',
   },
 ];
+
+// ── Apply the club's up-to-date event info to the built-in sample data ──
+for (const sp of CLUB_EVENT_INFO.speakers) {
+  const i = seedSpeakers.findIndex((s) => s.id === sp.id);
+  const merged: Speaker = { linkedInUrl: '', avatarUrl: '', ...(i >= 0 ? seedSpeakers[i] : {}), ...sp };
+  if (i >= 0) seedSpeakers[i] = merged;
+  else seedSpeakers.push(merged);
+}
+for (const up of CLUB_EVENT_INFO.updates) {
+  const i = seedEvents.findIndex((e) => e.id === up.id);
+  if (i >= 0) seedEvents[i] = { ...seedEvents[i], ...(up.fields as Partial<AppEvent>), infoVersion: CLUB_EVENT_INFO.version };
+  for (const ses of up.sessions ?? []) {
+    const j = seedSessions.findIndex((s) => s.id === ses.id);
+    if (j >= 0) seedSessions[j] = { ...seedSessions[j], ...ses, eventId: up.id };
+  }
+}

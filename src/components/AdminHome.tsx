@@ -14,7 +14,7 @@ import AssignmentIcon from '@mui/icons-material/Assignment';
 import QrCodeScannerRoundedIcon from '@mui/icons-material/QrCodeScannerRounded';
 import LeaderboardRoundedIcon from '@mui/icons-material/LeaderboardRounded';
 import Alert from '@mui/material/Alert';
-import { getEvents, getMissingClubEvents, getMisplacedSessions, fixMisplacedSessions, type MisplacedSession, importClubEvents } from '../services/eventService';
+import { getEvents, getMissingClubEvents, getMisplacedSessions, fixMisplacedSessions, getOutdatedClubEvents, updateClubEventInfo, type MisplacedSession, importClubEvents } from '../services/eventService';
 import type { AppEvent } from '../types/event';
 import { alpha } from '@mui/material/styles';
 import { brand } from '../theme/theme';
@@ -54,6 +54,22 @@ export default function AdminHome() {
   const [importing, setImporting] = useState(false);
   const [unstaffed, setUnstaffed] = useState<AppEvent[]>([]);
   const [misplaced, setMisplaced] = useState<MisplacedSession[]>([]);
+  const [outdated, setOutdated] = useState<{ id: string; title: string }[]>([]);
+  const [updatingInfo, setUpdatingInfo] = useState(false);
+
+  async function applyInfo() {
+    if (!user) return;
+    setUpdatingInfo(true);
+    try {
+      setFixNote(await updateClubEventInfo(user.personId));
+      setOutdated([]);
+      setMisplaced(await getMisplacedSessions());
+    } catch (e) {
+      setFixNote(e instanceof Error ? e.message : 'Could not update the events.');
+    } finally {
+      setUpdatingInfo(false);
+    }
+  }
   const [fixNote, setFixNote] = useState('');
   const [fixing, setFixing] = useState(false);
 
@@ -103,6 +119,7 @@ export default function AdminHome() {
       .catch(() => undefined);
     getMissingClubEvents().then(setMissingEvents).catch(() => undefined);
     getMisplacedSessions().then(setMisplaced).catch(() => undefined);
+    getOutdatedClubEvents().then(setOutdated).catch(() => undefined);
     // Upcoming / live events where no officer may approve stamps or check people in
     getEvents()
       .then((evts) =>
@@ -179,6 +196,21 @@ export default function AdminHome() {
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
         Admin dashboard
       </Typography>
+      {outdated.length > 0 && (
+        <Alert
+          severity="info"
+          sx={{ mb: 2 }}
+          data-testid="outdated-events"
+          action={
+            <Button color="inherit" size="small" onClick={() => void applyInfo()} disabled={updatingInfo}>
+              {updatingInfo ? 'Updating…' : 'Update them'}
+            </Button>
+          }
+        >
+          New official info is ready for {outdated.length} event{outdated.length === 1 ? '' : 's'} ({outdated.map((o) => o.title).join(', ')}):
+          descriptions, dates & venues, co-organizers, expected participants, program flow and speakers.
+        </Alert>
+      )}
       {misplaced.length > 0 && (
         <Alert
           severity="warning"

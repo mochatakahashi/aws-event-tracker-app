@@ -40,6 +40,7 @@ import { brand, PARTNER } from '../theme/theme';
 import { EVENT_TAGS, type AppEvent } from '../types/event';
 import { tagColor, tagLabel } from '../utils/eventDisplay';
 import SocialLinksEditor from '../components/SocialLinksEditor';
+import ProgramFlowEditor from '../components/ProgramFlowEditor';
 import { getPeople } from '../services/registrationService';
 import { officerTitle } from '../utils/people';
 import type { Person } from '../types/attendee';
@@ -286,6 +287,7 @@ export default function EventBuilderPage() {
         speakerIds: await saveSpeakers(),
         officerIds: formData.officerIds || [],
         coOrganizers: (formData.coOrganizers || []).map((o) => o.trim()).filter(Boolean),
+        programFlow: (formData.programFlow || []).filter((r) => r.time.trim() || r.activity.trim()),
         // Send '' (not undefined) so removing the banner is persisted too
         imageUrl: formData.imageUrl || '',
       };
@@ -622,6 +624,11 @@ export default function EventBuilderPage() {
             Officers, their role at the event and who can approve stamps or check people in are set on the event page
             under <strong>Event staff</strong>{isEditing ? '' : ' after you save'}. Sessions are added there too.
           </Alert>
+
+          <Divider sx={{ my: 2 }} />
+
+          {/* Program flow: paste the table from the proposal, or edit rows */}
+          <ProgramFlowEditor value={formData.programFlow || []} onChange={(rows) => setFormData((prev) => ({ ...prev, programFlow: rows }))} />
 
           <Divider sx={{ my: 2 }} />
 

@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.17] - 2026-10-20
+
+### Added
+- **Program flow** on events: a *Program flow* section in the event form — **Paste from document** turns a pasted program (Time / Duration / Activity / Person-in-Charge, one cell per line or tab-separated) into a table, or add/edit rows; the event page shows it as a table (a stacked list on phones).
+- **Updated official info for the club's events** (`src/data/clubEventInfo.ts`): Admin Home shows *New official info is ready for N events* → **Update them** applies it to the live database (descriptions, dates & venues, co-organizers, expected participants, program flow, speakers; Tech Barangay's three stamp sessions get the program's titles and times). Event pictures, staff lists and registrations are kept. API: `POST /api/seed?action=update-events` (admin).
+  - **Tech Barangay**: co-organized with JPCS – APC and WordPress Manila (community partner); 7:00 AM–5:00 PM program; ~130 participants; speakers WordPress Manila, AWS SBG-APC Technical Team, Notion Community Leads.
+  - **AWS Launchpad: Intro to Cloud and AWS Ecosystem**: May 21, 2026, 1:00 PM, APC Auditorium (12F); ~170; speakers John Lexter Reyes (guest), Rodmina Jhoy Ibe (President), Vince Nelmar Alobin (Technicals Director); program flow.
+  - **Mini-Org Fair**: July 10, 2026, 8:00 AM–4:30 PM; ~100.
+  - **Org Fair 2026** (re-scheduled): August 17–20, 2026, 7:30 AM–5:00 PM, MPH1; ~200.
+  - **AWS Student Community Day Mega Manila 2026**: September 11, 2026, 8:00 AM–6:00 PM; Auditorium (12F), MPH1, Rooms 304 & 306, Room 813; 300–350 participants (no program yet).
+
+---
+
 ## [0.6.16] - 2026-10-19
 
 ### Added

@@ -270,6 +270,31 @@ export interface MisplacedSession {
   to: string;
 }
 
+/** Club events in the live database whose info is older than src/data/clubEventInfo.ts. */
+export async function getOutdatedClubEvents(): Promise<{ id: string; title: string }[]> {
+  if (!(await checkRemoteApi())) return [];
+  try {
+    const res = await fetch('/api/seed');
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data.outdatedEvents) ? data.outdatedEvents : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Apply the up-to-date club event info (admin): descriptions, dates, program flow, speakers, sessions. */
+export async function updateClubEventInfo(actorId: string): Promise<string> {
+  const res = await fetch('/api/seed?action=update-events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ actorId }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Could not update the events.');
+  return data.message as string;
+}
+
 /** Built-in Tech Barangay sessions that are attached to another event (e.g. Cloud Watch). */
 export async function getMisplacedSessions(): Promise<MisplacedSession[]> {
   if (!(await checkRemoteApi())) return [];

@@ -57,6 +57,16 @@ function pruneStaff(item: any) {
   for (const f of STAFF_FIELDS) {
     if (item[f] !== undefined) item[f] = idList(item[f]).filter((x) => assigned.has(x));
   }
+  // Program flow: up to 60 rows of short text
+  if (item.programFlow !== undefined) {
+    const t = (v: unknown, n: number) => (typeof v === 'string' ? v.trim().slice(0, n) : '');
+    item.programFlow = Array.isArray(item.programFlow)
+      ? item.programFlow
+          .map((r: any) => ({ time: t(r?.time, 60), duration: t(r?.duration, 40), activity: t(r?.activity, 160), personInCharge: t(r?.personInCharge, 120) }))
+          .filter((r: any) => r.time || r.activity)
+          .slice(0, 60)
+      : [];
+  }
   // Partner orgs co-organizing the event: up to 5 short names
   if (item.coOrganizers !== undefined) {
     item.coOrganizers = Array.isArray(item.coOrganizers)

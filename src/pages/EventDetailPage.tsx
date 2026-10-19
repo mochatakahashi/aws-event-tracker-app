@@ -48,6 +48,7 @@ import RecentUploadsShelf from '../components/RecentUploadsShelf';
 import InlinePass from '../components/InlinePass';
 import EventStaffPanel from '../components/EventStaffPanel';
 import EventDutyCard from '../components/EventDutyCard';
+import ProgramFlowTable from '../components/ProgramFlowTable';
 import SpeakerItem from '../components/SpeakerItem';
 import HandshakeOutlinedIcon from '@mui/icons-material/HandshakeOutlined';
 import SessionsSection from '../components/SessionsSection';
@@ -401,6 +402,13 @@ export default function EventDetailPage() {
             </Typography>
 
             <Divider sx={{ my: 3 }} />
+
+            {!!event.programFlow?.length && (
+              <>
+                <ProgramFlowTable rows={event.programFlow} />
+                <Divider sx={{ my: 3 }} />
+              </>
+            )}
 
             <SessionsSection event={event} refreshKey={`${myReg?.id ?? ''}:${myReg?.rsvp ?? ''}`} isAdmin={user?.role === 'admin'} />
 

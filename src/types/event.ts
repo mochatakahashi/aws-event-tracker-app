@@ -32,6 +32,14 @@ export const EVENT_TAGS: EventTag[] = [
  * Speakers are referenced by id from the shared speaker directory; attendees are
  * tracked separately via registrations.
  */
+/** One row of an event's program flow. */
+export interface ProgramRow {
+  time: string;
+  duration?: string;
+  activity: string;
+  personInCharge?: string;
+}
+
 export interface AppEvent {
   id: string;
   title: string;
@@ -74,6 +82,10 @@ export interface AppEvent {
   club?: string;
   /** Partner orgs co-organizing the event with AWS SBG-APC (shown on the event page). */
   coOrganizers?: string[];
+  /** Program flow (run of show), shown as a table on the event page. */
+  programFlow?: ProgramRow[];
+  /** Version of the club's official event info applied (see src/data/clubEventInfo.ts). */
+  infoVersion?: number;
   /** Automatically assigned timestamp. */
   createdAt?: string;
 }
