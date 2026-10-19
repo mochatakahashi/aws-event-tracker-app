@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.16] - 2026-10-19
+
+### Added
+- **"Your access at this event" on the event page** for officers (and co-organizer staff) an admin put on the staff list: their role, what they may do (*Check people in & approve registrations*, *Approve stamps*) and shortcuts — **Check people in**, **Registrations** and **Stamp requests**, each with the number waiting — straight into the Event Desk for that event. Team members without a duty are told so.
+
+---
+
 ## [0.6.15] - 2026-10-19
 
 ### Fixed

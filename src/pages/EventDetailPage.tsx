@@ -47,6 +47,7 @@ import CertificateButton from '../components/CertificateButton';
 import RecentUploadsShelf from '../components/RecentUploadsShelf';
 import InlinePass from '../components/InlinePass';
 import EventStaffPanel from '../components/EventStaffPanel';
+import EventDutyCard from '../components/EventDutyCard';
 import SpeakerItem from '../components/SpeakerItem';
 import HandshakeOutlinedIcon from '@mui/icons-material/HandshakeOutlined';
 import SessionsSection from '../components/SessionsSection';
@@ -324,6 +325,9 @@ export default function EventDetailPage() {
                 </Typography>
               </Stack>
             )}
+
+            {/* Officer / co-organizer staff: what an admin gave them at this event */}
+            <EventDutyCard event={event} user={user} />
 
             {/* Structured Info Cards (Inspired by reference mockup in Image 4) */}
             <Stack spacing={2} sx={{ my: 3 }}>
