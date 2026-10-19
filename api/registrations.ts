@@ -520,6 +520,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!eventId || !personId) return res.status(400).json({ error: 'eventId and personId are required' });
       const rsvp = 'pending';
 
+      // Officers-only meetings: only officers and admins can register
+      const ev = (await client.send(new GetCommand({ TableName: tableName, Key: { id: eventId } }))).Item;
+      if (ev?.audience === 'officers') {
+        const who = (await client.send(new GetCommand({ TableName: tableName, Key: { id: personId } }))).Item;
+        if (who?.role !== 'officer' && who?.role !== 'admin') {
+          return res.status(403).json({ error: 'This is an internal meeting for AWS SBG-APC officers.' });
+        }
+      }
+
       const regs = await scanType(client, tableName, 'registration');
       const existing = regs.find((r) => r.eventId === eventId && r.personId === personId);
       if (existing && normStatus(existing.rsvp) === 'approved') {

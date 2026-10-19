@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.19] - 2026-10-20
+
+### Added
+- **Officers-only events** (event form → *Officers only*): everyone can see the event (marked **Officers only**, no participant count), but only officers and admins can register — attendees see that it's an internal officers' meeting. Server-checked.
+
+### Changed
+- Official event info, version 4 — **AWS Launchpad: Core Services Session Operational Briefing**: an officers-only internal working session, Tuesday May 19, 2026, 11:30 AM – 1:30 PM, Room 309; description from the officers' announcement; no participant count or speakers.
+
+---
+
 ## [0.6.18] - 2026-10-20
 
 ### Changed

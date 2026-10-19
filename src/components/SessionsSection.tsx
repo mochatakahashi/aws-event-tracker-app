@@ -106,7 +106,7 @@ export default function SessionsSection({
           />
         )}
       </Stack>
-      {event.participants > 0 && (
+      {event.participants > 0 && event.audience !== 'officers' && (
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
           {event.participantsEstimated ? 'Est. ' : ''}
           {event.participants} {event.status === 'accomplished' ? 'attended' : 'expected'} for the whole event

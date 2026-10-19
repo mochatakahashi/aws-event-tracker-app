@@ -360,7 +360,9 @@ export default function EventsPage() {
                         <Avatar src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=100&q=80" />
                       </AvatarGroup>
                       <Typography variant="caption" sx={{ color: '#EF4444', fontWeight: 700, fontSize: '0.75rem' }}>
-                        {event.participantsEstimated ? 'Est. ' : ''}{event.participants} {event.status === 'upcoming' ? 'Expected' : 'Attended'}
+                        {event.audience === 'officers'
+                          ? 'Officers only'
+                          : `${event.participantsEstimated ? 'Est. ' : ''}${event.participants} ${event.status === 'upcoming' ? 'Expected' : 'Attended'}`}
                       </Typography>
                     </Stack>
 

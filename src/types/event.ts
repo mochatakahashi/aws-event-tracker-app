@@ -82,6 +82,8 @@ export interface AppEvent {
   club?: string;
   /** Partner orgs co-organizing the event with AWS SBG-APC (shown on the event page). */
   coOrganizers?: string[];
+  /** 'officers': an internal officers-only meeting — everyone can see it, only officers (and admins) can register. */
+  audience?: 'everyone' | 'officers';
   /** Program flow (run of show), shown as a table on the event page. */
   programFlow?: ProgramRow[];
   /** Version of the club's official event info applied (see src/data/clubEventInfo.ts). */

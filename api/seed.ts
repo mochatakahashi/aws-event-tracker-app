@@ -10,7 +10,7 @@ const CLUB_NAME = 'AWS Student Builder Group - Asia Pacific College';
  * POST /api/seed?action=update-events.
  */
 const CLUB_EVENT_INFO: any = {
-  "version": 3,
+  "version": 4,
   "speakers": [
     {
       "id": "spk-wpm",
@@ -289,6 +289,21 @@ const CLUB_EVENT_INFO: any = {
             "personInCharge": "AWS SBG Officers"
           }
         ]
+      }
+    },
+    {
+      "id": "evt-6",
+      "match": "^aws launchpad: core services",
+      "fields": {
+        "description": "An internal working session for the AWS SBG-APC officers (officers only).\n\nCore officers meet to review upcoming materials, coordinate general operations and make sure everything is ready for our upcoming cloud community activities and student tracks — so we keep delivering a great learning experience for our peers.\n\nSee you all at the meeting! ⚡\n\n#AWSCloudClub #StudentBuilders #InternalSync #CloudComputing",
+        "audience": "officers",
+        "startAt": "2026-05-19T11:30:00+08:00",
+        "endAt": "2026-05-19T13:30:00+08:00",
+        "venue": "Room 309",
+        "participants": 0,
+        "participantsEstimated": false,
+        "capacity": 0,
+        "speakerIds": []
       }
     },
     {

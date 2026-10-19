@@ -40,6 +40,8 @@ import { brand, PARTNER } from '../theme/theme';
 import { EVENT_TAGS, type AppEvent } from '../types/event';
 import { tagColor, tagLabel } from '../utils/eventDisplay';
 import SocialLinksEditor from '../components/SocialLinksEditor';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Checkbox from '@mui/material/Checkbox';
 import ProgramFlowEditor from '../components/ProgramFlowEditor';
 import { getPeople } from '../services/registrationService';
 import { officerTitle } from '../utils/people';
@@ -287,6 +289,7 @@ export default function EventBuilderPage() {
         speakerIds: await saveSpeakers(),
         officerIds: formData.officerIds || [],
         coOrganizers: (formData.coOrganizers || []).map((o) => o.trim()).filter(Boolean),
+        audience: formData.audience === 'officers' ? 'officers' : 'everyone',
         programFlow: (formData.programFlow || []).filter((r) => r.time.trim() || r.activity.trim()),
         // Send '' (not undefined) so removing the banner is persisted too
         imageUrl: formData.imageUrl || '',
@@ -405,6 +408,16 @@ export default function EventBuilderPage() {
             fullWidth
             value={formData.venue}
             onChange={handleChange('venue')}
+          />
+
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={formData.audience === 'officers'}
+                onChange={(e) => setFormData((prev) => ({ ...prev, audience: e.target.checked ? 'officers' : 'everyone' }))}
+              />
+            }
+            label="Officers only — an internal meeting: everyone can see it, only officers can register"
           />
 
           {/* Partner orgs (not AWS) running the event with us */}

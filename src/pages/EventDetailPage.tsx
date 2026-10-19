@@ -48,7 +48,9 @@ import RecentUploadsShelf from '../components/RecentUploadsShelf';
 import InlinePass from '../components/InlinePass';
 import EventStaffPanel from '../components/EventStaffPanel';
 import EventDutyCard from '../components/EventDutyCard';
+import Chip from '@mui/material/Chip';
 import ProgramFlowTable from '../components/ProgramFlowTable';
+import LockRoundedIcon from '@mui/icons-material/LockRounded';
 import SpeakerItem from '../components/SpeakerItem';
 import HandshakeOutlinedIcon from '@mui/icons-material/HandshakeOutlined';
 import SessionsSection from '../components/SessionsSection';
@@ -313,6 +315,9 @@ export default function EventDetailPage() {
               {event.tags.map((tag) => (
                 <TagChip key={tag} tag={tag} />
               ))}
+              {event.audience === 'officers' && (
+                <Chip size="small" icon={<LockRoundedIcon />} label="Officers only" color="warning" variant="outlined" sx={{ fontWeight: 700 }} data-testid="officers-only-chip" />
+              )}
             </Stack>
 
             <Typography variant="h1" sx={{ fontWeight: 800, mb: event.coOrganizers?.length ? 1 : 2, lineHeight: 1.2 }}>
@@ -609,7 +614,11 @@ export default function EventDetailPage() {
               </Alert>
             )}
 
-            {myReg ? (
+            {event.audience === 'officers' && user?.role !== 'officer' && !myReg ? (
+              <Alert severity="info" icon={<LockRoundedIcon fontSize="inherit" />} sx={{ borderRadius: '12px' }} data-testid="officers-only-note">
+                This is an internal meeting for AWS SBG-APC officers, so registration is for officers only.
+              </Alert>
+            ) : myReg ? (
               <>
                 {myReg.checkedIn && (
                   <Alert icon={<CheckCircleRoundedIcon fontSize="inherit" />} severity="success" sx={{ mb: 2, borderRadius: '12px' }}>
