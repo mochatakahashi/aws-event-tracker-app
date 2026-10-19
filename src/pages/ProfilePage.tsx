@@ -130,6 +130,7 @@ export default function ProfilePage() {
 
   const roleLabel =
     user?.role === 'admin' ? 'Administrator' :
+    user?.role === 'adviser' ? 'Adviser' :
     user?.role === 'officer' ? 'Officer' :
     'Attendee';
   const partner = isPartnerStaff(user);

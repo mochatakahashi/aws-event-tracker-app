@@ -2,6 +2,14 @@ import type { Committee, Subcommittee } from './auth';
 
 export type TaskStatus = 'todo' | 'in-progress' | 'done';
 
+export interface TaskComment {
+  id: string;
+  authorId: string;
+  authorName: string;
+  text: string;
+  createdAt: string;
+}
+
 export type TaskApproval = 'pending' | 'approved' | 'declined';
 
 /** Officer-proposed tasks count only once an admin approves them. */
@@ -75,6 +83,10 @@ export interface OfficerTask {
   reviewedBy?: string;
   reviewedAt?: string;
   reviewNote?: string;
+  /** Comments between the admins and the officers assigned. */
+  comments?: TaskComment[];
+  /** Last reminder sent because the task was overdue (daily job). */
+  overdueReminderAt?: string;
   createdAt: string;
   updatedAt?: string;
   completedAt?: string | null;
@@ -98,3 +110,30 @@ export function statusForStage(stage: PubmatStage): TaskStatus {
 /** Google Doc with the caption guidelines for Marketing. */
 export const CAPTION_GUIDELINES_URL =
   'https://docs.google.com/document/d/1dMMyBQtYgGwg87Q45XHGTZEVlBsrX366VMgDBryfc1k/edit?usp=sharing';
+
+const DAY = 24 * 3600 * 1000;
+
+/**
+ * Where a task stands against its deadline: days left, due today, overdue,
+ * or — once done — finished on time / late.
+ */
+export function deadlineInfo(
+  t: Pick<OfficerTask, 'dueAt' | 'status' | 'completedAt'>,
+  now = Date.now(),
+): { label: string; tone: 'ok' | 'warn' | 'late' | 'done' | 'none' } {
+  if (!t.dueAt) return { label: t.status === 'done' ? 'Done' : 'No deadline', tone: t.status === 'done' ? 'done' : 'none' };
+  const due = new Date(t.dueAt).getTime();
+  if (t.status === 'done') {
+    const at = t.completedAt ? new Date(t.completedAt).getTime() : now;
+    if (at <= due) return { label: 'Done on time', tone: 'done' };
+    const late = Math.ceil((at - due) / DAY);
+    return { label: `Done ${late} day${late === 1 ? '' : 's'} late`, tone: 'late' };
+  }
+  if (now > due) {
+    const late = Math.max(1, Math.floor((now - due) / DAY));
+    return { label: `Overdue by ${late} day${late === 1 ? '' : 's'}`, tone: 'late' };
+  }
+  const left = Math.floor((due - now) / DAY);
+  if (left === 0) return { label: 'Due today', tone: 'warn' };
+  return { label: `${left} day${left === 1 ? '' : 's'} left`, tone: left <= 2 ? 'warn' : 'ok' };
+}

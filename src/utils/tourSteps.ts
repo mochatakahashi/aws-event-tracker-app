@@ -73,6 +73,22 @@ export function tourSteps(role: UserRole | undefined, partnerStaff = false): Tou
     text: 'That’s the tour. You can take it again from your profile.',
   };
 
+  if (role === 'adviser') {
+    return [
+      { ...welcome, text: 'This quick tour shows where you follow the org’s work, sign requests and post announcements.' },
+      {
+        target: 'nav-dashboard',
+        emoji: '🧑‍🏫',
+        title: 'Adviser dashboard',
+        text: 'Requests to sign (approve, or return with a comment), announcements to the officers, officer tasks (open, done on time, late) and events with attendance.',
+      },
+      { target: 'nav-events', emoji: '📅', title: 'Events', text: 'Every event with its details, sessions and team — view only.' },
+      { target: 'nav-leaderboard', emoji: '📊', title: 'Leaderboard', text: 'How active attendees and officers are.' },
+      bell,
+      profile,
+      done,
+    ];
+  }
   if (role === 'admin') {
     return [
       welcome,

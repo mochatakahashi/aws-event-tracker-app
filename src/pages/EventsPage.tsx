@@ -26,7 +26,7 @@ import ImageNotSupportedOutlinedIcon from '@mui/icons-material/ImageNotSupported
 import { alpha } from '@mui/material/styles';
 import { getEvents } from '../services/eventService';
 import { getSessions } from '../services/sessionService';
-import { getRegistrationsByEvent } from '../services/registrationService';
+import { getAllRegistrations } from '../services/registrationService';
 import { useAuth } from '../context/AuthContext';
 import { brand } from '../theme/theme';
 import { TagChip } from '../components/EventChips';
@@ -77,17 +77,26 @@ export default function EventsPage() {
   }, []);
 
   useEffect(() => {
+    let alive = true;
+    // Show the events right away; registration counts are filled in after
+    // from ONE request. A failed count must never hide the event list
+    // (one call per event used to time out on Vercel and leave it empty).
     getEvents()
       .then(async (data) => {
-        const withCounts = await Promise.all(
-          data.map(async (e) => ({
-            ...e,
-            registered: (await getRegistrationsByEvent(e.id)).length,
-          })),
-        );
-        setEvents(withCounts);
+        if (!alive) return;
+        setEvents(data.map((e) => ({ ...e, registered: 0 })));
+        setLoading(false);
+        const regs = await getAllRegistrations().catch(() => null);
+        if (!alive || !regs) return;
+        const counts = new Map<string, number>();
+        for (const r of regs) if (r.rsvp !== 'declined') counts.set(r.eventId, (counts.get(r.eventId) ?? 0) + 1);
+        setEvents(data.map((e) => ({ ...e, registered: counts.get(e.id) ?? 0 })));
       })
-      .finally(() => setLoading(false));
+      .catch(() => undefined)
+      .finally(() => alive && setLoading(false));
+    return () => {
+      alive = false;
+    };
   }, []);
 
   const upcoming = useMemo(

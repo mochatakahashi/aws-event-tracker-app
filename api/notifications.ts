@@ -11,6 +11,14 @@ import { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand, DeleteComm
  * PUT    /api/notifications?id=ntf-1                  → mark one as read
  * PUT    /api/notifications?personId=per-1&all=1      → mark all as read
  * DELETE /api/notifications?id=ntf-1
+ *
+ * Adviser (role 'adviser'):
+ * GET  ?action=announcements&viewerId=          → announcements this person can see (officers, admins, adviser)
+ * POST ?action=announce { actorId, title, message }   → adviser / admin posts to the officers (bell for each)
+ * DELETE ?action=announcement&id=&actorId=       → its author or an admin removes it
+ * GET  ?action=signoffs&viewerId=               → sign-off requests (adviser/admin: all; officer: their own)
+ * POST ?action=signoff { actorId, title, details?, link?, eventId? }   → officer / admin asks the adviser to sign
+ * POST ?action=signoff-review { actorId, id, decision: 'approved'|'returned', comment? }  → adviser
  */
 
 const KINDS = [
@@ -20,6 +28,10 @@ const KINDS = [
   'event-assigned',
   'task-assigned',
   'task-proposed',
+  'task-comment',
+  'adviser-announcement',
+  'signoff-request',
+  'signoff-reviewed',
   'task-reviewed',
   'stamp-approved',
   'stamp-declined',
@@ -88,6 +100,130 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { client, tableName } = getDynamoDocClient();
     const q = req.query || {};
 
+    const action = str(q.action);
+    const getUser = async (id: unknown) => {
+      if (typeof id !== 'string' || !id) return null;
+      const u = (await client.send(new GetCommand({ TableName: tableName, Key: { id } }))).Item;
+      return u?.entityType === 'user' && (u.status ?? 'approved') === 'approved' ? u : null;
+    };
+    const bell = async (personIds: string[], kind: string, title: string, message: string, link: string) => {
+      const now = new Date().toISOString();
+      for (const personId of [...new Set(personIds)].slice(0, 500)) {
+        await client.send(
+          new PutCommand({
+            TableName: tableName,
+            Item: { id: `ntf-${Date.now()}-${Math.floor(Math.random() * 1e6)}`, entityType: 'notification', personId, kind, title: text(title, 140), message: text(message, 600), link, read: false, createdAt: now },
+          }),
+        );
+      }
+    };
+    const staffRoles = ['officer', 'admin', 'adviser'];
+
+    // ── Adviser announcements (to the officers) ──
+    if (action === 'announcements' && req.method === 'GET') {
+      const viewer = await getUser(q.viewerId);
+      if (!viewer || !staffRoles.includes(viewer.role)) return res.status(200).json([]);
+      const list = (await scanType(client, tableName, 'announcement'))
+        .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+        .slice(0, 50);
+      return res.status(200).json(list.map(clean));
+    }
+    if (action === 'announce' && req.method === 'POST') {
+      const body = req.body || {};
+      const actor = await getUser(body.actorId);
+      if (!actor || (actor.role !== 'adviser' && actor.role !== 'admin')) {
+        return res.status(403).json({ error: 'Only the adviser or an admin can post announcements.' });
+      }
+      const title = text(body.title, 140);
+      const message = text(body.message, 2000);
+      if (!title || !message) return res.status(400).json({ error: 'Add a title and a message.' });
+      const item = {
+        id: `ann-${Date.now()}-${Math.floor(Math.random() * 1e5)}`,
+        entityType: 'announcement',
+        audience: 'officers',
+        title,
+        message,
+        authorId: actor.id,
+        authorName: actor.name,
+        authorRole: actor.role,
+        createdAt: new Date().toISOString(),
+      };
+      await client.send(new PutCommand({ TableName: tableName, Item: item }));
+      const users = await scanType(client, tableName, 'user');
+      const to = users.filter((u) => (u.role === 'officer' || u.role === 'admin') && (u.status ?? 'approved') === 'approved' && u.id !== actor.id).map((u) => u.id);
+      await bell(to, 'adviser-announcement', `📣 ${actor.role === 'adviser' ? 'Adviser' : 'Admin'}: ${title}`, message, '/home');
+      return res.status(201).json({ ...clean(item), notified: to.length });
+    }
+    if (action === 'announcement' && req.method === 'DELETE') {
+      const actor = await getUser(q.actorId);
+      const item = str(q.id) ? (await client.send(new GetCommand({ TableName: tableName, Key: { id: String(q.id) } }))).Item : null;
+      if (!item || item.entityType !== 'announcement') return res.status(404).json({ error: 'Announcement not found' });
+      if (!actor || (actor.id !== item.authorId && actor.role !== 'admin')) return res.status(403).json({ error: 'Not allowed.' });
+      await client.send(new DeleteCommand({ TableName: tableName, Key: { id: item.id } }));
+      return res.status(200).json({ success: true });
+    }
+
+    // ── Sign-off requests ("papirma") to the adviser ──
+    if (action === 'signoffs' && req.method === 'GET') {
+      const viewer = await getUser(q.viewerId);
+      if (!viewer || !staffRoles.includes(viewer.role)) return res.status(200).json([]);
+      const all = (await scanType(client, tableName, 'signoff')).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+      const mine = viewer.role === 'officer' ? all.filter((x) => x.requestedBy === viewer.id) : all;
+      return res.status(200).json(mine.map(clean));
+    }
+    if (action === 'signoff' && req.method === 'POST') {
+      const body = req.body || {};
+      const actor = await getUser(body.actorId);
+      if (!actor || (actor.role !== 'officer' && actor.role !== 'admin')) return res.status(403).json({ error: 'Only officers and admins can send sign-off requests.' });
+      const title = text(body.title, 140);
+      if (!title) return res.status(400).json({ error: 'What needs signing? Add a title.' });
+      const link = text(body.link, 500);
+      if (link && !/^https?:\/\//i.test(link)) return res.status(400).json({ error: 'The file link must start with https://' });
+      const item = {
+        id: `sgn-${Date.now()}-${Math.floor(Math.random() * 1e5)}`,
+        entityType: 'signoff',
+        title,
+        details: text(body.details, 2000) || undefined,
+        link: link || undefined,
+        eventId: str(body.eventId),
+        requestedBy: actor.id,
+        requestedByName: actor.name,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+      };
+      await client.send(new PutCommand({ TableName: tableName, Item: item }));
+      const users = await scanType(client, tableName, 'user');
+      await bell(
+        users.filter((u) => u.role === 'adviser' && (u.status ?? 'approved') === 'approved').map((u) => u.id),
+        'signoff-request',
+        `${actor.name} asks you to sign: ${title}`,
+        item.details || 'Open your dashboard to approve it or return it with a comment.',
+        '/home',
+      );
+      return res.status(201).json(clean(item));
+    }
+    if (action === 'signoff-review' && req.method === 'POST') {
+      const body = req.body || {};
+      const actor = await getUser(body.actorId);
+      if (!actor || actor.role !== 'adviser') return res.status(403).json({ error: 'Only the adviser can sign off.' });
+      const item = str(body.id) ? (await client.send(new GetCommand({ TableName: tableName, Key: { id: body.id } }))).Item : null;
+      if (!item || item.entityType !== 'signoff') return res.status(404).json({ error: 'Request not found' });
+      const decision = body.decision === 'approved' ? 'approved' : body.decision === 'returned' ? 'returned' : null;
+      if (!decision) return res.status(400).json({ error: 'Choose approve or return.' });
+      const comment = text(body.comment, 1000);
+      if (decision === 'returned' && !comment) return res.status(400).json({ error: 'Say what needs to change before returning it.' });
+      const merged = { ...item, status: decision, comment: comment || undefined, reviewedBy: actor.id, reviewedByName: actor.name, reviewedAt: new Date().toISOString() };
+      await client.send(new PutCommand({ TableName: tableName, Item: merged }));
+      await bell(
+        [item.requestedBy],
+        'signoff-reviewed',
+        decision === 'approved' ? `✅ Signed by the adviser: ${item.title}` : `↩️ Returned by the adviser: ${item.title}`,
+        comment || (decision === 'approved' ? 'Your request was approved.' : ''),
+        item.requestedBy && (await getUser(item.requestedBy))?.role === 'admin' ? '/home' : '/officer',
+      );
+      return res.status(200).json(clean(merged));
+    }
+
     if (req.method === 'GET') {
       const personId = str(q.personId);
       // Without a personId this is only a health check (used to detect the API).
@@ -106,9 +242,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!title) return res.status(400).json({ error: 'title is required' });
 
       let recipients: string[] = Array.isArray(body.personIds) ? body.personIds.filter((x: unknown) => typeof x === 'string') : [];
-      if (body.toRole === 'admin') {
+      if (body.toRole === 'admin' || body.toRole === 'adviser') {
         const users = await scanType(client, tableName, 'user');
-        recipients.push(...users.filter((u) => u.role === 'admin').map((u) => u.id));
+        recipients.push(...users.filter((u) => u.role === body.toRole).map((u) => u.id));
       }
       recipients = [...new Set(recipients)].slice(0, 500);
       if (recipients.length === 0) return res.status(200).json({ created: 0 });

@@ -24,7 +24,7 @@ import { useEvent } from '../context/EventContext';
 import { getEvents } from '../services/eventService';
 import { getRegistrationsByPerson } from '../services/registrationService';
 import { formatDateRange } from '../utils/eventDisplay';
-import { affiliation, memberLabel } from '../utils/people';
+import { affiliation } from '../utils/people';
 import { passLink } from '../utils/pass';
 import AddToCalendarButton from '../components/AddToCalendarButton';
 import CertificateButton from '../components/CertificateButton';
@@ -241,7 +241,8 @@ export default function EventPassPage() {
                     {user.name}
                   </Typography>
                   <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
-                    {[memberLabel(user), affiliation(user)].filter(Boolean).join(' · ')}
+                    {/* Name only — no member type beside it */}
+                    {affiliation(user) !== '—' ? affiliation(user) : ''}
                   </Typography>
                 </Box>
               </Stack>

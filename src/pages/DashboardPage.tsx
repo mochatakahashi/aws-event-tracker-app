@@ -23,6 +23,7 @@ import { brand } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
 import { useEvent } from '../context/EventContext';
 import AdminHome from '../components/AdminHome';
+import AdviserHome from '../components/AdviserHome';
 import { getEvents } from '../services/eventService';
 import { getRegistrationsByPerson } from '../services/registrationService';
 import { getSessions, getSessionsByEvent, getStampsByAttendee } from '../services/sessionService';
@@ -37,6 +38,7 @@ import type { Registration } from '../types/attendee';
 import type { Session, Stamp } from '../types/session';
 import type { AppNotification } from '../types/notification';
 import type { OfficerTask } from '../types/task';
+import AnnouncementsCard from '../components/AnnouncementsCard';
 
 const TZ = 'Asia/Manila';
 const dayTime = (iso: string) =>
@@ -175,6 +177,7 @@ export default function DashboardPage() {
   const nextDeadline = openTasks.filter((t) => t.dueAt).sort((a, b) => a.dueAt!.localeCompare(b.dueAt!))[0];
 
   if (isAdmin) return <AdminHome />;
+  if (user?.role === 'adviser') return <AdviserHome />;
 
   if (loading) {
     return (
@@ -196,6 +199,8 @@ export default function DashboardPage() {
       </Typography>
 
       {user && isPartnerStaff(user) && <MyDutiesCard user={user} />}
+      {/* Adviser announcements reach the officers on their dashboard */}
+      {user?.role === 'officer' && <AnnouncementsCard viewer={user} limit={3} />}
 
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 3fr) minmax(0, 2fr)' }, gap: { xs: 0, lg: 3 }, alignItems: 'start' }}>
         <Box>

@@ -358,7 +358,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(409).json({ error: 'An account with this email already exists.' });
       }
       const personId = existing?.id || `per-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
-      const role = ['admin', 'officer', 'attendee'].includes(account.role)
+      const role = ['admin', 'officer', 'attendee', 'adviser'].includes(account.role)
         ? account.role
         : account.accountType === 'officer'
           ? 'officer'

@@ -15,7 +15,7 @@ import TableRow from '@mui/material/TableRow';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import { getEvents } from '../services/eventService';
-import { getRegistrationsByEvent } from '../services/registrationService';
+import { getAllRegistrations } from '../services/registrationService';
 import {
   EVENT_MODALITIES,
   EVENT_STATUSES,
@@ -52,13 +52,11 @@ export default function EventListPage() {
     setLoading(true);
     getEvents()
       .then(async (data) => {
-        const withCounts = await Promise.all(
-          data.map(async (e) => ({
-            ...e,
-            registered: (await getRegistrationsByEvent(e.id)).length,
-          })),
-        );
-        if (active) setEvents(withCounts);
+        // One request for all counts; a failure leaves counts at 0, never hides events
+        const regs = await getAllRegistrations().catch(() => [] as Awaited<ReturnType<typeof getAllRegistrations>>);
+        const counts = new Map<string, number>();
+        for (const r of regs) if (r.rsvp !== 'declined') counts.set(r.eventId, (counts.get(r.eventId) ?? 0) + 1);
+        if (active) setEvents(data.map((e) => ({ ...e, registered: counts.get(e.id) ?? 0 })));
       })
       .catch((err: unknown) => {
         if (active)

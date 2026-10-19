@@ -158,6 +158,7 @@ export function isValidEmail(email: string): boolean {
 /** "APC Student", "Outside Attendee", "Officer" / "Admin". */
 export function memberLabel(person: { role?: User['role']; memberType?: MemberType; requestedRole?: User['requestedRole'] }): string {
   if (person.role === 'admin') return 'Admin';
+  if (person.role === 'adviser') return 'Adviser';
   if (person.role === 'officer' || person.requestedRole === 'officer') return 'Officer';
   return person.memberType === 'outside' ? 'Outside Attendee' : 'APC Student';
 }

@@ -37,6 +37,8 @@ import { deskChanged } from '../hooks/useDeskCounts';
 import { useAuth } from '../context/AuthContext';
 import type { Stamp, Session } from '../types/session';
 import type { Person, Registration } from '../types/attendee';
+import TaskThread, { DeadlineChip } from '../components/TaskThread';
+import SignoffPanel from '../components/SignoffPanel';
 
 const when = (iso?: string) =>
   iso ? new Date(iso).toLocaleString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
@@ -366,6 +368,8 @@ export default function OfficerDashboardPage() {
         </Box>
       )}
 
+      {user?.role === 'officer' && <SignoffPanel viewer={user} />}
+
       {/* My tasks: from admins, plus ones I add (an admin approves them) */}
       <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 1.5 }}>
         <Typography variant="h3" sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
@@ -441,7 +445,7 @@ export default function OfficerDashboardPage() {
           No tasks yet.
         </Typography>
       ) : (
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'repeat(2, minmax(0, 1fr))' }, gap: 1.5, mb: 4 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'repeat(2, minmax(0, 1fr))' }, gap: 1.5, mb: 4, alignItems: 'start' }}>
           {[...plainTasks]
             .sort(
               (a, b) =>
@@ -518,6 +522,7 @@ export default function OfficerDashboardPage() {
                           label={`Deadline ${when(task.dueAt)}`}
                         />
                       )}
+                      {!waiting && !declined && <DeadlineChip task={task} />}
                       {task.assigneeIds.length > 1 && (
                         <Chip
                           size="small"
@@ -559,6 +564,14 @@ export default function OfficerDashboardPage() {
                         </>
                       )}
                     </Stack>
+                    {!waiting && !declined && user && (
+                      <TaskThread
+                        task={task}
+                        me={user}
+                        adminIds={officerUsers.filter((u) => u.role === 'admin').map((u) => u.personId)}
+                        onChange={(updated) => setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)))}
+                      />
+                    )}
                   </CardContent>
                 </Card>
               );

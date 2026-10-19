@@ -87,7 +87,7 @@ export default function MorePage() {
           <Box>
             <Typography variant="h4">{user?.name}</Typography>
             <Typography variant="body2" color="text.secondary">
-              {user?.role === 'admin' ? 'Administrator' : user?.role === 'officer' ? 'Officer' : 'Attendee'}
+              {user?.role === 'admin' ? 'Administrator' : user?.role === 'adviser' ? 'Adviser' : user?.role === 'officer' ? 'Officer' : 'Attendee'}
             </Typography>
           </Box>
         </Stack>

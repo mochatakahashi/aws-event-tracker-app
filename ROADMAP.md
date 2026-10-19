@@ -177,6 +177,7 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 | Registration approval, sessions editor, app tour | v0.6.11 | ✅ Completed | High |
 | Connection requests, custom social links, achievements & passports rework | v0.6.12 | ✅ Completed | Medium |
 | Co-organizer staff, officer-added tasks, profile editing, desk badge fix | v0.6.13 | ✅ Completed | High |
+| Adviser account (announcements, sign-off), task comments, deadlines & reminders | v0.6.14 | ✅ Completed | High |
 | Certificate of Completion (100% stamps) | v1.0.0 | ⏳ Planned | Low |
 
 ---

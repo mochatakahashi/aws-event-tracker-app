@@ -1,6 +1,6 @@
 import type { Award } from './attendee';
 
-export type UserRole = 'admin' | 'officer' | 'attendee';
+export type UserRole = 'admin' | 'officer' | 'attendee' | 'adviser';
 
 /** Every new account starts as `pending` until an admin approves it. */
 export type AccountStatus = 'pending' | 'approved' | 'rejected';

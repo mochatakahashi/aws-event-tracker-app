@@ -91,7 +91,7 @@ export function attendeeBoard(d: BoardData, eventId?: string): AttendeeRow[] {
   }
 
   const rows: AttendeeRow[] = d.people
-    .filter((p) => p.role !== 'admin')
+    .filter((p) => p.role !== 'admin' && p.role !== 'adviser')
     .map((p) => {
       const mine = [...(approved.get(p.id) ?? [])];
       const workshops = mine.filter((id) => sessionById.get(id)?.type === 'workshop').length;

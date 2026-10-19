@@ -117,6 +117,26 @@ export async function reviewTask(id: string, approve: boolean, actorId: string, 
   return delay(tasks[idx]);
 }
 
+/** Add a comment to a task (admins and the officers assigned). */
+export async function commentOnTask(id: string, text: string, actor: { personId: string; name: string }): Promise<OfficerTask> {
+  if (!text.trim()) throw new Error('Write a comment first.');
+  if (await isRemoteAvailable(API)) {
+    return apiJson<OfficerTask>(`${API}?action=comment`, { method: 'POST', body: JSON.stringify({ id, text, actorId: actor.personId }) });
+  }
+  const tasks = local.load();
+  const idx = tasks.findIndex((t) => t.id === id);
+  if (idx === -1) throw new Error('Task not found');
+  tasks[idx] = {
+    ...tasks[idx],
+    comments: [
+      ...(tasks[idx].comments ?? []),
+      { id: generateId('cmt'), authorId: actor.personId, authorName: actor.name, text: text.trim(), createdAt: new Date().toISOString() },
+    ],
+  };
+  local.save(tasks);
+  return delay(tasks[idx]);
+}
+
 export async function deleteTask(id: string): Promise<void> {
   if (await isRemoteAvailable(API)) {
     await apiJson(`${API}?id=${encodeURIComponent(id)}`, { method: 'DELETE' });

@@ -127,6 +127,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json(tasks.map(clean));
     }
 
+    // Comments on a task: admins and the officers assigned to it.
+    //   POST ?action=comment { actorId, id, text }
+    if (req.method === 'POST' && req.query.action === 'comment') {
+      const body = req.body || {};
+      const text = String(body.text || '').trim().slice(0, 1000);
+      if (!text) return res.status(400).json({ error: 'Write a comment first.' });
+      const [actor, task] = await Promise.all(
+        [body.actorId, body.id].map(async (k) => (typeof k === 'string' && k ? (await client.send(new GetCommand({ TableName: tableName, Key: { id: k } }))).Item : null)),
+      );
+      if (!task || task.entityType !== 'task') return res.status(404).json({ error: 'Task not found' });
+      const active = actor?.entityType === 'user' && (actor.status ?? 'approved') === 'approved';
+      const allowed = active && (actor!.role === 'admin' || (Array.isArray(task.assigneeIds) && task.assigneeIds.includes(actor!.id)));
+      if (!allowed) return res.status(403).json({ error: 'Only admins and the officers on this task can comment.' });
+      const comment = {
+        id: `cmt-${Date.now()}-${Math.floor(Math.random() * 100000)}`,
+        authorId: actor!.id,
+        authorName: actor!.name || 'Someone',
+        text,
+        createdAt: new Date().toISOString(),
+      };
+      const merged = { ...task, comments: [...(Array.isArray(task.comments) ? task.comments : []), comment].slice(-200) };
+      await client.send(new PutCommand({ TableName: tableName, Item: merged }));
+      return res.status(201).json(clean(merged));
+    }
+
     // Officers propose their own tasks; an admin approves or declines them.
     //   POST ?action=propose { actorId, title, description?, eventId?, dueAt?, committee?, subcommittee? }
     //   POST ?action=review  { actorId, id, approve: boolean, note? }   (admin)

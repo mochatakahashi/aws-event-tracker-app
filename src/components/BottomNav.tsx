@@ -8,6 +8,7 @@ import ConnectIcon from '@mui/icons-material/PeopleAlt';
 import AchievementsIcon from '@mui/icons-material/EmojiEventsRounded';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import QrCodeScannerRoundedIcon from '@mui/icons-material/QrCodeScannerRounded';
+import LeaderboardRoundedIcon from '@mui/icons-material/LeaderboardRounded';
 import { brand } from '../theme/theme';
 
 import { useAuth } from '../context/AuthContext';
@@ -28,6 +29,7 @@ export default function BottomNav() {
 
   const navItems = ALL_NAV_ITEMS.filter((item) => {
     if (user?.role === 'admin' && (item.label === 'Achievements' || item.label === 'Connect' || item.label === 'Events')) return false;
+    if (user?.role === 'adviser' && (item.label === 'Achievements' || item.label === 'Connect')) return false;
     return true;
   }).map(item => {
     if (user?.role === 'admin' && item.label === 'Home') return { ...item, label: 'Dashboard' };
@@ -35,7 +37,9 @@ export default function BottomNav() {
   });
 
   const isOfficer = user?.role === 'officer';
-  if (user?.role === 'admin') {
+  if (user?.role === 'adviser') {
+    navItems.push({ label: 'Leaderboard', icon: <LeaderboardRoundedIcon />, path: '/leaderboard' });
+  } else if (user?.role === 'admin') {
     navItems.push({ label: 'Event Desk', icon: <QrCodeScannerRoundedIcon />, path: '/officer/scan' });
   } else if (isOfficer) {
     navItems.push({ label: 'Officer', icon: <VerifiedUserIcon />, path: '/officer' });

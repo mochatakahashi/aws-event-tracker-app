@@ -193,10 +193,18 @@ export default function AddAccountPanel({
             {!isOfficer && (
               <TextField select size="small" margin="dense" label="Role" value={role} onChange={(e) => setRole(e.target.value as UserRole)}>
                 <MenuItem value="attendee">Attendee</MenuItem>
+                <MenuItem value="adviser">Adviser</MenuItem>
                 <MenuItem value="admin">Admin</MenuItem>
               </TextField>
             )}
           </Box>
+          {!isOfficer && role === 'adviser' && (
+            <Alert severity="info" sx={{ mt: 1 }}>
+              Adviser: sees how the org is doing (events, attendance, officer tasks, leaderboard), posts announcements to the
+              officers and signs requests they send. View-only — can’t edit events, accounts or tasks. Use “Outside attendee”
+              with the department/office as the organization if they don’t have a student ID.
+            </Alert>
+          )}
           {!isOfficer && role === 'attendee' && (
             <TextField
               size="small"

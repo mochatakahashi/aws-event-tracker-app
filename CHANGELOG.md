@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.14] - 2026-10-19
+
+### Added
+- **Adviser account** (role `adviser`, created by an admin — Add account → Role: Adviser, or change the role in Manage Accounts). View-only: an **Adviser dashboard** with officers, upcoming events, open / done-on-time / late tasks, officer tasks (Open · Done · Late) and events with attendance; Events (view only, no Register) and the Leaderboard. No attendee pages; can't edit events, accounts or tasks (server-checked).
+- **Announcements to the officers**: the adviser (or an admin) posts a title + message; every officer and admin gets a notification and sees it under *From the adviser* on their Dashboard. Attendees don't. API: `/api/notifications?action=announcements|announce|announcement`.
+- **Adviser sign-off ("papirma")**: officers and admins send *Ask the adviser to sign* (what, details, file link); the adviser **Approves** (optional note) or **Returns** with what needs to change; the requester is notified and the record stays (who, when, comment). API: `?action=signoffs|signoff|signoff-review`.
+- **Task comments**: admins and the officers assigned can comment on a task (Officer Dashboard and Officer Tasks); the others on the task are notified. API: `POST /api/tasks?action=comment`.
+- **Deadlines at a glance**: *N days left* / *Due today* / *Overdue by N days*, and once done *Done on time* or *Done N days late*. Officer Tasks adds *Done on time* and *Overdue / late* counts.
+- **Task reminders**: the daily 8:00 AM job sends a notification + email the day before the deadline, and when a task is overdue (then every 3 days until done). In-app reminders are posted even when email isn't set up.
+
+### Fixed
+- **Events didn't show on the deployed app**: the Events page loaded each event's registration count with its own request; on Vercel one slow/failed request left the whole list empty. Events now show right away and the counts come from one request (a failure only leaves the counts at 0).
+- The event pass (where the certificate is) no longer shows "Outside Attendee" / "APC Student" beside the name.
+
+---
+
 ## [0.6.13] - 2026-10-19
 
 ### Added

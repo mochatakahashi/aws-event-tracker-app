@@ -44,7 +44,7 @@ function signedUpAs(u: User): string {
   return type === 'officer' && u.officerPosition ? `${base} — ${officerTitle(u)}` : base;
 }
 
-type Filter = 'all' | 'admin' | 'officer' | 'attendee' | 'partner' | 'rejected';
+type Filter = 'all' | 'admin' | 'adviser' | 'officer' | 'attendee' | 'partner' | 'rejected';
 
 /** Quick picks for the optional decline reason. */
 const DECLINE_REASONS = [
@@ -372,6 +372,7 @@ export default function AdminDashboardPage() {
         >
           <ToggleButton value="all">All</ToggleButton>
           <ToggleButton value="admin">Admins</ToggleButton>
+          <ToggleButton value="adviser">Adviser</ToggleButton>
           <ToggleButton value="officer">Officers</ToggleButton>
           <ToggleButton value="attendee">Attendees</ToggleButton>
           <ToggleButton value="partner">Co-organizer staff</ToggleButton>
@@ -555,6 +556,7 @@ export default function AdminDashboardPage() {
                     >
                       <MenuItem value="attendee">Attendee</MenuItem>
                       <MenuItem value="officer">Officer</MenuItem>
+                      <MenuItem value="adviser">Adviser</MenuItem>
                       <MenuItem value="admin">Admin</MenuItem>
                     </TextField>
                   )}

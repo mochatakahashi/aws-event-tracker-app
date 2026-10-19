@@ -96,7 +96,8 @@ export default function LeaderboardPage() {
 
   // Admin-only: a monitoring view
   useEffect(() => {
-    if (user && user.role !== 'admin') navigate('/achievements', { replace: true });
+    // Admins monitor; the adviser views it too
+    if (user && user.role !== 'admin' && user.role !== 'adviser') navigate('/achievements', { replace: true });
   }, [user, navigate]);
 
   const events = useMemo(() => (data?.events ?? []).filter((e) => e.status !== 'cancelled'), [data]);

@@ -212,9 +212,13 @@ function eventAssignedMail(u: any, ev: any): Mail {
   };
 }
 
-function taskMail(u: any, task: any, ev: any, kind: 'assigned' | 'due'): Mail {
+function taskMail(u: any, task: any, ev: any, kind: 'assigned' | 'due' | 'overdue'): Mail {
   const lines = [
-    kind === 'assigned' ? `You have a new task: ${task.title}` : `Reminder: "${task.title}" is due tomorrow.`,
+    kind === 'assigned'
+      ? `You have a new task: ${task.title}`
+      : kind === 'due'
+        ? `Reminder: "${task.title}" is due tomorrow.`
+        : `"${task.title}" is past its deadline and isn't marked done yet. Please finish it or tell your admin.`,
   ];
   const COMMITTEE: Record<string, string> = {
     secretariat: 'Secretariat', operations: 'Operations', marketing: 'Marketing', technicals: 'Technicals', relations: 'Relations',
@@ -240,7 +244,7 @@ function taskMail(u: any, task: any, ev: any, kind: 'assigned' | 'due'): Mail {
   if (task.dueAt) lines.push(`Deadline: ${whenText(task.dueAt)}`);
   return {
     to: addresses(u),
-    subject: kind === 'assigned' ? `New task: ${task.title}` : `Due tomorrow: ${task.title}`,
+    subject: kind === 'assigned' ? `New task: ${task.title}` : kind === 'due' ? `Due tomorrow: ${task.title}` : `Overdue: ${task.title}`,
     heading: `Hi ${firstName(u)},`,
     lines,
     button: { label: 'Open my tasks', path: '/#/officer' },
@@ -330,7 +334,12 @@ async function certificateNotices(
 
 
 
-async function runReminders(client: DynamoDBDocumentClient, tableName: string, appUrl: string) {
+/**
+ * The daily job. Without email set up (emailOn = false) it still posts the
+ * in-app notices (certificates ready, task reminders); event reminder emails
+ * are skipped and stay due.
+ */
+async function runReminders(client: DynamoDBDocumentClient, tableName: string, appUrl: string, emailOn = true) {
   const items = await scanAll(client, tableName);
   const users = new Map(items.filter((i) => i.entityType === 'user').map((u) => [u.id, u]));
   const events = items.filter(isEvent);
@@ -343,6 +352,7 @@ async function runReminders(client: DynamoDBDocumentClient, tableName: string, a
   const failures: string[] = [];
   /** Send one email; a failure is recorded instead of stopping the whole run. */
   const trySend = async (mail: Mail) => {
+    if (!emailOn) return false;
     try {
       return await sendMail(mail, appUrl);
     } catch (err: any) {
@@ -351,7 +361,7 @@ async function runReminders(client: DynamoDBDocumentClient, tableName: string, a
     }
   };
 
-  for (const ev of events) {
+  for (const ev of emailOn ? events : []) {
     if (ev.status === 'cancelled' || !ev.startAt) continue;
     const day = manilaDay(ev.startAt);
     const kind = day === tomorrow ? 'tomorrow' : day === today ? 'today' : null;
@@ -380,18 +390,52 @@ async function runReminders(client: DynamoDBDocumentClient, tableName: string, a
     );
   }
 
-  sent += await certificateNotices(client, tableName, events, regs, users, trySend);
+  sent += await certificateNotices(client, tableName, events, regs, users, emailOn ? trySend : null);
 
+  // Unfinished tasks: a reminder the day before the deadline, then when it's overdue
+  // (and every 3 days after) until it's done — bell + email to each assignee.
+  const DAY = 24 * 3600 * 1000;
   for (const task of tasks) {
-    if (task.status === 'done' || !task.dueAt || task.dueReminderSentAt) continue;
-    if (manilaDay(task.dueAt) !== tomorrow) continue;
+    if (task.status === 'done' || !task.dueAt) continue;
+    if (task.approval && task.approval !== 'approved') continue; // officer-added, not approved yet
     const ev = events.find((e) => e.id === task.eventId);
+    const dueMs = new Date(task.dueAt).getTime();
+    const now = Date.now();
+    let kind: 'due' | 'overdue' | null = null;
+    if (!task.dueReminderSentAt && manilaDay(task.dueAt) === tomorrow) kind = 'due';
+    else if (dueMs < now && (!task.overdueReminderAt || now - new Date(task.overdueReminderAt).getTime() >= 3 * DAY - 3600 * 1000)) kind = 'overdue';
+    if (!kind) continue;
+    const daysLate = Math.max(1, Math.ceil((now - dueMs) / DAY));
     for (const id of task.assigneeIds || []) {
       const u = users.get(id);
-      if (u && (await trySend(taskMail(u, task, ev, 'due')))) sent++;
+      if (!u) continue;
+      await client.send(
+        new PutCommand({
+          TableName: tableName,
+          Item: {
+            id: `ntf-${Date.now()}-${Math.floor(Math.random() * 1e6)}`,
+            entityType: 'notification',
+            personId: u.id,
+            kind: 'task-assigned',
+            title: kind === 'due' ? `Due tomorrow: ${task.title}` : `Overdue: ${task.title}`,
+            message:
+              kind === 'due'
+                ? `Deadline ${whenText(task.dueAt)}. Mark it done on your Officer Dashboard when you finish.`
+                : `This task was due ${whenText(task.dueAt)} (${daysLate} day${daysLate === 1 ? '' : 's'} ago) and isn't done yet.`,
+            link: '/officer',
+            read: false,
+            createdAt: new Date().toISOString(),
+          },
+        }),
+      );
+      if (await trySend(taskMail(u, task, ev, kind))) sent++;
     }
+    const stamp = new Date().toISOString();
     await client.send(
-      new PutCommand({ TableName: tableName, Item: { ...task, dueReminderSentAt: new Date().toISOString() } })
+      new PutCommand({
+        TableName: tableName,
+        Item: kind === 'due' ? { ...task, dueReminderSentAt: stamp } : { ...task, overdueReminderAt: stamp },
+      }),
     );
   }
   if (failures.length > 0) {
@@ -453,16 +497,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(401).json({ error: 'Unauthorized' });
       }
       if (notConfigured) {
-        // No email set up: still post the "certificate ready" notices in the app
-        const items = await scanAll(client, tableName);
-        await certificateNotices(
-          client,
-          tableName,
-          items.filter(isEvent),
-          items.filter((i) => i.entityType === 'registration'),
-          new Map(items.filter((i) => i.entityType === 'user').map((u) => [u.id, u])),
-          null,
-        );
+        // No email set up: still post the in-app notices (certificates, task reminders)
+        await runReminders(client, tableName, appUrl, false);
         return res.status(200).json({ sent: 0, skipped: 'Email configuration is not set (GMAIL_USER/GMAIL_APP_PASSWORD or SES_FROM_EMAIL)' });
       }
       try {
@@ -476,6 +512,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
     const body = req.body || {};
+    if (notConfigured && body.type === 'run-reminders') {
+      const actor = await get(body.actorId);
+      if (actor?.entityType !== 'user' || actor.role !== 'admin') return res.status(403).json({ error: 'Only an admin can run reminders.' });
+      await runReminders(client, tableName, appUrl, false);
+      return res.status(200).json({ sent: 0, skipped: 'In-app reminders posted. Email is not set up yet (set GMAIL_USER and GMAIL_APP_PASSWORD, or SES_FROM_EMAIL).' });
+    }
     if (notConfigured) {
       return res.status(200).json({ sent: 0, skipped: 'Email is not set up yet (set GMAIL_USER and GMAIL_APP_PASSWORD, or SES_FROM_EMAIL).' });
     }

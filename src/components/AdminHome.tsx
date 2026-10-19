@@ -27,6 +27,8 @@ import { notifyQuietly } from '../services/notifyService';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
 import MarkEmailReadOutlinedIcon from '@mui/icons-material/MarkEmailReadOutlined';
+import AnnouncementsCard from './AnnouncementsCard';
+import SignoffPanel from './SignoffPanel';
 
 interface Item {
   title: string;
@@ -241,9 +243,17 @@ export default function AdminHome() {
         </Button>
         <Typography variant="caption" color="text.secondary">
           {reminderNote ??
-            'Event reminders (day before and "see you today") and task due reminders are emailed automatically every day at 8:00 AM.'}
+            'Event reminders (day before and "see you today"), task reminders (day before the deadline, then when overdue) are sent automatically every day at 8:00 AM.'}
         </Typography>
       </Stack>
+
+      {/* The adviser: announcements to officers, sign-off requests */}
+      {user && (
+        <Box sx={{ mt: 4, display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'repeat(2, minmax(0, 1fr))' }, gap: { xs: 0, lg: 3 }, alignItems: 'start' }}>
+          <SignoffPanel viewer={user} />
+          <AnnouncementsCard viewer={user} limit={3} />
+        </Box>
+      )}
     </Box>
   );
 }

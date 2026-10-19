@@ -28,7 +28,7 @@ import { notifyInApp } from '../services/notificationService';
 import { brand } from '../theme/theme';
 import type { User } from '../types/auth';
 import type { AppEvent } from '../types/event';
-import { TASK_STATUS_LABELS, isApprovedTask, type OfficerTask, type TaskStatus } from '../types/task';
+import { TASK_STATUS_LABELS, deadlineInfo, isApprovedTask, type OfficerTask, type TaskStatus } from '../types/task';
 import TaskRequestsPanel from '../components/TaskRequestsPanel';
 import { AdminHeader, EmptyNote, StatRow, StatTile, formatDateTime } from '../components/AdminUi';
 import {
@@ -43,6 +43,7 @@ import type { Committee, Subcommittee } from '../types/auth';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import ContentTracker from '../components/ContentTracker';
+import TaskThread, { DeadlineChip } from '../components/TaskThread';
 
 type Filter = 'open' | 'done' | 'all';
 
@@ -278,6 +279,8 @@ export default function AdminTasksPage() {
         <StatTile label="To do" value={inTab.filter((t) => t.status === 'todo').length} />
         <StatTile label="In progress" value={inTab.filter((t) => t.status === 'in-progress').length} color={brand.warning} />
         <StatTile label="Done" value={inTab.filter((t) => t.status === 'done').length} color={brand.success} />
+        <StatTile label="Done on time" value={inTab.filter((t) => deadlineInfo(t).label === 'Done on time').length} color={brand.success} />
+        <StatTile label="Overdue / late" value={inTab.filter((t) => deadlineInfo(t).tone === 'late').length} color={brand.error} />
       </StatRow>
       )}
 
@@ -502,12 +505,20 @@ export default function AdminTasksPage() {
                           label={`Deadline ${formatDateTime(t.dueAt)}`}
                         />
                       )}
+                      <DeadlineChip task={t} />
                     </Stack>
                     {t.status === 'done' && t.completedAt && (
                       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.75 }}>
                         Done {formatDateTime(t.completedAt)}
                         {t.completedBy ? ` by ${nameOf(t.completedBy)}` : ''}
                       </Typography>
+                    )}
+                    {user && (
+                      <TaskThread
+                        task={t}
+                        me={user}
+                        onChange={(updated) => setTasks((prev) => prev.map((x) => (x.id === updated.id ? updated : x)))}
+                      />
                     )}
                   </Box>
                   <Stack alignItems="flex-end" spacing={0.5}>

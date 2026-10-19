@@ -76,7 +76,7 @@ export default function AppLayout() {
   const profileMenuOpen = Boolean(profileAnchor);
   // The sidebar avatar (laptops) opens the same menu, upwards
   const [menuFromSidebar, setMenuFromSidebar] = useState(false);
-  const roleName = user?.role === 'admin' ? 'Admin' : user?.role === 'officer' ? 'Officer' : isPartnerStaff(user) ? `Co-organizer staff · ${user?.partnerOrg}` : 'Attendee';
+  const roleName = user?.role === 'admin' ? 'Admin' : user?.role === 'adviser' ? 'Adviser' : user?.role === 'officer' ? 'Officer' : isPartnerStaff(user) ? `Co-organizer staff · ${user?.partnerOrg}` : 'Attendee';
 
   function handleLogout() {
     setProfileAnchor(null);
@@ -139,8 +139,10 @@ export default function AppLayout() {
         {ALL_NAV_ITEMS.filter(
           (item) =>
             !(user?.role === 'admin' && (item.label === 'Achievements' || item.label === 'Connect' || item.label === 'Events')) &&
-            // The leaderboard is for admins to monitor
-            !(user?.role !== 'admin' && item.label === 'Leaderboard'),
+            // The adviser monitors: no attendee pages
+            !(user?.role === 'adviser' && (item.label === 'Achievements' || item.label === 'Connect')) &&
+            // The leaderboard is for admins (and the adviser) to monitor
+            !(user?.role !== 'admin' && user?.role !== 'adviser' && item.label === 'Leaderboard'),
         ).map(item => {
           if (user?.role === 'admin' && item.label === 'Dashboard') return { ...item, label: 'Admin Dashboard' };
           return item;
@@ -167,7 +169,7 @@ export default function AppLayout() {
             />
           </ListItemButton>
         ))}
-        {user?.role !== 'admin' && (
+        {user?.role !== 'admin' && user?.role !== 'adviser' && (
           <ListItemButton component={RouterLink} to="/pass" selected={isActive('/pass')} data-tour="nav-pass">
             <ListItemIcon sx={{ minWidth: 40 }}><QrCode2RoundedIcon /></ListItemIcon>
             <ListItemText
@@ -359,7 +361,7 @@ export default function AppLayout() {
               <ListItemIcon><SchoolRoundedIcon fontSize="small" /></ListItemIcon>
               <ListItemText primary="Replay the app tour" secondary="Forgot where things are?" secondaryTypographyProps={{ fontSize: '0.7rem' }} />
             </MenuItem>
-            {user?.role !== 'admin' && (
+            {user?.role !== 'admin' && user?.role !== 'adviser' && (
               <MenuItem onClick={() => { setProfileAnchor(null); navigate('/pass'); }} sx={{ py: 1.2 }}>
                 <ListItemIcon><QrCode2RoundedIcon fontSize="small" /></ListItemIcon>
                 <ListItemText primary="My Event Pass" />

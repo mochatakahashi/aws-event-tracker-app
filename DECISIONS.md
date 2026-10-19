@@ -368,6 +368,26 @@ Event-day work was spread over several pages; registrations, certificates, conne
 - **Positive**: least privilege for outside helpers with no new screens or role plumbing; one place for event-day work; nothing counts until a person with authority approves it.
 - **Negative**: co-organizer staff appear in the officers' *Event team* list on the event page (labelled with their org); the server still trusts `actorId` (ADR-008) until signed sessions arrive.
 
+
+---
+
+## ADR-019: Adviser as a View-only Role with Two Write Actions
+
+### Status
+**Accepted** (v0.6.14)
+
+### Context
+The org's adviser wants to follow how the org is doing, approve documents ("papirma") and post announcements, without being able to change events, accounts or tasks.
+
+### Decision
+- A separate **`adviser` role**, created only by an admin. Every existing admin-only check keeps rejecting it, so it's view-only by default.
+- Its only writes are **announcements** (to officers and admins only, as the club chose) and **sign-off decisions**, stored as `announcement` / `signoff` records behind `?action=` routes in `api/notifications.ts` (12-function limit).
+- Sign-off requests carry a **file link** instead of an upload, so documents stay in the org's Drive.
+
+### Consequences
+- **Positive**: the adviser sees the org's state and leaves an auditable approval trail with no risk of accidental edits.
+- **Negative**: a document edited after approval isn't detected (the link points to a live file); the server still trusts `actorId` (ADR-008).
+
 ---
 
 *Last Updated: October 2026*
