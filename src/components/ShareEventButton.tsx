@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import Menu from '@mui/material/Menu';
@@ -6,6 +6,13 @@ import MenuItem from '@mui/material/MenuItem';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import Snackbar from '@mui/material/Snackbar';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import TextField from '@mui/material/TextField';
+import Button from '@mui/material/Button';
+import Typography from '@mui/material/Typography';
 import ShareRoundedIcon from '@mui/icons-material/ShareRounded';
 import LinkRoundedIcon from '@mui/icons-material/LinkRounded';
 import FacebookRoundedIcon from '@mui/icons-material/FacebookRounded';
@@ -20,51 +27,80 @@ import type { AppEvent } from '../types/event';
  */
 export async function eventShareLink(eventId: string): Promise<string> {
   const origin = typeof window === 'undefined' ? '' : window.location.origin;
-  const page = typeof window === 'undefined' ? '' : `${origin}${window.location.pathname}`;
   if (await isRemoteAvailable('/api/events')) return `${origin}/api/events?action=share&id=${encodeURIComponent(eventId)}`;
+  return directLink(eventId);
+}
+
+/** The page link (works everywhere, no preview), used until the preview link is known. */
+function directLink(eventId: string): string {
+  const page = typeof window === 'undefined' ? '' : `${window.location.origin}${window.location.pathname}`;
   return `${page}#/e/${encodeURIComponent(eventId)}`;
 }
 
-/** Share an event: the phone's share sheet, or copy link / Facebook / email. */
-export default function ShareEventButton({ event, sx }: { event: Pick<AppEvent, 'id' | 'title'>; sx?: object }) {
+/**
+ * Share an event: the phone's share sheet, or copy link / Facebook / email.
+ * The link is worked out when the button appears, so tapping it opens the share
+ * sheet right away (phones only allow that straight from the tap).
+ */
+export default function ShareEventButton({ event, sx, size }: { event: Pick<AppEvent, 'id' | 'title'>; sx?: object; size?: 'small' | 'medium' }) {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
-  const [link, setLink] = useState('');
+  const [link, setLink] = useState(() => directLink(event.id));
   const [note, setNote] = useState('');
+  const [showLink, setShowLink] = useState(false);
 
-  async function open(el: HTMLElement) {
-    const url = await eventShareLink(event.id);
-    setLink(url);
-    // Phones: the built-in share sheet (Messenger, Facebook, Instagram, SMS...)
-    const coarse = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
-    if (coarse && typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
-      try {
-        await navigator.share({ title: event.title, text: `Join me at ${event.title}!`, url });
-        return;
-      } catch (e) {
-        if ((e as Error)?.name === 'AbortError') return; // closed the share sheet
-      }
+  useEffect(() => {
+    let alive = true;
+    setLink(directLink(event.id));
+    eventShareLink(event.id)
+      .then((url) => alive && setLink(url))
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [event.id]);
+
+  function open(el: HTMLElement) {
+    // Phones and tablets: the built-in share sheet (Messenger, Facebook, Instagram, SMS...)
+    const touch = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
+    if (touch && typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+      navigator
+        .share({ title: event.title, text: `Join me at ${event.title}!`, url: link })
+        .catch((e: Error) => {
+          // Closed the sheet: nothing to do. Anything else (not allowed in this app's browser): show the menu.
+          if (e?.name !== 'AbortError') setAnchor(el);
+        });
+      return;
     }
     setAnchor(el);
   }
 
   async function copy() {
+    setAnchor(null);
     try {
       await navigator.clipboard.writeText(link);
       setNote('Link copied. Paste it anywhere to share the event.');
     } catch {
-      window.prompt('Copy this link:', link);
+      // Clipboard blocked (some in-app browsers): show the link to copy by hand
+      setShowLink(true);
     }
-    setAnchor(null);
   }
 
   return (
     <>
       <Tooltip title="Share event">
-        <IconButton aria-label="Share event" onClick={(e) => void open(e.currentTarget)} sx={sx}>
-          <ShareRoundedIcon />
+        <IconButton
+          aria-label="Share event"
+          size={size}
+          onClick={(e) => {
+            e.stopPropagation();
+            open(e.currentTarget);
+          }}
+          sx={sx}
+        >
+          <ShareRoundedIcon sx={size === 'small' ? { fontSize: 18 } : undefined} />
         </IconButton>
       </Tooltip>
-      <Menu anchorEl={anchor} open={Boolean(anchor)} onClose={() => setAnchor(null)} data-testid="share-menu">
+      <Menu anchorEl={anchor} open={Boolean(anchor)} onClose={() => setAnchor(null)} data-testid="share-menu" onClick={(e) => e.stopPropagation()}>
         <MenuItem onClick={() => void copy()}>
           <ListItemIcon>
             <LinkRoundedIcon fontSize="small" />
@@ -94,6 +130,18 @@ export default function ShareEventButton({ event, sx }: { event: Pick<AppEvent, 
           <ListItemText>Send by email</ListItemText>
         </MenuItem>
       </Menu>
+      <Dialog open={showLink} onClose={() => setShowLink(false)} fullWidth maxWidth="xs" onClick={(e) => e.stopPropagation()}>
+        <DialogTitle sx={{ textTransform: 'none', letterSpacing: 0, fontWeight: 800 }}>Event link</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            Copy this link and send it to anyone.
+          </Typography>
+          <TextField fullWidth size="small" value={link} inputProps={{ readOnly: true, 'aria-label': 'Event link' }} onFocus={(e) => e.target.select()} autoFocus />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowLink(false)}>Done</Button>
+        </DialogActions>
+      </Dialog>
       <Snackbar open={Boolean(note)} autoHideDuration={2500} onClose={() => setNote('')} message={note} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }} />
     </>
   );

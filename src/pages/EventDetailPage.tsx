@@ -29,7 +29,10 @@ import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
 import { alpha } from '@mui/material/styles';
 import { getEvent, updateEvent } from '../services/eventService';
 import { getSpeakersByIds } from '../services/speakerService';
-import { getSessionsByEvent } from '../services/sessionService';
+import { getSessionsByEvent, updateSession } from '../services/sessionService';
+import SpeakerEditDialog from '../components/SpeakerEditDialog';
+import EditRoundedIcon from '@mui/icons-material/EditRounded';
+import PersonRemoveRoundedIcon from '@mui/icons-material/PersonRemoveRounded';
 import {
   getRegistrationsByEvent,
   findRegistration,
@@ -93,6 +96,26 @@ export default function EventDetailPage() {
   const [notFound, setNotFound] = useState(false);
   const [working, setWorking] = useState(false);
   const [showAllSpeakers, setShowAllSpeakers] = useState(false);
+  // Admin: edit a speaker or take them off this event's lineup
+  const [editingSpeaker, setEditingSpeaker] = useState<Speaker | null>(null);
+  const [lineupError, setLineupError] = useState('');
+  async function removeFromLineup(sp: Speaker) {
+    if (!event || !user) return;
+    setLineupError('');
+    try {
+      // From the event's own list and from any of its sessions
+      if ((event.speakerIds || []).includes(sp.id)) {
+        setEvent(await updateEvent(event.id, { speakerIds: event.speakerIds.filter((x) => x !== sp.id) }));
+      }
+      const sessions = await getSessionsByEvent(event.id);
+      for (const ses of sessions.filter((x) => (x.speakerIds || []).includes(sp.id))) {
+        await updateSession(ses.id, { speakerIds: ses.speakerIds.filter((x) => x !== sp.id) }, user.personId);
+      }
+      setSpeakers((prev) => prev.filter((x) => x.id !== sp.id));
+    } catch (e) {
+      setLineupError(e instanceof Error ? e.message : 'Could not remove the speaker.');
+    }
+  }
   const [allPeople, setAllPeople] = useState<Person[]>([]);
   const [regError, setRegError] = useState('');
 
@@ -456,13 +479,42 @@ export default function EventDetailPage() {
             <Typography variant="h3" sx={{ fontWeight: 800, mb: 2 }}>
               Speakers Lineup
             </Typography>
+            {lineupError && (
+              <Alert severity="error" sx={{ mb: 2 }} onClose={() => setLineupError('')}>
+                {lineupError}
+              </Alert>
+            )}
+            <SpeakerEditDialog
+              speaker={editingSpeaker}
+              onClose={() => setEditingSpeaker(null)}
+              onSaved={() => {
+                setEditingSpeaker(null);
+                void lineupFor(event).then(setSpeakers).catch(() => undefined);
+              }}
+            />
             {speakers.length === 0 ? (
               <Typography color="text.secondary">No speakers announced yet.</Typography>
             ) : (
               <List disablePadding>
                 {(showAllSpeakers ? speakers : speakers.slice(0, 2)).map((s) => (
-                  <ListItem key={s.id} disableGutters sx={{ mb: 1.5, display: 'block' }}>
+                  <ListItem key={s.id} disableGutters sx={{ mb: 1.5, display: 'block' }} data-testid={`lineup-${s.id}`}>
                     <SpeakerItem speaker={s} />
+                    {user?.role === 'admin' && (
+                      <Stack direction="row" spacing={1} sx={{ mt: 0.75, pl: { xs: 0, sm: 8 } }}>
+                        <Button size="small" startIcon={<EditRoundedIcon fontSize="small" />} onClick={() => setEditingSpeaker(s)} aria-label={`Edit speaker ${s.name}`}>
+                          Edit
+                        </Button>
+                        <Button
+                          size="small"
+                          color="error"
+                          startIcon={<PersonRemoveRoundedIcon fontSize="small" />}
+                          onClick={() => void removeFromLineup(s)}
+                          aria-label={`Remove ${s.name} from this event`}
+                        >
+                          Remove from event
+                        </Button>
+                      </Stack>
+                    )}
                   </ListItem>
                 ))}
               </List>

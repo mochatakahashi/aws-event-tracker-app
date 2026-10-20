@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.23] - 2026-10-20
+
+### Added
+- **Edit and remove speakers on the event page** (admins): each speaker in the **Speakers Lineup** has **Edit** (name, title / role, organization, bio, email) and **Remove from event** (takes them off the event and off its sessions). Changes show right away.
+- **Share from the events list**: every event card has a Share button next to the bookmark.
+
+### Fixed
+- **Sharing on phones**: the share sheet now opens straight from the tap. Before, the app looked up the link first, and phones (iPhone especially) refused to open the share sheet after that wait.
+- **Copy link** when the browser blocks the clipboard (some in-app browsers): the link is shown in a box to copy by hand.
+
+---
+
 ## [0.6.22] - 2026-10-20
 
 ### Added

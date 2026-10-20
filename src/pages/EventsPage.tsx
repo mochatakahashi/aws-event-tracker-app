@@ -13,6 +13,7 @@ import Stack from '@mui/material/Stack';
 import Avatar from '@mui/material/Avatar';
 import AvatarGroup from '@mui/material/AvatarGroup';
 import IconButton from '@mui/material/IconButton';
+import ShareEventButton from '../components/ShareEventButton';
 import CircularProgress from '@mui/material/CircularProgress';
 import PlaceIcon from '@mui/icons-material/PlaceRounded';
 import AccessTimeIcon from '@mui/icons-material/AccessTimeRounded';
@@ -418,6 +419,23 @@ export default function EventsPage() {
                     </Stack>
                   </CardContent>
                 </CardActionArea>
+                    {/* Share (next to the bookmark / edit icon) */}
+                    <ShareEventButton
+                      event={event}
+                      size="small"
+                      sx={{
+                        position: 'absolute',
+                        top: 12,
+                        right: 52,
+                        bgcolor: 'rgba(255, 255, 255, 0.92)',
+                        backdropFilter: 'blur(6px)',
+                        color: brand.primary,
+                        width: 32,
+                        height: 32,
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                        '&:hover': { bgcolor: '#fff' },
+                      }}
+                    />
                     {/* Bookmark or Edit Icon (Top Right) - outside the card's click area so it doesn't open the event */}
                     <IconButton
                       size="small"
