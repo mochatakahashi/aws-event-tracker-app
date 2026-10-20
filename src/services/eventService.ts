@@ -164,6 +164,7 @@ export interface EventStaff {
   officerRoles: Record<string, string>;
   stampOfficerIds: string[];
   checkinOfficerIds: string[];
+  foodOfficerIds?: string[];
 }
 
 /**
@@ -177,6 +178,7 @@ export async function setEventStaff(eventId: string, staff: EventStaff, actorId:
     officerRoles: staff.officerRoles,
     stampOfficerIds: [...new Set(staff.stampOfficerIds)].filter((x) => assigned.has(x)),
     checkinOfficerIds: [...new Set(staff.checkinOfficerIds)].filter((x) => assigned.has(x)),
+    foodOfficerIds: [...new Set(staff.foodOfficerIds ?? [])].filter((x) => assigned.has(x)),
   };
   if (await checkRemoteApi()) {
     const res = await fetch(`/api/events?id=${encodeURIComponent(eventId)}&action=staff`, {

@@ -6,11 +6,12 @@ import type { AppEvent } from '../types/event';
  * an admin ticked them on the staff list. The server checks the same rule.
  */
 
-export type StaffDuty = 'stamps' | 'checkin';
+export type StaffDuty = 'stamps' | 'checkin' | 'food';
 
 export const DUTY_LABELS: Record<StaffDuty, string> = {
   stamps: 'Approve stamps',
   checkin: 'Check people in',
+  food: 'Food stubs',
 };
 
 export interface StaffActor {
@@ -31,8 +32,8 @@ export function mayWorkEvents(user: Actor | null | undefined): boolean {
   return Boolean(user && (user.role === 'admin' || user.role === 'officer' || isPartnerStaff(user)));
 }
 
-export function dutyIds(event: Pick<AppEvent, 'stampOfficerIds' | 'checkinOfficerIds'>, duty: StaffDuty): string[] {
-  return (duty === 'stamps' ? event.stampOfficerIds : event.checkinOfficerIds) ?? [];
+export function dutyIds(event: Pick<AppEvent, 'stampOfficerIds' | 'checkinOfficerIds' | 'foodOfficerIds'>, duty: StaffDuty): string[] {
+  return (duty === 'stamps' ? event.stampOfficerIds : duty === 'checkin' ? event.checkinOfficerIds : event.foodOfficerIds) ?? [];
 }
 
 /**
@@ -53,7 +54,7 @@ export function eventsWithDuty(user: Actor | null | undefined, events: AppEvent[
 
 /** Events where the user has any staff duty. */
 export function staffEvents(user: Actor | null | undefined, events: AppEvent[]): AppEvent[] {
-  return events.filter((e) => canDo(user, e, 'stamps') || canDo(user, e, 'checkin'));
+  return events.filter((e) => canDo(user, e, 'stamps') || canDo(user, e, 'checkin') || (Boolean(e.food?.enabled) && canDo(user, e, 'food')));
 }
 
 /** Suggested duties for a new event role (admin can change the ticks). */

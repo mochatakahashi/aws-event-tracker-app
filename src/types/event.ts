@@ -75,6 +75,8 @@ export interface AppEvent {
    */
   stampOfficerIds?: string[];
   checkinOfficerIds?: string[];
+  /** Food team: who may give out food stubs (admins always can). */
+  foodOfficerIds?: string[];
   /** Optional custom image URL for the event cover. */
   imageUrl?: string;
   /** Link to external event page (e.g. registration form). */
@@ -91,6 +93,8 @@ export interface AppEvent {
   stampsRequired?: boolean;
   /** Evaluation form (missing: the standard questions). Opens 30 minutes before the event ends. */
   evaluation?: EventEvaluation;
+  /** Food stubs: each person who gets food can claim each meal once (staff scan their pass). */
+  food?: EventFood;
   /** Version of the club's official event info applied (see src/data/clubEventInfo.ts). */
   infoVersion?: number;
   /** Automatically assigned timestamp. */
@@ -99,3 +103,16 @@ export interface AppEvent {
 
 export type NewEventInput = Omit<AppEvent, 'id'>;
 export type UpdateEventInput = Partial<Omit<AppEvent, 'id'>>;
+
+/** A meal people claim once with a food stub (e.g. Lunch, Snack). */
+export interface FoodMeal {
+  id: string;
+  label: string;
+  /** Optional: can't be given out before this time (ISO 8601). */
+  opensAt?: string;
+}
+
+export interface EventFood {
+  enabled: boolean;
+  meals: FoodMeal[];
+}

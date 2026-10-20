@@ -569,5 +569,26 @@ Directors asked for a spreadsheet-style view of their committee's tasks and a wa
 
 ---
 
+## ADR-029: Food Stubs as One-Time Claims Scanned by the Food Team
+
+### Status
+**Accepted** (v0.6.31)
+
+### Context
+Events like Tech Barangay give lunch and a snack. Paper stubs get lost or copied, and the club wanted it in the app next to check-in and stamps, with each person getting only one of each.
+
+### Decision
+- Meals are set per event (`event.food`: on/off, up to 6 meals, optional opening time). Default Lunch and Snack.
+- A claim is its own record (`entityType: 'mealclaim'`) with a fixed id per event, person and meal, written with a DynamoDB condition (`attribute_not_exists(id)`), so two phones scanning at once still make one claim.
+- Only the food team (a third duty list, `foodOfficerIds`, set by an admin) and admins can give or undo. Staff scan the person's pass; the attendee's pass only shows the status, so nobody can claim for themselves.
+- Who gets food is worked out on the server: checked-in attendees, the event's officers and co-organizer staff, and speakers with an account. Admins are left out (they monitor events).
+- Routes live on `/api/registrations` (`action=meals | meal | meal-undo`) to stay within the Vercel function limit.
+
+### Consequences
+- **Positive**: no double claims; live counts per meal; officers and speakers without a pass are handled by name in the Food tab.
+- **Negative**: needs the live database (no offline giving). Speakers without an account can't be counted; give them food outside the app or make them an account.
+
+---
+
 *Last Updated: October 2026*
 

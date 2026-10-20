@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.31] - 2026-10-20
+
+### Added
+- **Food stubs**: in *Edit event*, turn on **Food stubs** and list the meals (default **Lunch** and **Snack**, up to 6), each with an optional time it opens. Everyone who gets food can claim **one of each meal**: checked-in attendees, officers on the event, co-organizer staff on it, and speakers with an account. Admins only monitor (no stubs).
+- **Food team**: a new **Food** duty in *Event staff* (shown once food stubs are on). Only the food team and admins can give out meals; the server checks it.
+- **Giving food at the table**: scanning a pass in the Event Desk shows a **Food stubs** box with **Give Lunch** / **Give Snack**. A second claim is refused and shows when it was claimed and by whom, even when two phones scan at the same moment. A meal can't be given before its opening time.
+- **Event Desk → Food tab**: pick a meal to see how many were given (e.g. *Lunch 45/120*), find people by name (officers and speakers who have no pass), give or **Undo** a mistaken claim, and filter *Not yet / Claimed / All*. Refreshes every 20 s.
+- **Stub status for attendees**: My Event Pass and the event page show each meal as *Ready to claim*, *Opens …* or *Claimed 12:05 PM*. Before check-in it says the stubs unlock when you're checked in.
+- The *Your access at this event* card shows **Give out food stubs** with a button to the Food tab for the food team.
+
+---
+
 ## [0.6.30] - 2026-10-20
 
 ### Added

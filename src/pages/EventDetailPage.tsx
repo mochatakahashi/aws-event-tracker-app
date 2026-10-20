@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import FoodStubsCard from '../components/FoodStubsCard';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -528,6 +529,11 @@ export default function EventDetailPage() {
               <Box sx={{ mt: 3, '&:empty': { display: 'none' } }} data-testid="event-passport">
                 <EventStampCard event={event} title="YOUR STAMP PASSPORT" hideWhenEmpty />
               </Box>
+            )}
+
+            {/* Food stubs: registered attendees, the event team and speakers */}
+            {user && user.role !== 'admin' && event.food?.enabled && event.status !== 'cancelled' && (
+              <FoodStubsCard event={event} personId={user.personId} registered={Boolean(myReg && myReg.rsvp !== 'declined')} />
             )}
 
             <Divider sx={{ my: 3 }} />

@@ -39,6 +39,16 @@ import QRCode from 'qrcode';
  * POST   /api/registrations?action=evaluate { eventId, personId, answers }   → saves it, unlocks the certificate
  * GET    /api/registrations?action=evaluations&eventId=&actorId=   → all answers (admin, adviser, the event's officers)
  *
+ * Food stubs (event.food = { enabled, meals: [{ id, label, opensAt? }] }; one of each meal per person):
+ * GET    /api/registrations?action=meals&eventId=&actorId=[&personId=]
+ *        → with personId: that person's stubs (themselves, or the food team / admins);
+ *          without: everyone who gets food and every claim (food team / admins)
+ * POST   /api/registrations?action=meal      { actorId, eventId, personId, mealId } → gives the meal (food team / admins)
+ * POST   /api/registrations?action=meal-undo { actorId, eventId, personId, mealId } → takes a mistaken claim back
+ *        Who gets food: checked-in attendees, the event's officers and co-organizer staff, and its speakers
+ *        with an account. Admins only monitor. Claims are saved as entityType 'mealclaim' with the id
+ *        meal-<eventId>-<personId>-<mealId>, written only if it doesn't exist yet (no double claims).
+ *
  * Certificates are saved to s3://$AWS_S3_BUCKET_NAME/certificates/<eventId>/<certificateId>.pdf
  */
 
@@ -415,6 +425,53 @@ function appBase(req: VercelRequest): string {
   return `${proto}://${host}`;
 }
 
+/** Admins and the event's food team (officers / co-organizer staff on foodOfficerIds). */
+async function requireFoodStaff(client: DynamoDBDocumentClient, tableName: string, actorId: unknown, event: any) {
+  if (typeof actorId !== 'string' || !actorId) return null;
+  const actor = (await client.send(new GetCommand({ TableName: tableName, Key: { id: actorId } }))).Item;
+  if (actor?.entityType !== 'user' || (actor.status ?? 'approved') !== 'approved') return null;
+  if (actor.role === 'admin') return actor;
+  const partner = actor.role === 'attendee' && typeof actor.partnerOrg === 'string' && actor.partnerOrg.trim() !== '';
+  if (actor.role !== 'officer' && !partner) return null;
+  return Array.isArray(event?.foodOfficerIds) && event.foodOfficerIds.includes(actor.id) ? actor : null;
+}
+
+type FoodKind = 'attendee' | 'officer' | 'staff' | 'speaker';
+const FOOD_KIND_LABELS: Record<FoodKind, string> = { attendee: 'Attendee', officer: 'Officer', staff: 'Co-organizer staff', speaker: 'Speaker' };
+
+/** Everyone who gets food at the event, with why (checked in / on the team / speaker). Admins are left out. */
+async function foodPeople(client: DynamoDBDocumentClient, tableName: string, event: any) {
+  const [users, regs, speakers, sessions] = await Promise.all([
+    scanType(client, tableName, 'user'),
+    scanType(client, tableName, 'registration'),
+    scanType(client, tableName, 'speaker'),
+    scanType(client, tableName, 'session'),
+  ]);
+  const byId = new Map(users.map((u) => [u.id, u]));
+  const out = new Map<string, { personId: string; name: string; kind: FoodKind; label: string }>();
+  const add = (personId: string, kind: FoodKind) => {
+    const u = byId.get(personId);
+    if (!u || u.role === 'admin' || (u.status ?? 'approved') !== 'approved' || out.has(personId)) return;
+    out.set(personId, { personId, name: u.name || personId, kind, label: FOOD_KIND_LABELS[kind] });
+  };
+  const team = new Set<string>([
+    ...(event.officerIds || []),
+    ...(event.stampOfficerIds || []),
+    ...(event.checkinOfficerIds || []),
+    ...(event.foodOfficerIds || []),
+  ]);
+  for (const id of team) add(id, byId.get(id)?.role === 'officer' ? 'officer' : 'staff');
+  const speakerIds = new Set<string>([...(event.speakerIds || []), ...sessions.filter((x) => x.eventId === event.id).flatMap((x) => x.speakerIds || [])]);
+  for (const sp of speakers) if (speakerIds.has(sp.id) && typeof sp.personId === 'string') add(sp.personId, 'speaker');
+  for (const r of regs) if (r.eventId === event.id && r.checkedIn) add(r.personId, 'attendee');
+  return [...out.values()];
+}
+
+const mealClaimId = (eventId: string, personId: string, mealId: string) => `meal-${eventId}-${personId}-${mealId}`.slice(0, 250);
+
+const manilaTime = (iso: string) =>
+  new Date(iso).toLocaleString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -665,6 +722,83 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         updated.push(clean(merged));
       }
       return res.status(200).json({ updated });
+    }
+
+    // Food stubs
+    if (action === 'meals' || action === 'meal' || action === 'meal-undo') {
+      const src = req.method === 'GET' ? q : req.body || {};
+      const eventId = str(src.eventId);
+      const personId = str(src.personId);
+      const actorId = str(src.actorId);
+      if (!eventId) return res.status(400).json({ error: 'eventId is required' });
+      const event = (await client.send(new GetCommand({ TableName: tableName, Key: { id: eventId } }))).Item;
+      if (!event || event.entityType !== 'event') return res.status(404).json({ error: 'Event not found' });
+      const food = event.food && event.food.enabled ? event.food : { enabled: false, meals: [] };
+      const staff = await requireFoodStaff(client, tableName, actorId, event);
+      const claimsOf = async (pid?: string) =>
+        (await scanType(client, tableName, 'mealclaim'))
+          .filter((c) => c.eventId === eventId && (!pid || c.personId === pid))
+          .map(({ entityType: _t, ...c }) => c);
+
+      if (req.method === 'GET' && action === 'meals') {
+        if (personId) {
+          if (!staff && actorId !== personId) return res.status(403).json({ error: 'You can only see your own food stubs.' });
+          const who = (await foodPeople(client, tableName, event)).find((p) => p.personId === personId);
+          return res.status(200).json({ food, eligible: Boolean(who), kind: who?.kind, claims: await claimsOf(personId) });
+        }
+        if (!staff) return res.status(403).json({ error: 'Only the food team and admins can see this.' });
+        return res.status(200).json({ food, people: await foodPeople(client, tableName, event), claims: await claimsOf() });
+      }
+
+      if (req.method === 'POST') {
+        if (!staff) {
+          return res.status(403).json({ error: 'You are not on the food team for this event. Ask an admin to tick "Food stubs" for you on the event page.' });
+        }
+        if (!food.enabled) return res.status(409).json({ error: 'Food stubs are not turned on for this event.' });
+        const mealId = str(src.mealId);
+        const meal = food.meals.find((m: any) => m.id === mealId);
+        if (!meal || !personId) return res.status(400).json({ error: 'Pick a meal and a person.' });
+        const id = mealClaimId(eventId, personId, meal.id);
+        if (action === 'meal-undo') {
+          await client.send(new DeleteCommand({ TableName: tableName, Key: { id } }));
+          return res.status(200).json({ ok: true });
+        }
+        const who = (await foodPeople(client, tableName, event)).find((p) => p.personId === personId);
+        if (!who) {
+          return res.status(409).json({
+            error: 'This person doesn\'t get food stubs yet. Attendees need to be checked in first; officers, co-organizer staff and speakers need to be on the event.',
+          });
+        }
+        if (meal.opensAt && Date.now() < new Date(meal.opensAt).getTime()) {
+          return res.status(409).json({ error: `${meal.label} opens at ${manilaTime(meal.opensAt)}.` });
+        }
+        const existing = (await client.send(new GetCommand({ TableName: tableName, Key: { id } }))).Item;
+        if (existing) return res.status(200).json({ claim: { ...existing, entityType: undefined }, alreadyClaimed: true, name: who.name });
+        const claim = {
+          id,
+          entityType: 'mealclaim',
+          eventId,
+          personId,
+          mealId: meal.id,
+          mealLabel: meal.label,
+          kind: who.kind,
+          claimedAt: new Date().toISOString(),
+          givenBy: staff.id,
+        };
+        try {
+          // Written only if nobody gave this meal a moment ago (two phones scanning at once)
+          await client.send(new PutCommand({ TableName: tableName, Item: claim, ConditionExpression: 'attribute_not_exists(id)' }));
+        } catch (err) {
+          if ((err as { name?: string })?.name === 'ConditionalCheckFailedException') {
+            const now = (await client.send(new GetCommand({ TableName: tableName, Key: { id } }))).Item;
+            return res.status(200).json({ claim: { ...now, entityType: undefined }, alreadyClaimed: true, name: who.name });
+          }
+          throw err;
+        }
+        const { entityType: _t, ...out } = claim;
+        void _t;
+        return res.status(201).json({ claim: out, alreadyClaimed: false, name: who.name });
+      }
     }
 
     // Check in / undo check-in (officers and admins)

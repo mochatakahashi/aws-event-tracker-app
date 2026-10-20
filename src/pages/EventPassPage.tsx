@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import FoodStubsCard from '../components/FoodStubsCard';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
@@ -259,6 +260,7 @@ export default function EventPassPage() {
                   <Chip label="Not checked in yet" variant="outlined" sx={{ fontWeight: 600 }} />
                 )}
               </Box>
+              {event && <FoodStubsCard event={event} personId={user.personId} registered compact />}
               {!reg.checkedIn && (
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, mt: 1.5 }}>
                   <LightModeOutlinedIcon sx={{ fontSize: 14 }} /> Turn up your screen brightness for a quick scan

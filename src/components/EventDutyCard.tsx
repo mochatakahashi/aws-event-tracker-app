@@ -10,6 +10,7 @@ import Chip from '@mui/material/Chip';
 import Badge from '@mui/material/Badge';
 import BadgeRoundedIcon from '@mui/icons-material/BadgeRounded';
 import QrCodeScannerRoundedIcon from '@mui/icons-material/QrCodeScannerRounded';
+import RestaurantRoundedIcon from '@mui/icons-material/RestaurantRounded';
 import StarsRoundedIcon from '@mui/icons-material/StarsRounded';
 import HowToRegRoundedIcon from '@mui/icons-material/HowToRegRounded';
 import { alpha } from '@mui/material/styles';
@@ -33,7 +34,8 @@ export default function EventDutyCard({ event, user }: { event: AppEvent; user: 
   const onTeam = Boolean(user?.personId && (event.officerIds ?? []).includes(user.personId));
   const stamps = canDo(user, event, 'stamps');
   const checkin = canDo(user, event, 'checkin');
-  const show = user?.role !== 'admin' && (user?.role === 'officer' || isPartnerStaff(user)) && (onTeam || stamps || checkin);
+  const food = Boolean(event.food?.enabled) && canDo(user, event, 'food');
+  const show = user?.role !== 'admin' && (user?.role === 'officer' || isPartnerStaff(user)) && (onTeam || stamps || checkin || food);
 
   useEffect(() => {
     if (!show) return;
@@ -70,7 +72,7 @@ export default function EventDutyCard({ event, user }: { event: AppEvent; user: 
           </Typography>
           {role && <Chip size="small" label={titleCase(role)} color="primary" variant="outlined" />}
         </Stack>
-        {!stamps && !checkin ? (
+        {!stamps && !checkin && !food ? (
           <Typography variant="body2" color="text.secondary">
             You’re on the event team{role ? ` as ${titleCase(role)}` : ''}. You don’t have check-in or stamp access here - an admin can
             add it on this page.
@@ -80,6 +82,7 @@ export default function EventDutyCard({ event, user }: { event: AppEvent; user: 
             <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mb: 1.5 }} data-testid="event-duties">
               {checkin && <Chip size="small" color="success" icon={<HowToRegRoundedIcon />} label="Check people in & approve registrations" />}
               {stamps && <Chip size="small" color="primary" icon={<StarsRoundedIcon />} label="Approve stamps" />}
+              {food && <Chip size="small" color="warning" icon={<RestaurantRoundedIcon />} label="Give out food stubs" />}
             </Stack>
             {over ? (
               <Typography variant="body2" color="text.secondary">
@@ -98,6 +101,11 @@ export default function EventDutyCard({ event, user }: { event: AppEvent; user: 
                       Registrations
                     </Button>
                   </Badge>
+                )}
+                {food && (
+                  <Button variant={checkin ? 'outlined' : 'contained'} color="warning" startIcon={<RestaurantRoundedIcon />} onClick={() => navigate(`/officer/scan?event=${event.id}&tab=food`)}>
+                    Food stubs
+                  </Button>
                 )}
                 {stamps && (
                   <Badge color="error" badgeContent={pendingStamps}>

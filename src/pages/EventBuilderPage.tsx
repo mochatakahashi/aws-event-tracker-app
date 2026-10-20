@@ -43,6 +43,7 @@ import SocialLinksEditor from '../components/SocialLinksEditor';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Checkbox from '@mui/material/Checkbox';
 import ProgramFlowEditor from '../components/ProgramFlowEditor';
+import FoodStubsEditor from '../components/FoodStubsEditor';
 import EvaluationEditor from '../components/EvaluationEditor';
 import RegistrationLinkCard from '../components/RegistrationLinkCard';
 import { getPeople } from '../services/registrationService';
@@ -310,6 +311,14 @@ export default function EventBuilderPage() {
                 questions: formData.evaluation.questions
                   .map((q) => ({ ...q, label: q.label.trim(), options: q.type === 'choice' ? (q.options || []).map((o) => o.trim()).filter(Boolean) : undefined }))
                   .filter((q) => q.label && (q.type !== 'choice' || (q.options || []).length >= 2)),
+              },
+            }
+          : {}),
+        ...(formData.food
+          ? {
+              food: {
+                enabled: formData.food.enabled,
+                meals: formData.food.meals.map((m) => ({ ...m, label: m.label.trim() })).filter((m) => m.label),
               },
             }
           : {}),
@@ -703,6 +712,11 @@ export default function EventBuilderPage() {
             hasSpeakers={speakers.length > 0}
             onChange={(evaluation) => setFormData((prev) => ({ ...prev, evaluation }))}
           />
+
+          <Divider sx={{ my: 2 }} />
+
+          {/* Food stubs: one of each meal per person, given out by the food team */}
+          <FoodStubsEditor value={formData.food} onChange={(food) => setFormData((prev) => ({ ...prev, food }))} />
 
           <Divider sx={{ my: 2 }} />
 

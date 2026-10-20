@@ -15,6 +15,7 @@ import Alert from '@mui/material/Alert';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import StarsRoundedIcon from '@mui/icons-material/StarsRounded';
 import HowToRegRoundedIcon from '@mui/icons-material/HowToRegRounded';
+import RestaurantRoundedIcon from '@mui/icons-material/RestaurantRounded';
 import { alpha } from '@mui/material/styles';
 import { brand } from '../theme/theme';
 import { setEventStaff, type EventStaff } from '../services/eventService';
@@ -45,17 +46,23 @@ function staffOf(event: AppEvent): EventStaff {
     officerRoles: { ...(event.officerRoles ?? {}) },
     stampOfficerIds: [...(event.stampOfficerIds ?? [])],
     checkinOfficerIds: [...(event.checkinOfficerIds ?? [])],
+    foodOfficerIds: [...(event.foodOfficerIds ?? [])],
   };
 }
+
+/** Duties an admin can tick at this event (Food stubs only when the event has them). */
+const dutiesFor = (event: AppEvent): StaffDuty[] => (event.food?.enabled ? ['stamps', 'checkin', 'food'] : ['stamps', 'checkin']);
 
 function DutyChips({ event, personId }: { event: AppEvent; personId: string }) {
   const stamps = dutyIds(event, 'stamps').includes(personId);
   const checkin = dutyIds(event, 'checkin').includes(personId);
-  if (!stamps && !checkin) return null;
+  const food = Boolean(event.food?.enabled) && dutyIds(event, 'food').includes(personId);
+  if (!stamps && !checkin && !food) return null;
   return (
     <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }} flexWrap="wrap" useFlexGap>
       {stamps && <Chip size="small" icon={<StarsRoundedIcon />} label="Stamps" color="primary" variant="outlined" />}
       {checkin && <Chip size="small" icon={<HowToRegRoundedIcon />} label="Check-in" color="success" variant="outlined" />}
+      {food && <Chip size="small" icon={<RestaurantRoundedIcon />} label="Food" color="warning" variant="outlined" />}
     </Stack>
   );
 }
@@ -111,6 +118,7 @@ export default function EventStaffPanel({
     next.officerRoles[newId] = role;
     if (newDuties.includes('stamps')) next.stampOfficerIds.push(newId);
     if (newDuties.includes('checkin')) next.checkinOfficerIds.push(newId);
+    if (newDuties.includes('food')) next.foodOfficerIds = [...(next.foodOfficerIds ?? []), newId];
     const updated = await save(next);
     if (!updated) return;
     const duties = newDuties.map((d) => DUTY_LABELS[d].toLowerCase());
@@ -129,9 +137,10 @@ export default function EventStaffPanel({
 
   async function toggleDuty(personId: string, duty: StaffDuty) {
     const next = staffOf(event);
-    const key = duty === 'stamps' ? 'stampOfficerIds' : 'checkinOfficerIds';
-    const had = next[key].includes(personId);
-    next[key] = had ? next[key].filter((x) => x !== personId) : [...next[key], personId];
+    const key = duty === 'stamps' ? 'stampOfficerIds' : duty === 'checkin' ? 'checkinOfficerIds' : 'foodOfficerIds';
+    const list = next[key] ?? [];
+    const had = list.includes(personId);
+    next[key] = had ? list.filter((x) => x !== personId) : [...list, personId];
     const updated = await save(next);
     if (updated && !had) {
       void notifyInApp({
@@ -139,7 +148,7 @@ export default function EventStaffPanel({
         kind: 'event-assigned',
         title: `New duty at ${event.title}`,
         message: `You can now ${DUTY_LABELS[duty].toLowerCase()} at this event.`,
-        link: duty === 'checkin' || isPartner(team.find((p) => p.id === personId)) ? '/officer/scan' : '/officer',
+        link: duty === 'checkin' || duty === 'food' || isPartner(team.find((p) => p.id === personId)) ? '/officer/scan' : '/officer',
       });
     }
   }
@@ -228,7 +237,7 @@ export default function EventStaffPanel({
             </TextField>
           </Box>
           <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ sm: 'center' }} spacing={1} sx={{ mt: 1 }}>
-            {(['stamps', 'checkin'] as StaffDuty[]).map((d) => (
+            {dutiesFor(event).map((d) => (
               <FormControlLabel
                 key={d}
                 control={
@@ -303,7 +312,7 @@ export default function EventStaffPanel({
                 </Stack>
                 {isAdmin && (
                   <Stack direction="row" alignItems="center" spacing={0.5} flexWrap="wrap" useFlexGap>
-                    {(['stamps', 'checkin'] as StaffDuty[]).map((d) => (
+                    {dutiesFor(event).map((d) => (
                       <FormControlLabel
                         key={d}
                         sx={{ mr: 1 }}
@@ -316,7 +325,7 @@ export default function EventStaffPanel({
                             inputProps={{ 'aria-label': `${DUTY_LABELS[d]}: ${o.name}` }}
                           />
                         }
-                        label={<Typography variant="body2">{d === 'stamps' ? 'Stamps' : 'Check-in'}</Typography>}
+                        label={<Typography variant="body2">{d === 'stamps' ? 'Stamps' : d === 'checkin' ? 'Check-in' : 'Food'}</Typography>}
                       />
                     ))}
                     <Tooltip title="Remove from this event">

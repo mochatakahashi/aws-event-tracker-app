@@ -41,11 +41,11 @@ function getDynamoDocClient() {
 }
 
 // ─── Staff list ───────────────────────────────────────────────────────────────
-// stampOfficerIds / checkinOfficerIds decide which officers may approve stamps
-// and check people in at this event. Only an admin can change them, through
-// PUT /api/events?id=…&action=staff { actorId, officerIds, officerRoles, stampOfficerIds, checkinOfficerIds }.
+// stampOfficerIds / checkinOfficerIds / foodOfficerIds decide which officers may approve
+// stamps, check people in and give out food stubs at this event. Only an admin can change them, through
+// PUT /api/events?id=…&action=staff { actorId, officerIds, officerRoles, stampOfficerIds, checkinOfficerIds, foodOfficerIds }.
 
-const STAFF_FIELDS = ['stampOfficerIds', 'checkinOfficerIds'];
+const STAFF_FIELDS = ['stampOfficerIds', 'checkinOfficerIds', 'foodOfficerIds'];
 
 function idList(v: unknown): string[] {
   return Array.isArray(v) ? [...new Set(v.filter((x) => typeof x === 'string' && x && x.length < 100))].slice(0, 200) : [];
@@ -85,6 +85,23 @@ function pruneStaff(item: any) {
       .filter((q: any) => q.label && (q.type !== 'choice' || (q.options && q.options.length >= 2)))
       .slice(0, 25);
     item.evaluation = { enabled: ev.enabled !== false, questions };
+  }
+  // Food stubs: on/off and up to 6 meals (each claimed once per person)
+  if (item.food !== undefined) {
+    const t = (v: unknown, n: number) => (typeof v === 'string' ? v.trim().slice(0, n) : '');
+    const f = item.food && typeof item.food === 'object' ? item.food : {};
+    const seen = new Set<string>();
+    const meals = (Array.isArray(f.meals) ? f.meals : [])
+      .map((m: any, i: number) => {
+        let id = t(m?.id, 30).toLowerCase().replace(/[^a-z0-9-]/g, '') || `meal-${i + 1}`;
+        while (seen.has(id)) id = `${id}-${i + 1}`;
+        seen.add(id);
+        const opensAt = typeof m?.opensAt === 'string' && !Number.isNaN(Date.parse(m.opensAt)) ? new Date(m.opensAt).toISOString() : undefined;
+        return { id, label: t(m?.label, 40), ...(opensAt ? { opensAt } : {}) };
+      })
+      .filter((m: any) => m.label)
+      .slice(0, 6);
+    item.food = { enabled: f.enabled === true && meals.length > 0, meals };
   }
   // Partner orgs co-organizing the event: up to 5 short names
   if (item.coOrganizers !== undefined) {
@@ -241,9 +258,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const id = event.id || `evt-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
       // Duty lists are only set through action=staff (admin-checked)
-      const { stampOfficerIds: _s, checkinOfficerIds: _c, ...fields } = event;
+      const { stampOfficerIds: _s, checkinOfficerIds: _c, foodOfficerIds: _f, ...fields } = event;
       void _s;
       void _c;
+      void _f;
       const itemToSave = pruneStaff({
         ...fields,
         // The app's own registration link for this event
@@ -285,7 +303,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       // Staff list (admin only)
       if (req.query.action === 'staff') {
-        const { actorId, officerIds, officerRoles, stampOfficerIds, checkinOfficerIds } = eventUpdates || {};
+        const { actorId, officerIds, officerRoles, stampOfficerIds, checkinOfficerIds, foodOfficerIds } = eventUpdates || {};
         if (!(await getAdmin(client, tableName, actorId))) {
           return res.status(403).json({ error: 'Only an admin can change who works at this event.' });
         }
@@ -303,6 +321,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           officerRoles: roles,
           stampOfficerIds: idList(stampOfficerIds),
           checkinOfficerIds: idList(checkinOfficerIds),
+          foodOfficerIds: idList(foodOfficerIds),
           id: eventId,
           entityType: 'event',
           updatedAt: new Date().toISOString(),
@@ -312,9 +331,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       // Ordinary edits never change the duty lists
-      const { stampOfficerIds: _s, checkinOfficerIds: _c, ...fieldUpdates } = eventUpdates || {};
+      const { stampOfficerIds: _s, checkinOfficerIds: _c, foodOfficerIds: _f, ...fieldUpdates } = eventUpdates || {};
       void _s;
       void _c;
+      void _f;
       const merged = pruneStaff({
         ...(existing.Item || {}),
         ...fieldUpdates,

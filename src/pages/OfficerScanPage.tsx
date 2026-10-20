@@ -36,6 +36,8 @@ import Tab from '@mui/material/Tab';
 import Badge from '@mui/material/Badge';
 import StampRequestsPanel from '../components/StampRequestsPanel';
 import EventAttendeesPanel from '../components/EventAttendeesPanel';
+import { FoodDeskPanel, ScanFoodSection } from '../components/FoodDesk';
+import RestaurantRoundedIcon from '@mui/icons-material/RestaurantRounded';
 import { canDo, mayWorkEvents, staffEvents } from '../utils/eventStaff';
 import { deskChanged, useDeskCounts } from '../hooks/useDeskCounts';
 import { notifyInApp } from '../services/notificationService';
@@ -108,8 +110,8 @@ export default function OfficerScanPage() {
   const [deskSessions, setDeskSessions] = useState<Session[]>([]);
   const [deskStamps, setDeskStamps] = useState<Stamp[]>([]);
   const tabParam = params.get('tab');
-  const [tab, setTab] = useState<'scan' | 'stamps' | 'attendees'>(
-    tabParam === 'stamps' || tabParam === 'attendees' ? tabParam : 'scan',
+  const [tab, setTab] = useState<'scan' | 'stamps' | 'attendees' | 'food'>(
+    tabParam === 'stamps' || tabParam === 'attendees' || tabParam === 'food' ? tabParam : 'scan',
   );
   const lastCode = useRef<{ text: string; at: number }>({ text: '', at: 0 });
 
@@ -203,7 +205,7 @@ export default function OfficerScanPage() {
     }
     // Links like ?tab=stamps&event=… (from the Officer Dashboard) while the desk is open
     const t = params.get('tab');
-    if (t === 'scan' || t === 'stamps' || t === 'attendees') setTab(t);
+    if (t === 'scan' || t === 'stamps' || t === 'attendees' || t === 'food') setTab(t);
     const ev = params.get('event');
     if (ev && events.some((e) => e.id === ev)) setDoorEventId(ev);
   }, [params, isStaff, open, setParams, events]);
@@ -297,10 +299,13 @@ export default function OfficerScanPage() {
   // Tabs follow your duties at the selected event (admins: all)
   const deskMayStamp = canDo(user, doorEvent, 'stamps');
   const deskMayCheckIn = canDo(user, doorEvent, 'checkin');
-  const shownTab = (tab === 'stamps' && !deskMayStamp) || (tab === 'attendees' && !deskMayCheckIn) ? 'scan' : tab;
+  const deskMayFood = Boolean(doorEvent?.food?.enabled) && canDo(user, doorEvent, 'food');
+  const shownTab =
+    (tab === 'stamps' && !deskMayStamp) || (tab === 'attendees' && !deskMayCheckIn) || (tab === 'food' && !deskMayFood) ? 'scan' : tab;
 
   const mayCheckIn = canDo(user, scanned?.event, 'checkin');
   const mayStamp = canDo(user, scanned?.event, 'stamps');
+  const mayFood = Boolean(scanned?.event?.food?.enabled) && canDo(user, scanned?.event, 'food');
 
   const result = scanned && (
     <Paper
@@ -436,6 +441,17 @@ export default function OfficerScanPage() {
         )}
       </Box>
 
+      {/* Food stubs (food team and admins) */}
+      {mayFood && user && scanned.event && (
+        <ScanFoodSection
+          event={scanned.event}
+          personId={scanned.reg.personId}
+          actorId={user.personId}
+          refreshKey={`${scanned.reg.id}:${scanned.reg.checkedIn ? 1 : 0}`}
+          nameOf={(id) => peopleById.get(id)?.name}
+        />
+      )}
+
       {/* Check-in */}
       <Box sx={{ mt: 2.5 }}>
         {scanned.reg.checkedIn ? (
@@ -451,7 +467,7 @@ export default function OfficerScanPage() {
               : ''}
             {scanned.reg.certificateId && ` · Certificate ${scanned.reg.certificateId}`}
           </Alert>
-        ) : !mayCheckIn ? (
+        ) : !mayCheckIn && mayFood ? null : !mayCheckIn ? (
           <Alert severity="info" sx={{ mb: 1.5 }} data-testid="not-checkin-team">
             You’re not on the check-in team for this event, so you can’t check people in here.
           </Alert>
@@ -581,6 +597,7 @@ export default function OfficerScanPage() {
           {deskMayCheckIn && (
             <Tab value="attendees" icon={<HowToRegRoundedIcon />} iconPosition="start" label={`Attendees ${checkedCount}/${eventRegs.filter((r) => r.rsvp !== 'declined').length}`} />
           )}
+          {deskMayFood && <Tab value="food" icon={<RestaurantRoundedIcon />} iconPosition="start" label="Food" data-testid="desk-food-tab" />}
         </Tabs>
       )}
 
@@ -594,6 +611,9 @@ export default function OfficerScanPage() {
           actor={user}
           onChanged={refreshDesk}
         />
+      )}
+      {doorEvent && shownTab === 'food' && user && (
+        <FoodDeskPanel event={doorEvent} actorId={user.personId} onScan={() => setTab('scan')} nameOf={(id) => peopleById.get(id)?.name} />
       )}
       {doorEvent && shownTab === 'attendees' && user && (
         <EventAttendeesPanel
