@@ -66,8 +66,10 @@ export interface User {
   personId: string;
   /** Profile avatar URL (optional). */
   avatarUrl?: string;
-  /** Student ID for APC students and officers. */
+  /** Student ID for APC students and officers (format 2026-140242). */
   studentId?: string;
+  /** An admin asked them to fix these profile details (cleared as they save them). */
+  fixRequest?: FixRequest;
   memberType?: MemberType;
   /** School / company / organization for outside attendees. */
   organization?: string;
@@ -173,4 +175,15 @@ export type ProfileChanges = Partial<
 
 /** Fields only an admin can change. */
 export type AdminUserChanges = ProfileChanges &
-  Partial<Pick<User, 'role' | 'status' | 'requestedRole' | 'officerHistory' | 'rejectionReason' | 'partnerOrg'>>;
+  Partial<Pick<User, 'role' | 'status' | 'requestedRole' | 'officerHistory' | 'rejectionReason' | 'partnerOrg' | 'email'>>;
+
+/** Profile details an admin can ask someone to fix. */
+export type FixField = 'name' | 'studentId' | 'organization' | 'personalEmail' | 'photo' | 'other';
+
+export interface FixRequest {
+  fields: FixField[];
+  note?: string;
+  /** When and which admin asked. */
+  at: string;
+  by: string;
+}

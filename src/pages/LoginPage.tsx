@@ -1,4 +1,5 @@
 import { takeRegisterIntent } from '../utils/registerIntent';
+import PasswordField from '../components/PasswordField';
 import { useState, type FormEvent } from 'react';
 import { useNavigate, useLocation, Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
@@ -128,9 +129,8 @@ export default function LoginPage() {
           placeholder="you@student.apc.edu.ph"
           autoFocus
         />
-        <TextField
+        <PasswordField
           label="Password"
-          type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           error={Boolean(fieldErrors.password)}

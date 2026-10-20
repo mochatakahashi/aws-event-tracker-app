@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.32] - 2026-10-20
+
+### Added
+- **Student ID format**: APC student IDs must be **2026-140242** (4 digits, a dash, 6 digits). The field adds the dash while you type and stops at 11 characters (sign-up, Add account, profile, admin edit); the server checks it too. Older IDs in another format still work until changed, and Manage Accounts flags them in red.
+- **Edit details (admin)**: the ✏️ button on an account in Manage Accounts fixes the name, student ID or organization, sign-in email and personal email directly.
+- **Ask to fix (admin)**: the *Ask to fix* button (person with a gear) on an account asks the person to fix their name, student ID, organization, personal email, profile photo or something else, with an optional note. They get a notification and an email, and a reminder stays at the top of every page with an *Update profile* button until they save the fixes (each item ticks off once its value changes). The account keeps working. Manage Accounts shows *Asked to fix: …* until it's done; the admin can update or cancel the request.
+- **Edit a task after assigning it** (admins, the President and committee leads): the ✏️ button on a task card (and in the Table view) changes the name, details, committee, officers, whole org or event, and the deadline. Officers on the task are told when the deadline moves or the details change; newly added officers get a *New task* notice. A moved deadline gets its reminders again.
+
+- **Undo a mistaken check-in at the Event Desk**: the scan card has *Checked in by mistake? Undo check-in*, and the desk's Attendees list has **Undo** next to each checked-in person (both ask to confirm; check-in team and admins).
+- **Adviser sign-off, safer links**: the document link must be from **Google Docs / Slides / Sheets / Drive, Canva, or Microsoft Word / PowerPoint / Excel (OneDrive, SharePoint, Office)**, starting with https://. The form says what kind of file it is as you paste it (e.g. *Google Docs document*), and requests show *Open Google Docs document* with the site name. Older requests with other links are shown as text, not opened. Checked by the server too.
+- **Who sends sign-off requests**: Secretariat, the Marketing Director and Assistant Director, the VPs, the President and admins. Other officers no longer see the sign-off form.
+- **Password reset notice**: when someone uses *Forgot password*, the admin gets a short email saying who asked and when, **without the code**, so they can help if the code doesn't arrive.
+- **About AWS SBG-APC** (account menu and the phone's More page) now opens a window with what the app is, the version and what's new. The version shows the real number (was v0.1.0).
+
+### Fixed
+- **Social links are checked**: a LinkedIn link must be on linkedin.com, YouTube on youtube.com / youtu.be, and so on for Facebook, Instagram, GitHub, X and TikTok; *Website* and custom links must be web links. The field says what's wrong as you type, and the server refuses wrong links (profiles, Connect and speakers).
+- **Networking card**: *No social links yet* sat beside the QR code; the QR, your links and the copy button are now each on their own centered line.
+- **Show password** button: the eye on password fields disappeared after clicking away (that was Microsoft Edge's own button, which hides itself). Every password field now has the app's own *Show / Hide password* button that always stays; Edge's is hidden.
+
+- **Co-organizer staff box** in Manage Accounts: the *Partner org* text box was squeezed into the name column; it now spans the whole account card, with the buttons below it.
+
+### Security
+- Checked again: password code emails go only to the account owner (never CC'd to the club inboxes), as set in v0.6.28.
+
+---
+
 ## [0.6.31] - 2026-10-20
 
 ### Added

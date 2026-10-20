@@ -28,7 +28,7 @@ import type { SocialLinks } from '../types/auth';
 import NetworkingCard from '../components/NetworkingCard';
 import { getUser, updateProfile } from '../services/authService';
 import ConnectButton from '../components/ConnectButton';
-import SocialLinksEditor from '../components/SocialLinksEditor';
+import SocialLinksEditor, { socialsProblem } from '../components/SocialLinksEditor';
 import SocialLinksRow from '../components/SocialLinksRow';
 import { imageSrc } from '../utils/imageUrl';
 
@@ -60,6 +60,8 @@ export default function ConnectPage() {
     setSaving(true);
     setSaveError('');
     try {
+      const badLink = socialsProblem(socials);
+      if (badLink) throw new Error(badLink);
       setCurrentUser(await updateProfile(user.personId, { bio: bio.trim(), socials }));
       setEditing(false);
     } catch (err) {

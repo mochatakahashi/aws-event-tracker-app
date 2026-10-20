@@ -12,6 +12,7 @@ import IconButton from '@mui/material/IconButton';
 import Alert from '@mui/material/Alert';
 import CircularProgress from '@mui/material/CircularProgress';
 import CampaignIcon from '@mui/icons-material/Campaign';
+import ManageAccountsRoundedIcon from '@mui/icons-material/ManageAccountsRounded';
 import EventIcon from '@mui/icons-material/Event';
 import RateReviewRoundedIcon from '@mui/icons-material/RateReviewRounded';
 import WorkspacePremiumRoundedIcon from '@mui/icons-material/WorkspacePremiumRounded';
@@ -65,6 +66,7 @@ const KIND: Record<NotificationKind, { icon: ReactNode; color: string }> = {
   'connection-request': { icon: <PersonAddAlt1Icon />, color: brand.primary },
   'connection-accepted': { icon: <HowToRegIcon />, color: brand.success },
   announcement: { icon: <CampaignIcon />, color: brand.primary },
+  'profile-fix': { icon: <ManageAccountsRoundedIcon />, color: brand.warning },
 };
 
 /** Events the person registered for that are live now or start within 24 hours. */

@@ -20,7 +20,8 @@ export type NotificationKind =
   | 'registration-declined'
   | 'connection-request'
   | 'connection-accepted'
-  | 'announcement';
+  | 'announcement'
+  | 'profile-fix';
 
 /** One notification in a person's in-app inbox. */
 export interface AppNotification {

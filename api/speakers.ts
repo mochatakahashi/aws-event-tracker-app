@@ -66,6 +66,46 @@ function pickSpeaker(body: any) {
 }
 
 /** Social links: known platforms + up to 10 named links; http(s) / plain domains only. */
+// Social links must be web links and, for known platforms, on that platform's
+// own site (mirrors src/utils/linkCheck.ts).
+const SOCIAL_HOSTS: Record<string, string[]> = {
+  facebook: ['facebook.com', 'fb.com', 'fb.me'],
+  instagram: ['instagram.com', 'instagr.am'],
+  linkedIn: ['linkedin.com', 'lnkd.in'],
+  github: ['github.com'],
+  twitterX: ['x.com', 'twitter.com'],
+  tiktok: ['tiktok.com'],
+  youtube: ['youtube.com', 'youtu.be'],
+};
+const SOCIAL_NAMES: Record<string, string> = { facebook: 'Facebook', instagram: 'Instagram', linkedIn: 'LinkedIn', github: 'GitHub', twitterX: 'X', tiktok: 'TikTok', youtube: 'YouTube', website: 'Website' };
+function parseLink(raw: string): URL | null {
+  const t = raw.trim();
+  if (!t || /\s/.test(t)) return null;
+  try {
+    const u = new URL(/^[a-z][a-z0-9+.-]*:/i.test(t) ? t : `https://${t}`);
+    if ((u.protocol !== 'https:' && u.protocol !== 'http:') || !u.hostname.includes('.') || u.username || u.password) return null;
+    return u;
+  } catch {
+    return null;
+  }
+}
+/** First problem in a socials object ('' when all links are fine). */
+function socialsError(v: unknown): string {
+  if (!v || typeof v !== 'object') return '';
+  for (const [k, raw] of Object.entries(v as Record<string, unknown>)) {
+    if (k === 'custom' || typeof raw !== 'string' || !raw.trim()) continue;
+    const u = parseLink(raw);
+    const name = SOCIAL_NAMES[k] || k;
+    if (!u) return `${name}: enter a web link, e.g. https://…`;
+    const domains = SOCIAL_HOSTS[k];
+    const host = u.hostname.toLowerCase();
+    if (domains && !domains.some((d) => host === d || host.endsWith(`.${d}`))) return `${name}: this isn't a ${name} link.`;
+  }
+  const custom = Array.isArray((v as any).custom) ? (v as any).custom : [];
+  for (const c of custom) if (c?.url && !parseLink(String(c.url))) return `${c.label || 'Link'}: enter a web link, e.g. https://…`;
+  return '';
+}
+
 function cleanLinks(v: unknown) {
   if (!v || typeof v !== 'object') return undefined;
   const ok = (x: unknown) => {
@@ -118,6 +158,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'POST') {
       const speaker = pickSpeaker(req.body || {});
       if (!speaker.name) return res.status(400).json({ error: 'Speaker name is required' });
+      const badLink = socialsError(req.body?.socials);
+      if (badLink) return res.status(400).json({ error: badLink });
       const item = {
         ...speaker,
         id: `spk-${Date.now()}-${Math.floor(Math.random() * 100000)}`,
@@ -136,6 +178,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       const speaker = pickSpeaker({ ...(existing.Item || {}), ...(req.body || {}) });
       if (!speaker.name) return res.status(400).json({ error: 'Speaker name is required' });
+      const badLink = socialsError(req.body?.socials);
+      if (badLink) return res.status(400).json({ error: badLink });
       const item = { ...speaker, id, entityType: 'speaker' };
       await client.send(new PutCommand({ TableName: tableName, Item: item }));
       return res.status(200).json(clean(item));

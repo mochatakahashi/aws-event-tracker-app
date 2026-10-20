@@ -1,4 +1,7 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import AboutDialog from '../components/AboutDialog';
+import { APP_VERSION } from '../version';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import List from '@mui/material/List';
@@ -44,6 +47,7 @@ const socialLinks = [
 export default function MorePage() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [aboutOpen, setAboutOpen] = useState(false);
 
   const initials = user?.name
     ? user.name
@@ -126,13 +130,14 @@ export default function MorePage() {
 
         <Divider sx={{ my: 1.5 }} />
 
-        <ListItemButton>
+        <ListItemButton onClick={() => setAboutOpen(true)} data-testid="more-about">
           <ListItemIcon><InfoOutlinedIcon /></ListItemIcon>
           <ListItemText
             primary="About AWS SBG-APC"
-            secondary="Event Tracker v0.1.0"
+            secondary={`Event Tracker v${APP_VERSION}`}
           />
         </ListItemButton>
+        <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
 
         <Divider sx={{ my: 1.5 }} />
 

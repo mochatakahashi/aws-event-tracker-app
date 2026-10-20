@@ -354,6 +354,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           return res.status(403).json({ error: 'You can only assign tasks to officers in your committee.' });
         }
       }
+      if (manages) {
+        if ('title' in updates) {
+          updates.title = text(updates.title, 200);
+          if (!updates.title || !String(updates.title).trim()) return res.status(400).json({ error: 'The task needs a name.' });
+        }
+        if ('description' in updates) updates.description = text(updates.description, 2000);
+        // Whole org: no event
+        if ('eventId' in updates && !updates.eventId) updates.eventId = undefined;
+        if ('assigneeIds' in updates && result.Item.kind !== 'pubmat' && updates.assigneeIds.length === 0) {
+          return res.status(400).json({ error: 'Assign at least one officer.' });
+        }
+      }
+      // A moved deadline gets its reminders again
+      if ('dueAt' in updates && updates.dueAt !== result.Item.dueAt) {
+        updates.dueReminderSentAt = undefined;
+        updates.overdueReminderAt = undefined;
+      }
       const merged = { ...result.Item, ...updates, id, entityType: 'task' };
       await client.send(new PutCommand({ TableName: tableName, Item: merged }));
       return res.status(200).json(clean(merged));

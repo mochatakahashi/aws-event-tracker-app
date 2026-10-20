@@ -14,6 +14,10 @@ import { alpha } from '@mui/material/styles';
 import { brand } from '../theme/theme';
 import { getSignoffs, requestSignoff, reviewSignoff } from '../services/adviserService';
 import type { SignoffRequest } from '../types/adviser';
+import { DOC_SERVICES, documentKind } from '../utils/linkCheck';
+import { canRequestSignoff } from '../utils/people';
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
+import GppMaybeOutlinedIcon from '@mui/icons-material/GppMaybeOutlined';
 
 const when = (iso?: string) =>
   iso ? new Date(iso).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Manila' }) : '';
@@ -29,9 +33,14 @@ const STATUS: Record<SignoffRequest['status'], { label: string; color: 'warning'
  * file link; the adviser approves it or returns it with a comment. Everyone
  * keeps a record of what was signed and when.
  */
-export default function SignoffPanel({ viewer }: { viewer: { personId: string; name: string; role?: string } }) {
+export default function SignoffPanel({
+  viewer,
+}: {
+  viewer: { personId: string; name: string; role?: string; officerPosition?: string | null; committee?: string | null };
+}) {
   const isAdviser = viewer.role === 'adviser';
-  const canRequest = viewer.role === 'officer' || viewer.role === 'admin';
+  // Secretariat, Marketing Director / Assistant Director, VPs, President and admins
+  const canRequest = canRequestSignoff(viewer);
   const [items, setItems] = useState<SignoffRequest[]>([]);
   const [form, setForm] = useState({ title: '', details: '', link: '' });
   const [adding, setAdding] = useState(false);
@@ -98,11 +107,26 @@ export default function SignoffPanel({ viewer }: { viewer: { personId: string; n
               {x.details}
             </Typography>
           )}
-          {x.link && (
-            <Link href={x.link} target="_blank" rel="noopener noreferrer" variant="body2" sx={{ wordBreak: 'break-all' }}>
-              Open the file
-            </Link>
-          )}
+          {x.link &&
+            (documentKind(x.link) ? (
+              <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mt: 0.5 }} data-testid="signoff-file">
+                <DescriptionOutlinedIcon fontSize="small" color="primary" />
+                <Link href={x.link} target="_blank" rel="noopener noreferrer" variant="body2" sx={{ fontWeight: 600 }}>
+                  Open {x.linkKind || documentKind(x.link)}
+                </Link>
+                <Typography variant="caption" color="text.secondary" noWrap sx={{ minWidth: 0 }}>
+                  {new URL(x.link).hostname}
+                </Typography>
+              </Stack>
+            ) : (
+              // Older requests from before links were checked: shown, but not clickable
+              <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mt: 0.5, color: 'warning.main' }} data-testid="signoff-untrusted">
+                <GppMaybeOutlinedIcon fontSize="small" />
+                <Typography variant="caption" sx={{ wordBreak: 'break-all' }}>
+                  Not a trusted document link, so it isn't opened from here: {x.link}
+                </Typography>
+              </Stack>
+            ))}
           {x.status !== 'pending' && (
             <Typography variant="body2" color={x.status === 'returned' ? 'error' : 'success.main'} sx={{ mt: 0.5 }}>
               {x.status === 'approved' ? 'Approved' : 'Returned'} by {x.reviewedByName} · {when(x.reviewedAt)}
@@ -192,12 +216,27 @@ export default function SignoffPanel({ viewer }: { viewer: { personId: string; n
           <Stack spacing={1} sx={{ mb: 2, p: 1.5, borderRadius: '12px', bgcolor: alpha(brand.primary, 0.04) }} data-testid="signoff-form">
             <TextField size="small" label="What needs signing" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} inputProps={{ maxLength: 140 }} />
             <TextField size="small" label="Details (optional)" multiline minRows={2} value={form.details} onChange={(e) => setForm({ ...form, details: e.target.value })} />
-            <TextField size="small" label="File link (Google Drive, Canva…)" placeholder="https://" value={form.link} onChange={(e) => setForm({ ...form, link: e.target.value })} />
+            <TextField
+              size="small"
+              label="Document link"
+              placeholder="https://docs.google.com/…"
+              value={form.link}
+              onChange={(e) => setForm({ ...form, link: e.target.value })}
+              error={Boolean(form.link.trim()) && !documentKind(form.link)}
+              helperText={
+                !form.link.trim()
+                  ? `Allowed: ${DOC_SERVICES}.`
+                  : documentKind(form.link)
+                    ? `✓ ${documentKind(form.link)}`
+                    : `Only ${DOC_SERVICES} links, starting with https://`
+              }
+              FormHelperTextProps={{ sx: { color: form.link.trim() && documentKind(form.link) ? 'success.main' : undefined } }}
+            />
             <Stack direction="row" spacing={1} justifyContent="flex-end">
               <Button size="small" onClick={() => setAdding(false)}>
                 Cancel
               </Button>
-              <Button size="small" variant="contained" disabled={busy === 'new' || !form.title.trim()} onClick={() => void send()}>
+              <Button size="small" variant="contained" disabled={busy === 'new' || !form.title.trim() || (Boolean(form.link.trim()) && !documentKind(form.link))} onClick={() => void send()}>
                 Send to the adviser
               </Button>
             </Stack>

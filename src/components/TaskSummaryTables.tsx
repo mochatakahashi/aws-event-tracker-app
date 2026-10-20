@@ -9,6 +9,8 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import TableSortLabel from '@mui/material/TableSortLabel';
 import Paper from '@mui/material/Paper';
+import IconButton from '@mui/material/IconButton';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { alpha } from '@mui/material/styles';
 import { brand } from '../theme/theme';
 import { formatDateTime } from './AdminUi';
@@ -58,7 +60,7 @@ const TONE_COLOR = { ok: 'default', warn: 'warning', late: 'error', done: 'succe
 const STATUS_COLOR: Record<string, 'default' | 'warning' | 'success'> = { 'To do': 'default', 'In progress': 'warning', Done: 'success' };
 
 /** The tasks as a sortable table (like a spreadsheet). */
-export function TaskTable({ rows }: { rows: TaskRow[] }) {
+export function TaskTable({ rows, onEdit }: { rows: TaskRow[]; onEdit?: (id: string) => void }) {
   const { sorted, label } = useSort(rows, 'dueAt');
   return (
     <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: '12px', overflowX: 'auto' }} data-testid="task-table">
@@ -73,6 +75,7 @@ export function TaskTable({ rows }: { rows: TaskRow[] }) {
             <TableCell>{label('statusOrder', 'Status')}</TableCell>
             <TableCell>{label('dueAt', 'Deadline')}</TableCell>
             <TableCell>{label('deadline', 'Progress')}</TableCell>
+            {onEdit && <TableCell aria-label="Edit" />}
           </TableRow>
         </TableHead>
         <TableBody>
@@ -90,6 +93,13 @@ export function TaskTable({ rows }: { rows: TaskRow[] }) {
               <TableCell sx={{ whiteSpace: 'nowrap' }}>
                 <Chip size="small" variant="outlined" color={TONE_COLOR[r.tone]} label={r.deadline} />
               </TableCell>
+              {onEdit && (
+                <TableCell padding="checkbox">
+                  <IconButton size="small" aria-label={`Edit task: ${r.title}`} onClick={() => onEdit(r.id)}>
+                    <EditOutlinedIcon fontSize="small" />
+                  </IconButton>
+                </TableCell>
+              )}
             </TableRow>
           ))}
         </TableBody>

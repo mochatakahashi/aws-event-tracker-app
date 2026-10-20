@@ -1,4 +1,6 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
+import StudentIdField from '../components/StudentIdField';
+import PasswordField from '../components/PasswordField';
 import { Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
@@ -262,15 +264,7 @@ export default function SignUpPage() {
           )}
 
           {isApc ? (
-            <TextField
-              label="APC Student ID"
-              value={studentId}
-              onChange={(e) => setStudentId(e.target.value)}
-              fullWidth
-              margin="normal"
-              required
-              placeholder="e.g. 2024-100123"
-            />
+            <StudentIdField label="APC Student ID" value={studentId} onChange={setStudentId} fullWidth margin="normal" required />
           ) : (
             <TextField
               label="School / Organization"
@@ -294,9 +288,8 @@ export default function SignUpPage() {
             />
           )}
 
-          <TextField
+          <PasswordField
             label="Password"
-            type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             fullWidth
@@ -305,9 +298,8 @@ export default function SignUpPage() {
             autoComplete="new-password"
           />
           <PasswordChecklist password={password} />
-          <TextField
+          <PasswordField
             label="Confirm Password"
-            type="password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             fullWidth

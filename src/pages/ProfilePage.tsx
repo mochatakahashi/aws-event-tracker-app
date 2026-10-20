@@ -1,4 +1,6 @@
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import StudentIdField from '../components/StudentIdField';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Card from '@mui/material/Card';
@@ -27,13 +29,13 @@ import BusinessIcon from '@mui/icons-material/Business';
 import AlternateEmailIcon from '@mui/icons-material/AlternateEmail';
 import { uploadImageToS3 } from '../services/storageService';
 import { fileToDataUrl } from '../services/uploadStorageService';
-import { updateProfile } from '../services/authService';
+import { getUser, updateProfile } from '../services/authService';
 import ChangePasswordForm from '../components/ChangePasswordForm';
 import { startTour } from '../components/TutorialTour';
 import SchoolRoundedIcon from '@mui/icons-material/SchoolRounded';
-import { memberLabel, officerTitle } from '../utils/people';
+import { STUDENT_ID_ERROR, isValidStudentId, memberLabel, officerTitle } from '../utils/people';
 import AvatarImageAdjuster from '../components/AvatarImageAdjuster';
-import SocialLinksEditor from '../components/SocialLinksEditor';
+import SocialLinksEditor, { socialsProblem } from '../components/SocialLinksEditor';
 import SocialLinksRow from '../components/SocialLinksRow';
 import TextField from '@mui/material/TextField';
 import Alert from '@mui/material/Alert';
@@ -45,6 +47,15 @@ import { imageSrc } from '../utils/imageUrl';
 
 export default function ProfilePage() {
   const { user, setCurrentUser } = useAuth();
+  const [params, setParams] = useSearchParams();
+  // Fresh copy (e.g. an admin just asked for a fix); ?edit=1 opens the editor
+  useEffect(() => {
+    if (!user) return;
+    getUser(user.personId)
+      .then((fresh) => fresh && JSON.stringify(fresh.fixRequest ?? null) !== JSON.stringify(user.fixRequest ?? null) && setCurrentUser(fresh))
+      .catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Change password
   const [showPassword, setShowPassword] = useState(false);
@@ -65,6 +76,14 @@ export default function ProfilePage() {
   const [saveError, setSaveError] = useState('');
   const [saved, setSaved] = useState(false);
   const outside = user?.memberType === 'outside';
+
+  useEffect(() => {
+    if (params.get('edit') === '1' && user) {
+      startEditing();
+      setParams({}, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params]);
 
   function startEditing() {
     if (!user) return;
@@ -89,6 +108,8 @@ export default function ProfilePage() {
     setSaving(true);
     setSaveError('');
     try {
+      const badLink = socialsProblem(socials);
+      if (badLink) throw new Error(badLink);
       const changes: Parameters<typeof updateProfile>[1] = {
         firstName: form.firstName.trim(),
         middleInitial: form.middleInitial.trim(),
@@ -97,7 +118,11 @@ export default function ProfilePage() {
         socials,
       };
       if (outside) changes.organization = form.organization.trim();
-      else changes.studentId = form.studentId.trim();
+      // Only re-checked when changed, so an older ID doesn't block other edits
+      else if (form.studentId.trim() !== (user.studentId ?? '')) {
+        if (!isValidStudentId(form.studentId)) throw new Error(STUDENT_ID_ERROR);
+        changes.studentId = form.studentId.trim();
+      }
       changes.personalEmail = form.personalEmail.trim();
       setCurrentUser(await updateProfile(user.personId, changes));
       setEditing(false);
@@ -354,7 +379,7 @@ export default function ProfilePage() {
                 {outside ? (
                   <TextField size="small" label="School / organization" value={form.organization} onChange={(e) => setForm({ ...form, organization: e.target.value })} required inputProps={{ maxLength: 100 }} />
                 ) : (
-                  <TextField size="small" label="Student ID" value={form.studentId} onChange={(e) => setForm({ ...form, studentId: e.target.value })} required inputProps={{ maxLength: 20 }} />
+                  <StudentIdField size="small" label="Student ID" value={form.studentId} onChange={(v) => setForm({ ...form, studentId: v })} required />
                 )}
                 <TextField size="small" label="Personal email (optional)" type="email" value={form.personalEmail} onChange={(e) => setForm({ ...form, personalEmail: e.target.value })} helperText="Used for backup & password reset" />
                 <TextField

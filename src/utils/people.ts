@@ -185,6 +185,7 @@ export function validateSignUp(data: SignUpData, confirmPassword?: string): stri
   }
   if (data.personalEmail && !isValidEmail(data.personalEmail)) return 'Please enter a valid personal email.';
   if (data.accountType !== 'outside' && !data.studentId?.trim()) return 'Please enter your APC student ID.';
+  if (data.accountType !== 'outside' && !STUDENT_ID_RE.test(data.studentId!.trim())) return STUDENT_ID_ERROR;
   if (data.accountType === 'outside' && !data.organization?.trim()) {
     return 'Please enter your school, company or organization.';
   }
@@ -199,4 +200,41 @@ export function validateSignUp(data: SignUpData, confirmPassword?: string): stri
   if (pwError) return pwError;
   if (confirmPassword !== undefined && data.password !== confirmPassword) return 'Passwords do not match.';
   return null;
+}
+
+/** APC student ID: 4 digits, a dash, 6 digits (e.g. 2026-140242). */
+export const STUDENT_ID_RE = /^\d{4}-\d{6}$/;
+export const STUDENT_ID_ERROR = 'Student ID must look like 2026-140242 (4 digits, a dash, 6 digits).';
+
+/** Keep only digits and put the dash in while typing: "2026140242" -> "2026-140242" (max 11 characters). */
+export function formatStudentId(raw: string): string {
+  const d = raw.replace(/\D/g, '').slice(0, 10);
+  return d.length > 4 ? `${d.slice(0, 4)}-${d.slice(4)}` : d;
+}
+
+export const isValidStudentId = (v?: string | null) => Boolean(v && STUDENT_ID_RE.test(v.trim()));
+
+/** Labels for what an admin can ask someone to fix. */
+export const FIX_FIELD_LABELS: Record<import('../types/auth').FixField, string> = {
+  name: 'Name',
+  studentId: 'Student ID',
+  organization: 'School / organization',
+  personalEmail: 'Personal email',
+  photo: 'Profile photo',
+  other: 'Something else',
+};
+
+/**
+ * Who can send documents to the adviser for sign-off: admins, everyone in
+ * Secretariat, the Marketing Director and Assistant Director, the VPs and the
+ * President (mirrored in api/notifications.ts).
+ */
+export function canRequestSignoff(u: { role?: string; officerPosition?: string | null; committee?: string | null } | null | undefined): boolean {
+  if (!u) return false;
+  if (u.role === 'admin') return true;
+  if (u.role !== 'officer') return false;
+  const pos = u.officerPosition || '';
+  if (['president', 'vp-internal', 'vp-external'].includes(pos)) return true;
+  if (u.committee === 'secretariat') return true;
+  return u.committee === 'marketing' && (pos === 'director' || pos === 'assistant-director');
 }

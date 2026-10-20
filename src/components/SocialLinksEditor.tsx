@@ -13,6 +13,7 @@ import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import type { SocialLinks } from '../types/auth';
 import { CUSTOM_LINK_ICON, SOCIAL_PLATFORMS, type SocialKey } from '../utils/socials';
+import { socialLinkError } from '../utils/linkCheck';
 
 /**
  * Pick which links to show: Facebook, Instagram, LinkedIn, GitHub, X, TikTok,
@@ -42,7 +43,7 @@ export default function SocialLinksEditor({ value, onChange }: { value: SocialLi
     <Box data-testid="social-editor">
       <Stack spacing={1.25}>
         {SOCIAL_PLATFORMS.filter((p) => shown.includes(p.key)).map((p) => (
-          <Stack key={p.key} direction="row" spacing={1} alignItems="center">
+          <Stack key={p.key} direction="row" spacing={1} alignItems="flex-start">
             <TextField
               size="small"
               fullWidth
@@ -50,6 +51,8 @@ export default function SocialLinksEditor({ value, onChange }: { value: SocialLi
               placeholder={p.placeholder}
               value={value[p.key] ?? ''}
               onChange={(e) => setKey(p.key, e.target.value)}
+              error={Boolean(socialLinkError(p.key, value[p.key]))}
+              helperText={socialLinkError(p.key, value[p.key]) || undefined}
               InputProps={{ startAdornment: <Box sx={{ mr: 1, display: 'flex', color: p.color }}>{p.icon}</Box> }}
             />
             <Tooltip title={`Remove ${p.label}`}>
@@ -78,6 +81,8 @@ export default function SocialLinksEditor({ value, onChange }: { value: SocialLi
                 placeholder="https://…"
                 value={c.url}
                 onChange={(e) => setCustom(i, 'url', e.target.value)}
+                error={Boolean(socialLinkError('custom', c.url))}
+                helperText={socialLinkError('custom', c.url) || undefined}
                 InputProps={{ startAdornment: <Box sx={{ mr: 1, display: 'flex', color: '#5B21B6' }}>{CUSTOM_LINK_ICON}</Box> }}
               />
               <IconButton
@@ -125,4 +130,18 @@ export default function SocialLinksEditor({ value, onChange }: { value: SocialLi
       </Menu>
     </Box>
   );
+}
+
+/** First problem in a set of social links ('' when they're all fine). */
+export function socialsProblem(v: SocialLinks | undefined): string {
+  if (!v) return '';
+  for (const p of SOCIAL_PLATFORMS) {
+    const e = socialLinkError(p.key, v[p.key]);
+    if (e) return `${p.label}: ${e}`;
+  }
+  for (const c of v.custom || []) {
+    const e = socialLinkError('custom', c.url);
+    if (e) return `${c.label || 'Link'}: ${e}`;
+  }
+  return '';
 }

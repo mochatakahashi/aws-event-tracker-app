@@ -82,7 +82,8 @@ export default function NetworkingCard({ open = true, onClose, personId, name, s
           Let someone scan this from <strong>Connect → Scan QR</strong> (or any camera) to see your profile, links and
           achievements - and add you as a connection.
         </Typography>
-        <Box sx={{ display: 'inline-flex', p: 1.5, borderRadius: 3, border: `1px solid ${alpha(brand.primary, 0.15)}`, mb: 2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+        <Box sx={{ display: 'inline-flex', p: 1.5, borderRadius: 3, border: `1px solid ${alpha(brand.primary, 0.15)}` }}>
           {qr ? (
             <Box component="img" src={qr} alt={`QR code for ${name}'s profile`} sx={{ width: 220, height: 220, display: 'block' }} />
           ) : (
@@ -91,12 +92,15 @@ export default function NetworkingCard({ open = true, onClose, personId, name, s
             </Box>
           )}
         </Box>
+        </Box>
         {bio && (
           <Typography variant="body2" sx={{ mb: 1.5, whiteSpace: 'pre-line' }}>
             {bio}
           </Typography>
         )}
-        <SocialLinksRow socials={socials} />
+        <Box sx={{ display: 'flex', justifyContent: 'center' }} data-testid="networking-links">
+          <SocialLinksRow socials={socials} empty="No social links yet. Add them with Edit on your Connect page." />
+        </Box>
         <Stack direction="row" justifyContent="center" sx={{ mt: 1.5 }}>
           <Button size="small" startIcon={<ContentCopyIcon />} onClick={copy}>
             {copied ? 'Link copied!' : 'Copy profile link'}

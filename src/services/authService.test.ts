@@ -41,7 +41,7 @@ async function approvedStudent(email = 'sofia@student.apc.edu.ph') {
     lastName: 'Rossi',
     email,
     password: 'Sofia123!',
-    studentId: '2024-042',
+    studentId: '2024-100042',
   });
   await approveUser(u.personId, 'per-1');
   return u.personId;
@@ -189,7 +189,7 @@ describe('account security', () => {
         firstName: 'Mika',
         lastName: 'Reyes',
         email: 'mika@student.apc.edu.ph',
-        studentId: '2024-9',
+        studentId: '2024-100009',
         officerPosition: 'associate',
         committee: 'marketing',
         subcommittee: 'creatives',

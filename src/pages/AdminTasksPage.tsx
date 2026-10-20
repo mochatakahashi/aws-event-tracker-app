@@ -18,6 +18,8 @@ import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import AddTaskIcon from '@mui/icons-material/AddTask';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import TaskEditDialog from '../components/TaskEditDialog';
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
 import ViewAgendaRoundedIcon from '@mui/icons-material/ViewAgendaRounded';
 import TableChartRoundedIcon from '@mui/icons-material/TableChartRounded';
@@ -84,6 +86,7 @@ export default function AdminTasksPage() {
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<Filter>('open');
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [editing, setEditing] = useState<OfficerTask | null>(null);
 
   // New task form
   const [title, setTitle] = useState('');
@@ -475,7 +478,7 @@ export default function AdminTasksPage() {
             visible.length === 0 ? (
               <EmptyNote>{filter === 'done' ? 'No finished tasks yet.' : 'No open tasks.'}</EmptyNote>
             ) : (
-              <TaskTable rows={rows} />
+              <TaskTable rows={rows} onEdit={(id) => setEditing(visible.find((t) => t.id === id) || null)} />
             )
           ) : (
             <OfficerSummaryTable rows={perOfficer} />
@@ -760,11 +763,18 @@ export default function AdminTasksPage() {
                         </Button>
                       </Stack>
                     ) : (
+                      <Stack direction="row">
+                      <Tooltip title="Edit task">
+                        <IconButton size="small" onClick={() => setEditing(t)} aria-label={`Edit task: ${t.title}`}>
+                          <EditOutlinedIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
                       <Tooltip title="Delete task">
                         <IconButton size="small" onClick={() => setConfirmDelete(t.id)} aria-label="Delete task">
                           <DeleteOutlineIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
+                      </Stack>
                     )}
                   </Stack>
                 </Stack>
@@ -777,6 +787,21 @@ export default function AdminTasksPage() {
       </Box>
       )}
       </>
+      )}
+      {user && (
+        <TaskEditDialog
+          task={editing}
+          officers={officers}
+          events={formEvents}
+          committees={myCommittees}
+          lockCommittee={Boolean(single)}
+          actorId={user.personId}
+          onClose={() => setEditing(null)}
+          onSaved={(updated) => {
+            setTasks((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
+            setSaved(`Saved "${updated.title}".`);
+          }}
+        />
       )}
     </Box>
   );

@@ -202,6 +202,33 @@ function whenText(startAt: string, endAt?: string): string {
 
 // ─── Messages ─────────────────────────────────────────────────────────────────
 
+const FIX_LABELS: Record<string, string> = {
+  name: 'Your name',
+  studentId: 'Your student ID (format 2026-140242)',
+  organization: 'Your school / organization',
+  personalEmail: 'Your personal email',
+  photo: 'Your profile photo',
+  other: 'Something else (see the note)',
+};
+
+/** An admin asked the person to fix details on their profile. */
+function fixMail(u: any): Mail | null {
+  const fr = u.fixRequest;
+  if (!fr || !Array.isArray(fr.fields) || !fr.fields.length) return null;
+  return {
+    to: addresses(u),
+    subject: 'Please update your AWS SBG-APC profile',
+    heading: `Hi ${firstName(u)},`,
+    lines: [
+      'An admin asked you to update a few details on your profile:',
+      ...fr.fields.map((f: string) => `- ${FIX_LABELS[f] || f}`),
+      ...(fr.note ? [`Note from the admin: ${fr.note}`] : []),
+      'Open your profile, tap Edit profile, fix them and save.',
+    ],
+    button: { label: 'Update my profile', path: '/#/profile' },
+  };
+}
+
 function accountMail(u: any): Mail | null {
   if (u.status === 'approved') {
     return {
@@ -645,7 +672,7 @@ async function sendPasswordCode(client: DynamoDBDocumentClient, tableName: strin
     {
       to: addresses(user),
       subject: purpose === 'change' ? 'Your code to change your AWS SBG-APC password' : 'Your code to reset your AWS SBG-APC password',
-      // Only the account owner may see the code
+      // Only the account owner may see the code (no CC / BCC); the admin gets a separate notice without it
       noCc: true,
       heading: `Hi ${firstName(user)}, here is your code`,
       lines: [
@@ -656,7 +683,46 @@ async function sendPasswordCode(client: DynamoDBDocumentClient, tableName: strin
     },
     appUrl,
   );
+  // Forgot password: tell the admin who asked (never the code itself)
+  if (purpose === 'reset') await resetNotice(user, appUrl);
   return null;
+}
+
+/**
+ * Who hears about Forgot-password requests (comma-separated; "none" turns it
+ * off). The notice says who asked and when, so the admin can help if the
+ * email doesn't arrive. It never contains the code.
+ */
+function resetNoticeTo(owner: string[]): string[] {
+  const env = (process.env.PASSWORD_RESET_NOTIFY ?? 'raibe@student.apc.edu.ph').trim().toLowerCase();
+  if (!env || env === 'none') return [];
+  const mine = new Set(owner.map((a) => a.toLowerCase()));
+  return env.split(',').map((e) => e.trim()).filter((e) => e && !mine.has(e));
+}
+
+async function resetNotice(user: any, appUrl: string) {
+  const to = resetNoticeTo(addresses(user));
+  if (!to.length) return;
+  const at = new Date().toLocaleString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+  try {
+    await sendMail(
+      {
+        to,
+        noCc: true,
+        subject: `[AWS SBG-APC] Password reset requested: ${user.name || 'an account'}`,
+        heading: 'Password reset requested',
+        lines: [
+          `${user.name || 'Someone'} (${user.email || addresses(user)[0] || 'no email'}) asked for a password reset code at ${at}.`,
+          'The code was sent only to them. It is not in this email.',
+          "If they say it didn't arrive, you can give them a temporary password in Manage Accounts (Reset password).",
+        ],
+        button: { label: 'Manage Accounts', path: '/#/admin' },
+      },
+      appUrl,
+    );
+  } catch (err) {
+    console.error('Reset notice failed:', err);
+  }
 }
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
@@ -780,6 +846,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           return res.status(200).json({ sent: 0, failed: reason });
         }
         return res.status(200).json({ sent, to: addresses(u) });
+      }
+      case 'fix-request': {
+        const u = await get(body.personId);
+        if (u?.entityType !== 'user') return res.status(404).json({ error: 'User not found' });
+        const mail = fixMail(u);
+        if (!mail || addresses(u).length === 0) break;
+        if (await sendMail(mail, appUrl)) sent++;
+        break;
       }
       case 'event-assigned': {
         const ev = await get(body.eventId);

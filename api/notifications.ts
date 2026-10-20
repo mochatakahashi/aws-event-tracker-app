@@ -47,7 +47,57 @@ const KINDS = [
   'connection-request',
   'connection-accepted',
   'announcement',
+  'profile-fix',
 ];
+
+
+/**
+ * Documents for the adviser must come from a trusted service (mirrors
+ * documentKind in src/utils/linkCheck.ts). Returns what kind of file it is.
+ */
+function documentKind(raw: string | undefined): string | null {
+  if (!raw) return null;
+  let u: URL;
+  try {
+    u = new URL(raw.trim());
+  } catch {
+    return null;
+  }
+  if (u.protocol !== 'https:' || u.username || u.password) return null;
+  const host = u.hostname.toLowerCase();
+  const path = u.pathname.toLowerCase();
+  const on = (d: string) => host === d || host.endsWith(`.${d}`);
+  if (host === 'docs.google.com') {
+    if (path.startsWith('/document')) return 'Google Docs document';
+    if (path.startsWith('/presentation')) return 'Google Slides presentation';
+    if (path.startsWith('/spreadsheets')) return 'Google Sheets spreadsheet';
+    if (path.startsWith('/forms')) return 'Google Form';
+    return 'Google Docs file';
+  }
+  if (host === 'drive.google.com') return path.includes('/folders/') ? 'Google Drive folder' : 'Google Drive file';
+  if (on('canva.com') || host === 'canva.link') return 'Canva design';
+  if (on('sharepoint.com')) {
+    if (path.includes('/:w:/')) return 'Word document (SharePoint)';
+    if (path.includes('/:p:/')) return 'PowerPoint presentation (SharePoint)';
+    if (path.includes('/:x:/')) return 'Excel spreadsheet (SharePoint)';
+    if (path.includes('/:b:/')) return 'PDF (SharePoint)';
+    return 'SharePoint file';
+  }
+  if (host === 'onedrive.live.com' || host === '1drv.ms') return 'OneDrive file';
+  if (on('office.com') || host === 'office.live.com') return 'Microsoft Office file';
+  return null;
+}
+
+/** Secretariat, Marketing Director / Assistant Director, VPs, President, admins (mirrors src/utils/people.ts). */
+function canRequestSignoff(u: any): boolean {
+  if (!u || (u.status ?? 'approved') !== 'approved') return false;
+  if (u.role === 'admin') return true;
+  if (u.role !== 'officer') return false;
+  const pos = u.officerPosition || '';
+  if (['president', 'vp-internal', 'vp-external'].includes(pos)) return true;
+  if (u.committee === 'secretariat') return true;
+  return u.committee === 'marketing' && (pos === 'director' || pos === 'assistant-director');
+}
 
 function getDynamoDocClient() {
   const region = process.env.APP_AWS_REGION || process.env.AWS_REGION || 'ap-southeast-1';
@@ -218,17 +268,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'signoff' && req.method === 'POST') {
       const body = req.body || {};
       const actor = await getUser(body.actorId);
-      if (!actor || (actor.role !== 'officer' && actor.role !== 'admin')) return res.status(403).json({ error: 'Only officers and admins can send sign-off requests.' });
+      if (!canRequestSignoff(actor)) {
+        return res.status(403).json({
+          error: 'Sign-off requests are sent by Secretariat, the Marketing Director / Assistant Director, the VPs, the President and admins.',
+        });
+      }
       const title = text(body.title, 140);
       if (!title) return res.status(400).json({ error: 'What needs signing? Add a title.' });
       const link = text(body.link, 500);
-      if (link && !/^https?:\/\//i.test(link)) return res.status(400).json({ error: 'The file link must start with https://' });
+      const linkKind = link ? documentKind(link) : null;
+      if (link && !linkKind) {
+        return res.status(400).json({
+          error: 'Only links to Google Docs / Slides / Sheets / Drive, Canva, or Microsoft Word / PowerPoint / Excel (OneDrive, SharePoint, Office) are allowed, starting with https://',
+        });
+      }
       const item = {
         id: `sgn-${Date.now()}-${Math.floor(Math.random() * 1e5)}`,
         entityType: 'signoff',
         title,
         details: text(body.details, 2000) || undefined,
         link: link || undefined,
+        linkKind: linkKind || undefined,
         eventId: str(body.eventId),
         requestedBy: actor.id,
         requestedByName: actor.name,

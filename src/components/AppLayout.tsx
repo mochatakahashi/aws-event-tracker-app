@@ -1,4 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import AboutDialog from './AboutDialog';
+import { APP_VERSION } from '../version';
 import { Outlet, useNavigate, useLocation, Link as RouterLink } from 'react-router-dom';
 import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
@@ -34,6 +36,7 @@ import { useEvent } from '../context/EventContext';
 import { brand } from '../theme/theme';
 import BottomNav from './BottomNav';
 import OfflineNotice from './OfflineNotice';
+import FixRequestBanner from './FixRequestBanner';
 import AssignmentTurnedInRoundedIcon from '@mui/icons-material/AssignmentTurnedInRounded';
 import { taskScope } from '../utils/taskScope';
 import { COMMITTEE_LABELS } from '../utils/people';
@@ -83,6 +86,7 @@ export default function AppLayout() {
     void nudgeAfterEventNotices();
   }, []);
   const [profileAnchor, setProfileAnchor] = useState<null | HTMLElement>(null);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const profileMenuOpen = Boolean(profileAnchor);
   // The sidebar avatar (laptops) opens the same menu, upwards
   const [menuFromSidebar, setMenuFromSidebar] = useState(false);
@@ -392,13 +396,17 @@ export default function AppLayout() {
               </MenuItem>
             )}
             <MenuItem
-              onClick={() => setProfileAnchor(null)}
+              onClick={() => {
+                setProfileAnchor(null);
+                setAboutOpen(true);
+              }}
               sx={{ py: 1.2 }}
+              data-testid="menu-about"
             >
               <ListItemIcon><InfoOutlinedIcon fontSize="small" /></ListItemIcon>
               <ListItemText 
                 primary="About AWS SBG-APC" 
-                secondary="Event Tracker v0.1.0"
+                secondary={`Event Tracker v${APP_VERSION}`}
                 secondaryTypographyProps={{ fontSize: '0.7rem' }}
               />
             </MenuItem>
@@ -446,8 +454,10 @@ export default function AppLayout() {
         {/* Page content */}
         <Box sx={{ p: { xs: 2, md: 3, lg: 4 }, pb: { xs: 10, md: 4 }, maxWidth: 1280, mx: 'auto', width: '100%' }}>
           <OfflineNotice />
+          <FixRequestBanner />
           <Outlet />
           <TutorialTour />
+          <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
         </Box>
       </Box>
 

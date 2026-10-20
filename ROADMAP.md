@@ -106,13 +106,13 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 
 ---
 
-### ✅ Versions 0.6.16 - 0.6.31 - Event Info, Announcements, Evaluation & Sharing
+### ✅ Versions 0.6.16 - 0.6.32 - Event Info, Announcements, Evaluation & Sharing
 - [x] **Event duty card** for assigned officers and co-organizer staff (v0.6.16).
 - [x] **Program flow table** and the club's official event info applied by the admin (v0.6.17 - v0.6.18).
 - [x] **Officers-only events** (v0.6.19).
 - [x] **Pinned announcements** (24 hours, editable, officers or everyone), **saved copy when the database is down**, **last sign-in** for admins, tour only on the first sign-in, type-in session speakers, profile photo fix, officer comments on all their tasks (v0.6.20).
 - [x] **Event evaluation** required for the certificate, with reminders after the event and results with CSV (v0.6.21).
-- [x] **Share an event** with link previews and a public event page (v0.6.22); share from event cards, phone share-sheet fix, and speaker edit / remove on the event page (v0.6.23); all stamps for the certificate, admins monitor only, person-in-charge for the team only (v0.6.24); automatic registration link with QR and one-tap register (v0.6.25); SES on apcsbg.org (v0.6.26); local dev API, email copies, API reference docs (v0.6.27); emailed codes for password changes, working Forgot password, sign-in lock (v0.6.28); committee tasks for Directors, Assistant Directors, VPs and the President (v0.6.29); whole-org or event tasks, table and per-officer views, Excel download (v0.6.30); food stubs with a food team and one claim per meal (v0.6.31).
+- [x] **Share an event** with link previews and a public event page (v0.6.22); share from event cards, phone share-sheet fix, and speaker edit / remove on the event page (v0.6.23); all stamps for the certificate, admins monitor only, person-in-charge for the team only (v0.6.24); automatic registration link with QR and one-tap register (v0.6.25); SES on apcsbg.org (v0.6.26); local dev API, email copies, API reference docs (v0.6.27); emailed codes for password changes, working Forgot password, sign-in lock (v0.6.28); committee tasks for Directors, Assistant Directors, VPs and the President (v0.6.29); whole-org or event tasks, table and per-officer views, Excel download (v0.6.30); food stubs with a food team and one claim per meal (v0.6.31); student ID format, admin edit and fix requests, task editing, undo check-in, safer sign-off and social links, show password fix (v0.6.32).
 
 ---
 
@@ -178,6 +178,7 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 | Committee tasks for leads (Directors, VPs, President) | v0.6.29 | ✅ Completed | High |
 | Whole-org / event tasks, table view, Excel summary | v0.6.30 | ✅ Completed | Medium |
 | Food stubs (food team, one claim per meal) | v0.6.31 | ✅ Completed | High |
+| Student ID format, fix requests, task editing | v0.6.32 | ✅ Completed | Medium |
 | Offline PWA Support | v0.6.5 | ⏳ Planned | Medium |
 | Real-Time Stamp Notifications | v0.7.0 | ⏳ Planned | High |
 | AWS Cognito Authentication | v0.7.0 | ⏳ Planned | High |

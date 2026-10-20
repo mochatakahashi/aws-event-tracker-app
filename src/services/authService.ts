@@ -2,6 +2,7 @@ import type {
   AdminCreateAccount,
   AdminUserChanges,
   Credentials,
+  FixField,
   ProfileChanges,
   SignUpData,
   User,
@@ -256,6 +257,26 @@ export async function resetPassword(personId: string, newPassword: string, actor
   const idx = users.findIndex((u) => u.personId === personId);
   if (idx === -1) throw new Error('User not found');
   users[idx] = { ...users[idx], password: newPassword, mustChangePassword: true };
+  local.save(users);
+  return delay(strip(users[idx]));
+}
+
+/**
+ * Admin: ask someone to fix details on their profile (in-app notice + email).
+ * Pass no fields to cancel the request.
+ */
+export async function requestFix(personId: string, fields: FixField[], note: string, actorId: string): Promise<User> {
+  if (await isRemoteAvailable(API)) {
+    return apiJson<User>(`${API}?action=fix-request`, {
+      method: 'POST',
+      body: JSON.stringify({ actorId, id: personId, fields, note }),
+    });
+  }
+  const users = loadLocalUsers();
+  if (users.find((u) => u.personId === actorId)?.role !== 'admin') throw new Error('Only an admin can ask for changes.');
+  const idx = users.findIndex((u) => u.personId === personId);
+  if (idx === -1) throw new Error('User not found');
+  users[idx] = { ...users[idx], fixRequest: fields.length ? { fields, note: note.trim() || undefined, at: new Date().toISOString(), by: actorId } : undefined };
   local.save(users);
   return delay(strip(users[idx]));
 }

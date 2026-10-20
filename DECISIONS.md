@@ -590,5 +590,44 @@ Events like Tech Barangay give lunch and a snack. Paper stubs get lost or copied
 
 ---
 
+## ADR-030: Fix Requests Instead of Re-approval
+
+### Status
+**Accepted** (v0.6.32)
+
+### Context
+Admins sometimes approve an account with a wrong name or student ID. Declining it after approval would lock the person out; editing it silently can get details wrong.
+
+### Decision
+- Admins can **edit details directly** (name, student ID / organization, emails) or **ask the person to fix them**. A request is a `fixRequest` on the account (`{ fields, note, at, by }`), sent with `POST /api/users?action=fix-request` (admin only), plus a notification and an email.
+- The person sees a banner until each requested value actually changes (saving the same value or an unrelated change doesn't count). The account keeps working.
+- Student IDs follow `^\d{4}-\d{6}$`, checked on sign-up, admin create and on change. Existing IDs are only re-checked when changed, so older accounts aren't locked out of editing their profile.
+
+### Consequences
+- **Positive**: mistakes are fixed by the person who knows the right details, with a record of what was asked.
+- **Negative**: older IDs stay until someone fixes them (Manage Accounts flags them).
+
+---
+
+## ADR-031: Only Trusted Document Links for Sign-off, Checked Social Links
+
+### Status
+**Accepted** (v0.6.32)
+
+### Context
+Sign-off requests carried any link, so a random or harmful link could reach the adviser. Social links accepted anything (a YouTube link saved as LinkedIn).
+
+### Decision
+- Sign-off links must be https and from Google (Docs, Slides, Sheets, Forms, Drive), Canva, or Microsoft (OneDrive, SharePoint, Office). The server saves the kind of file (`linkKind`) and the app shows it; older links that don't pass are shown as plain text.
+- Only Secretariat, the Marketing Director / Assistant Director, the VPs, the President and admins send sign-off requests.
+- Social links for known platforms must be on that platform's domain (subdomains allowed; look-alike domains are not).
+- Forgot-password codes go only to the account owner; the admin gets a notice without the code.
+
+### Consequences
+- **Positive**: no shortened or look-alike links in sign-offs; profiles show working links.
+- **Negative**: files on other services (e.g. Dropbox) must be moved to Drive or OneDrive first. Short links like bit.ly are refused.
+
+---
+
 *Last Updated: October 2026*
 

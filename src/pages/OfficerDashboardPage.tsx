@@ -29,7 +29,7 @@ import ContentTracker from '../components/ContentTracker';
 import StampRequestsPanel from '../components/StampRequestsPanel';
 import RegistrationRequestsPanel from '../components/RegistrationRequestsPanel';
 import type { User, Committee } from '../types/auth';
-import { COMMITTEES, COMMITTEE_LABELS, SUBCOMMITTEE_LABELS, officerTitle } from '../utils/people';
+import { COMMITTEES, COMMITTEE_LABELS, SUBCOMMITTEE_LABELS, canRequestSignoff, officerTitle } from '../utils/people';
 import { TASK_STATUS_LABELS, type OfficerTask, type TaskStatus } from '../types/task';
 import type { AppEvent } from '../types/event';
 import { canDo, staffEvents } from '../utils/eventStaff';
@@ -394,7 +394,8 @@ export default function OfficerDashboardPage() {
         </Box>
       )}
 
-      {user?.role === 'officer' && <SignoffPanel viewer={user} />}
+      {/* Only the officers who send documents to the adviser (and anything they sent before) */}
+      {user?.role === 'officer' && canRequestSignoff(user) && <SignoffPanel viewer={user} />}
 
       {/* My tasks: from admins, plus ones I add (an admin approves them) */}
       <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 1.5 }}>

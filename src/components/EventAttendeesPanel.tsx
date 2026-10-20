@@ -17,7 +17,7 @@ import HowToRegRoundedIcon from '@mui/icons-material/HowToRegRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import { alpha } from '@mui/material/styles';
 import { brand } from '../theme/theme';
-import { checkIn, reviewRegistrations, notifyCheckedIn } from '../services/registrationService';
+import { checkIn, reviewRegistrations, notifyCheckedIn, undoCheckIn } from '../services/registrationService';
 import { RsvpChip } from './EventChips';
 import type { RsvpStatus } from '../types/attendee';
 import { notifyInApp } from '../services/notificationService';
@@ -113,6 +113,22 @@ export default function EventAttendeesPanel({
       await onChanged();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not update the registration.');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  // Checked in by mistake: undo after a confirm
+  const [undoId, setUndoId] = useState<string | null>(null);
+  async function doUndo(reg: Registration) {
+    setBusy(reg.id);
+    setError('');
+    try {
+      await undoCheckIn(reg.id, actor.personId);
+      setUndoId(null);
+      await onChanged();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not undo the check-in.');
     } finally {
       setBusy(null);
     }
@@ -243,13 +259,32 @@ export default function EventAttendeesPanel({
                       </Button>
                     </Stack>
                   ) : r.checkedIn ? (
-                    <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: brand.success, flexShrink: 0 }}>
-                      <CheckCircleRoundedIcon fontSize="small" />
-                      <Typography variant="caption" sx={{ fontWeight: 700 }}>
-                        In {manila(r.checkedInAt)}
-                        {r.checkedInBy ? ` · ${people.get(r.checkedInBy)?.name ?? 'staff'}` : ''}
-                      </Typography>
-                    </Stack>
+                    undoId === r.id ? (
+                      <Stack direction="row" spacing={0.5} alignItems="center" sx={{ flexShrink: 0 }} data-testid={`undo-confirm-${r.id}`}>
+                        <Typography variant="caption" color="error" sx={{ fontWeight: 700 }}>
+                          Undo check-in?
+                        </Typography>
+                        <Button size="small" onClick={() => setUndoId(null)} disabled={Boolean(busy)}>
+                          Keep
+                        </Button>
+                        <Button size="small" color="error" variant="contained" onClick={() => void doUndo(r)} disabled={Boolean(busy)} sx={{ backgroundImage: 'none' }}>
+                          Undo
+                        </Button>
+                      </Stack>
+                    ) : (
+                      <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: brand.success, flexShrink: 0 }}>
+                        <CheckCircleRoundedIcon fontSize="small" />
+                        <Typography variant="caption" sx={{ fontWeight: 700 }}>
+                          In {manila(r.checkedInAt)}
+                          {r.checkedInBy ? ` · ${people.get(r.checkedInBy)?.name ?? 'staff'}` : ''}
+                        </Typography>
+                        {mayCheckIn && (
+                          <Button size="small" color="inherit" onClick={() => setUndoId(r.id)} sx={{ minWidth: 0, px: 0.75, textTransform: 'none' }} aria-label={`Undo check-in for ${people.get(r.personId)?.name ?? 'this person'}`}>
+                            Undo
+                          </Button>
+                        )}
+                      </Stack>
+                    )
                   ) : mayCheckIn ? (
                     <Button
                       size="small"

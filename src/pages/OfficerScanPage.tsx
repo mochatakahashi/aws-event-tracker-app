@@ -29,7 +29,7 @@ import { brand } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
 import { useEvent } from '../context/EventContext';
 import { getEvents } from '../services/eventService';
-import { checkIn, getPeople, getRegistration, getRegistrationsByEvent, notifyCheckedIn } from '../services/registrationService';
+import { checkIn, getPeople, getRegistration, getRegistrationsByEvent, notifyCheckedIn, undoCheckIn } from '../services/registrationService';
 import { approveStamp, createStamp, getSessionsByEvent, getStamps, getStampsByAttendee } from '../services/sessionService';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
@@ -221,6 +221,25 @@ export default function OfficerScanPage() {
     }
     if ('vibrate' in navigator) navigator.vibrate?.(60);
     void open(id);
+  }
+
+  // Checked in by mistake
+  const [confirmUndo, setConfirmUndo] = useState(false);
+  useEffect(() => setConfirmUndo(false), [scanned?.reg.id]);
+  async function handleUndo() {
+    if (!scanned || !user) return;
+    setWorking(true);
+    setError('');
+    try {
+      const registration = await undoCheckIn(scanned.reg.id, user.personId);
+      setScanned({ ...scanned, reg: registration, justCheckedIn: false });
+      setConfirmUndo(false);
+      deskChanged();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not undo the check-in.');
+    } finally {
+      setWorking(false);
+    }
   }
 
   async function handleCheckIn() {
@@ -467,7 +486,33 @@ export default function OfficerScanPage() {
               : ''}
             {scanned.reg.certificateId && ` · Certificate ${scanned.reg.certificateId}`}
           </Alert>
-        ) : !mayCheckIn && mayFood ? null : !mayCheckIn ? (
+        ) : null}
+        {scanned.reg.checkedIn && mayCheckIn && (
+          confirmUndo ? (
+            <Alert
+              severity="warning"
+              sx={{ mb: 1.5 }}
+              data-testid="undo-checkin-confirm"
+              action={
+                <Stack direction="row" spacing={0.5}>
+                  <Button color="inherit" size="small" onClick={() => setConfirmUndo(false)} disabled={working}>
+                    Keep
+                  </Button>
+                  <Button color="error" size="small" variant="contained" onClick={() => void handleUndo()} disabled={working} sx={{ backgroundImage: 'none' }}>
+                    Undo
+                  </Button>
+                </Stack>
+              }
+            >
+              Undo {peopleById.get(scanned.reg.personId)?.name?.split(' ')[0] ?? 'their'} check-in? Their pass goes back to not checked in.
+            </Alert>
+          ) : (
+            <Button size="small" color="inherit" onClick={() => setConfirmUndo(true)} sx={{ mb: 1, textTransform: 'none' }} data-testid="undo-checkin">
+              Checked in by mistake? Undo check-in
+            </Button>
+          )
+        )}
+        {scanned.reg.checkedIn ? null : !mayCheckIn && mayFood ? null : !mayCheckIn ? (
           <Alert severity="info" sx={{ mb: 1.5 }} data-testid="not-checkin-team">
             You’re not on the check-in team for this event, so you can’t check people in here.
           </Alert>

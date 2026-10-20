@@ -92,6 +92,9 @@ const theme = createTheme({
           scrollbarWidth: 'thin',
           scrollbarColor: `${alpha(brand.primary, 0.3)} transparent`,
         },
+        // Password fields use the app's own show / hide button (PasswordField);
+        // Edge's built-in reveal icon vanishes after you click away, so hide it
+        'input::-ms-reveal, input::-ms-clear': { display: 'none' },
       },
     },
     MuiButton: {

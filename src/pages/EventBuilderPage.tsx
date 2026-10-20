@@ -39,7 +39,7 @@ import { useEvent } from '../context/EventContext';
 import { brand, PARTNER } from '../theme/theme';
 import { EVENT_TAGS, type AppEvent } from '../types/event';
 import { tagColor, tagLabel } from '../utils/eventDisplay';
-import SocialLinksEditor from '../components/SocialLinksEditor';
+import SocialLinksEditor, { socialsProblem } from '../components/SocialLinksEditor';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Checkbox from '@mui/material/Checkbox';
 import ProgramFlowEditor from '../components/ProgramFlowEditor';
@@ -261,6 +261,8 @@ export default function EventBuilderPage() {
     const ids: string[] = [];
     for (const sp of speakers) {
       if (!sp.name.trim()) continue;
+      const badLink = socialsProblem(sp.socials);
+      if (badLink) throw new Error(`${sp.name.trim()}: ${badLink}`);
       const fields = {
         name: sp.name.trim(),
         headline: sp.headline.trim(),

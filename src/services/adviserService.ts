@@ -1,4 +1,5 @@
 import type { Announcement, SignoffRequest } from '../types/adviser';
+import { DOC_SERVICES, documentKind } from '../utils/linkCheck';
 import { apiJson, delay, generateId, isRemoteAvailable, localCollection } from './apiClient';
 
 /**
@@ -95,7 +96,7 @@ export async function requestSignoff(
   actor: { personId: string; name: string },
 ): Promise<SignoffRequest> {
   if (!input.title.trim()) throw new Error('What needs signing? Add a title.');
-  if (input.link && !/^https?:\/\//i.test(input.link)) throw new Error('The file link must start with https://');
+  if (input.link && !documentKind(input.link)) throw new Error(`Only links to ${DOC_SERVICES} are allowed.`);
   if (await isRemoteAvailable(API)) {
     return apiJson<SignoffRequest>(`${API}?action=signoff`, { method: 'POST', body: JSON.stringify({ ...input, actorId: actor.personId }) });
   }

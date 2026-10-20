@@ -24,7 +24,7 @@ describe('LoginPage', () => {
     renderWithProviders(<LoginPage />);
 
     await user.type(screen.getByLabelText(/email/i), 'nope');
-    await user.type(screen.getByLabelText(/password/i), 'wrong');
+    await user.type(screen.getByLabelText(/^password/i, { selector: 'input' }), 'wrong');
     await user.click(screen.getByRole('button', { name: /sign in/i }));
 
     const alert = await screen.findByRole('alert');
@@ -36,7 +36,7 @@ describe('LoginPage', () => {
     renderWithProviders(<LoginPage />);
 
     await user.type(screen.getByLabelText(/email/i), 'awsapc.admin');
-    await user.type(screen.getByLabelText(/password/i), 'test-admin-password');
+    await user.type(screen.getByLabelText(/^password/i, { selector: 'input' }), 'test-admin-password');
     await user.click(screen.getByRole('button', { name: /sign in/i }));
 
     await waitFor(() => {

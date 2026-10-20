@@ -33,6 +33,8 @@ export interface SignoffRequest {
   details?: string;
   /** Link to the file (Google Drive, Canva…). */
   link?: string;
+  /** What kind of file the link is (e.g. "Google Docs document"), set by the server. */
+  linkKind?: string;
   eventId?: string;
   requestedBy: string;
   requestedByName: string;

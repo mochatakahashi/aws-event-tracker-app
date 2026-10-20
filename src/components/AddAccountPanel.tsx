@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import StudentIdField from './StudentIdField';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
@@ -185,7 +186,7 @@ export default function AddAccountPanel({
             {accountType === 'outside' ? (
               <TextField size="small" margin="dense" label="School / organization" value={organization} onChange={(e) => setOrganization(e.target.value)} required />
             ) : (
-              <TextField size="small" margin="dense" label="APC student ID" value={studentId} onChange={(e) => setStudentId(e.target.value)} required />
+              <StudentIdField size="small" margin="dense" value={studentId} onChange={setStudentId} required />
             )}
             {isOfficer && (
               <TextField size="small" margin="dense" label="Personal email (optional)" value={personalEmail} onChange={(e) => setPersonalEmail(e.target.value)} />

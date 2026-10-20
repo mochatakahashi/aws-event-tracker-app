@@ -23,6 +23,9 @@ import { approveUser, deleteUser, getUsers, rejectUser, resetPassword, updateUse
 import AddAccountPanel from '../components/AddAccountPanel';
 import PersonAddAlt1RoundedIcon from '@mui/icons-material/PersonAddAlt1Rounded';
 import LockResetIcon from '@mui/icons-material/LockReset';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import ManageAccountsOutlinedIcon from '@mui/icons-material/ManageAccountsOutlined';
+import { EditAccountDialog, FixRequestDialog } from '../components/AccountFixDialogs';
 import HandshakeOutlinedIcon from '@mui/icons-material/HandshakeOutlined';
 import { notifyQuietly } from '../services/notifyService';
 import { notifyInApp } from '../services/notificationService';
@@ -35,7 +38,7 @@ import { brand, PARTNER } from '../theme/theme';
 import type { User, UserRole } from '../types/auth';
 import type { Stamp } from '../types/session';
 import { AdminHeader, EmptyNote, StatRow, StatTile, formatDateTime } from '../components/AdminUi';
-import { ACCOUNT_TYPE_LABELS, affiliation, generateTempPassword, memberLabel, officerTitle } from '../utils/people';
+import { ACCOUNT_TYPE_LABELS, FIX_FIELD_LABELS, affiliation, generateTempPassword, isValidStudentId, memberLabel, officerTitle } from '../utils/people';
 import { imageSrc } from '../utils/imageUrl';
 
 /** What the person picked on the sign-up form, e.g. "Officer - Director - Marketing (Creatives)". */
@@ -95,6 +98,9 @@ export default function AdminDashboardPage() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [resetFor, setResetFor] = useState<{ id: string; password: string; done?: boolean } | null>(null);
+  // Fix someone's details: edit them directly, or ask the person to fix them
+  const [editFor, setEditFor] = useState<User | null>(null);
+  const [fixFor, setFixFor] = useState<User | null>(null);
   /** Editing who is co-organizer staff (partner org) - attendee accounts only. */
   const [partnerFor, setPartnerFor] = useState<{ id: string; org: string } | null>(null);
 
@@ -439,6 +445,22 @@ export default function AdminDashboardPage() {
                     {u.mustChangePassword && (
                       <Chip size="small" color="warning" variant="outlined" label="Temp password not changed yet" sx={{ mt: 0.5 }} />
                     )}
+                    {(u.fixRequest?.fields?.length || (u.memberType !== 'outside' && u.role !== 'admin' && u.role !== 'adviser' && u.studentId !== undefined && !isValidStudentId(u.studentId))) && (
+                      <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
+                        {u.fixRequest?.fields?.length ? (
+                          <Chip
+                            size="small"
+                            color="warning"
+                            label={`Asked to fix: ${u.fixRequest.fields.map((f) => FIX_FIELD_LABELS[f]).join(', ')}`}
+                            onClick={() => setFixFor(u)}
+                            data-testid={`fix-chip-${u.personId}`}
+                          />
+                        ) : null}
+                        {u.memberType !== 'outside' && u.studentId !== undefined && !isValidStudentId(u.studentId) && (
+                          <Chip size="small" color="error" variant="outlined" label={`Student ID "${u.studentId || 'empty'}" not in 2026-140242 format`} data-testid={`id-format-${u.personId}`} />
+                        )}
+                      </Stack>
+                    )}
                     {resetFor?.id === u.personId && (
                       <Box sx={{ mt: 1, p: 1.25, borderRadius: 2, bgcolor: alpha(brand.primary, 0.05) }}>
                         {resetFor.done ? (
@@ -472,62 +494,6 @@ export default function AdminDashboardPage() {
                             </Stack>
                           </Stack>
                         )}
-                      </Box>
-                    )}
-                    {partnerFor?.id === u.personId && (
-                      <Box sx={{ mt: 1, p: 1.25, borderRadius: 2, bgcolor: alpha(brand.primary, 0.05) }} data-testid={`partner-editor-${u.personId}`}>
-                        <Typography variant="body2" sx={{ mb: 1 }}>
-                          Co-organizer staff can be put on a co-organized event’s staff list for <strong>check-in</strong> or{' '}
-                          <strong>stamps</strong> only - no officer tasks or other officer features.
-                        </Typography>
-                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }}>
-                          <TextField
-                            size="small"
-                            label="Partner org"
-                            placeholder="e.g. GDSC APC"
-                            value={partnerFor.org}
-                            onChange={(e) => setPartnerFor({ ...partnerFor, org: e.target.value })}
-                            inputProps={{ maxLength: 60 }}
-                            sx={{ flex: 1, bgcolor: '#fff' }}
-                          />
-                          <Stack direction="row" spacing={1}>
-                            <Button size="small" onClick={() => setPartnerFor(null)}>
-                              Cancel
-                            </Button>
-                            {u.partnerOrg && (
-                              <Button
-                                size="small"
-                                color="error"
-                                disabled={busyId === u.personId}
-                                onClick={() =>
-                                  user &&
-                                  run(u.personId, async () => {
-                                    const updated = await updateUser(u.personId, { partnerOrg: null }, user.personId);
-                                    setPartnerFor(null);
-                                    return updated;
-                                  })
-                                }
-                              >
-                                Remove
-                              </Button>
-                            )}
-                            <Button
-                              size="small"
-                              variant="contained"
-                              disabled={busyId === u.personId || !partnerFor.org.trim()}
-                              onClick={() =>
-                                user &&
-                                run(u.personId, async () => {
-                                  const updated = await updateUser(u.personId, { partnerOrg: partnerFor.org.trim() }, user.personId);
-                                  setPartnerFor(null);
-                                  return updated;
-                                })
-                              }
-                            >
-                              Save
-                            </Button>
-                          </Stack>
-                        </Stack>
                       </Box>
                     )}
                     {u.status === 'rejected' && (
@@ -594,6 +560,20 @@ export default function AdminDashboardPage() {
                           </IconButton>
                         </Tooltip>
                       )}
+                      {u.status !== 'rejected' && (
+                        <>
+                          <Tooltip title="Edit details">
+                            <IconButton size="small" aria-label={`Edit details: ${u.name}`} onClick={() => setEditFor(u)}>
+                              <EditOutlinedIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Ask them to fix their profile">
+                            <IconButton size="small" aria-label={`Ask ${u.name} to fix their profile`} onClick={() => setFixFor(u)}>
+                              <ManageAccountsOutlinedIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </>
+                      )}
                       <Tooltip title="Reset password">
                         <IconButton
                           size="small"
@@ -610,11 +590,90 @@ export default function AdminDashboardPage() {
                       </Tooltip>
                       </>
                     ))}
+                    {partnerFor?.id === u.personId && (
+                      <Box sx={{ flexBasis: '100%', p: 1.5, borderRadius: 2, bgcolor: alpha(brand.primary, 0.05) }} data-testid={`partner-editor-${u.personId}`}>
+                        <Typography variant="body2" sx={{ mb: 1 }}>
+                          Co-organizer staff can be put on a co-organized event’s staff list for <strong>check-in</strong> or{' '}
+                          <strong>stamps</strong> only - no officer tasks or other officer features.
+                        </Typography>
+                        <Stack spacing={1}>
+                          <TextField
+                            size="small"
+                            fullWidth
+                            label="Partner org"
+                            placeholder="e.g. GDSC APC"
+                            value={partnerFor.org}
+                            onChange={(e) => setPartnerFor({ ...partnerFor, org: e.target.value })}
+                            inputProps={{ maxLength: 60 }}
+                            sx={{ bgcolor: 'background.paper', borderRadius: '12px' }}
+                          />
+                          <Stack direction="row" spacing={1} justifyContent="flex-end" flexWrap="wrap" useFlexGap>
+                            <Button size="small" onClick={() => setPartnerFor(null)}>
+                              Cancel
+                            </Button>
+                            {u.partnerOrg && (
+                              <Button
+                                size="small"
+                                color="error"
+                                disabled={busyId === u.personId}
+                                onClick={() =>
+                                  user &&
+                                  run(u.personId, async () => {
+                                    const updated = await updateUser(u.personId, { partnerOrg: null }, user.personId);
+                                    setPartnerFor(null);
+                                    return updated;
+                                  })
+                                }
+                              >
+                                Remove
+                              </Button>
+                            )}
+                            <Button
+                              size="small"
+                              variant="contained"
+                              disabled={busyId === u.personId || !partnerFor.org.trim()}
+                              onClick={() =>
+                                user &&
+                                run(u.personId, async () => {
+                                  const updated = await updateUser(u.personId, { partnerOrg: partnerFor.org.trim() }, user.personId);
+                                  setPartnerFor(null);
+                                  return updated;
+                                })
+                              }
+                            >
+                              Save
+                            </Button>
+                          </Stack>
+                        </Stack>
+                      </Box>
+                    )}
                 </CardContent>
               </Card>
             );
           })}
         </Box>
+      )}
+      {user && (
+        <>
+          <EditAccountDialog
+            user={editFor}
+            actorId={user.personId}
+            onClose={() => setEditFor(null)}
+            onSaved={(u) => {
+              replaceUser(u);
+              setInfo(`Saved ${u.name}'s details.`);
+            }}
+          />
+          <FixRequestDialog
+            user={fixFor}
+            actorId={user.personId}
+            onClose={() => setFixFor(null)}
+            onSaved={(u, mailNote) => {
+              replaceUser(u);
+              setInfo(u.fixRequest ? `Asked ${u.name} to fix their profile.${mailNote ? ` ${mailNote}` : ''}` : `Cancelled the request for ${u.name}.`);
+            }}
+          />
+        </>
       )}
     </Box>
   );

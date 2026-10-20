@@ -127,6 +127,46 @@ function passwordError(pw: unknown): string | null {
 
 const SOCIAL_KEYS = ['linkedIn', 'github', 'twitterX', 'website', 'facebook', 'instagram', 'tiktok', 'youtube'];
 /** Links only (no javascript:/data:), short, and at most 10 custom ones. */
+// Social links must be web links and, for known platforms, on that platform's
+// own site (mirrors src/utils/linkCheck.ts).
+const SOCIAL_HOSTS: Record<string, string[]> = {
+  facebook: ['facebook.com', 'fb.com', 'fb.me'],
+  instagram: ['instagram.com', 'instagr.am'],
+  linkedIn: ['linkedin.com', 'lnkd.in'],
+  github: ['github.com'],
+  twitterX: ['x.com', 'twitter.com'],
+  tiktok: ['tiktok.com'],
+  youtube: ['youtube.com', 'youtu.be'],
+};
+const SOCIAL_NAMES: Record<string, string> = { facebook: 'Facebook', instagram: 'Instagram', linkedIn: 'LinkedIn', github: 'GitHub', twitterX: 'X', tiktok: 'TikTok', youtube: 'YouTube', website: 'Website' };
+function parseLink(raw: string): URL | null {
+  const t = raw.trim();
+  if (!t || /\s/.test(t)) return null;
+  try {
+    const u = new URL(/^[a-z][a-z0-9+.-]*:/i.test(t) ? t : `https://${t}`);
+    if ((u.protocol !== 'https:' && u.protocol !== 'http:') || !u.hostname.includes('.') || u.username || u.password) return null;
+    return u;
+  } catch {
+    return null;
+  }
+}
+/** First problem in a socials object ('' when all links are fine). */
+function socialsError(v: unknown): string {
+  if (!v || typeof v !== 'object') return '';
+  for (const [k, raw] of Object.entries(v as Record<string, unknown>)) {
+    if (k === 'custom' || typeof raw !== 'string' || !raw.trim()) continue;
+    const u = parseLink(raw);
+    const name = SOCIAL_NAMES[k] || k;
+    if (!u) return `${name}: enter a web link, e.g. https://…`;
+    const domains = SOCIAL_HOSTS[k];
+    const host = u.hostname.toLowerCase();
+    if (domains && !domains.some((d) => host === d || host.endsWith(`.${d}`))) return `${name}: this isn't a ${name} link.`;
+  }
+  const custom = Array.isArray((v as any).custom) ? (v as any).custom : [];
+  for (const c of custom) if (c?.url && !parseLink(String(c.url))) return `${c.label || 'Link'}: enter a web link, e.g. https://…`;
+  return '';
+}
+
 function cleanSocials(v: unknown) {
   const out: Record<string, any> = {};
   if (!v || typeof v !== 'object') return out;
@@ -276,6 +316,24 @@ function findByLogin(users: any[], login: string) {
   );
 }
 
+/** APC student ID: 4 digits, a dash, 6 digits (e.g. 2026-140242). */
+const STUDENT_ID_RE = /^\d{4}-\d{6}$/;
+const STUDENT_ID_ERROR = 'Student ID must look like 2026-140242 (4 digits, a dash, 6 digits).';
+
+/** What an admin can ask someone to fix on their profile. */
+const FIX_FIELDS = ['name', 'studentId', 'organization', 'personalEmail', 'photo', 'other'];
+/** Profile keys that count as fixing each item. */
+const FIX_KEYS: Record<string, string[]> = {
+  name: ['firstName', 'middleInitial', 'lastName'],
+  studentId: ['studentId'],
+  organization: ['organization'],
+  personalEmail: ['personalEmail'],
+  photo: ['avatarUrl'],
+};
+
+/** A real profile edit (not a saved event or the tour flag). */
+const PROFILE_EDIT_KEYS = ['firstName', 'middleInitial', 'lastName', 'studentId', 'organization', 'personalEmail', 'avatarUrl', 'bio', 'socials'];
+
 function validateSignUp(d: any): string | null {
   const type = d?.accountType;
   if (!['apc-student', 'outside', 'officer'].includes(type)) return 'Please choose how you are signing up.';
@@ -288,6 +346,7 @@ function validateSignUp(d: any): string | null {
   if (type !== 'outside' && !isApcEmail(email)) return 'Please use your APC email (@apc.edu.ph or @student.apc.edu.ph).';
   if (d.personalEmail && !isEmail(String(d.personalEmail).trim())) return 'Please enter a valid personal email.';
   if (type !== 'outside' && !d.studentId?.trim()) return 'Please enter your APC student ID.';
+  if (type !== 'outside' && !STUDENT_ID_RE.test(String(d.studentId).trim())) return STUDENT_ID_ERROR;
   if (type === 'outside' && !d.organization?.trim()) return 'Please enter your school, company or organization.';
   if (type === 'officer') {
     if (!POSITIONS.includes(d.officerPosition)) return 'Please select your officer position.';
@@ -469,6 +528,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       };
       await client.send(new PutCommand({ TableName: tableName, Item: item }));
       return res.status(201).json(sanitize(item));
+    }
+
+    // Admin: ask someone to fix details on their profile (e.g. after approving by mistake)
+    //   action=fix-request { actorId, id, fields: [...FIX_FIELDS], note }   fields [] cancels it
+    if (req.method === 'POST' && action === 'fix-request') {
+      const { actorId, id, fields, note } = req.body || {};
+      if (!(await getAdmin(client, tableName, actorId))) {
+        return res.status(403).json({ error: 'Only an admin can ask for changes.' });
+      }
+      const user = (await client.send(new GetCommand({ TableName: tableName, Key: { id } }))).Item;
+      if (!user || user.entityType !== 'user') return res.status(404).json({ error: 'User not found' });
+      const list = [...new Set((Array.isArray(fields) ? fields : []).filter((f: unknown) => typeof f === 'string' && FIX_FIELDS.includes(f)))] as string[];
+      const text = typeof note === 'string' ? note.trim().slice(0, 500) : '';
+      if (list.length && list.includes('other') && !text) return res.status(400).json({ error: 'Say what else needs fixing.' });
+      const updated = {
+        ...user,
+        fixRequest: list.length ? { fields: list, note: text || undefined, at: new Date().toISOString(), by: actorId } : undefined,
+        updatedAt: new Date().toISOString(),
+      };
+      await client.send(new PutCommand({ TableName: tableName, Item: updated }));
+      return res.status(200).json(sanitize(updated));
     }
 
     if (req.method === 'POST' && action === 'reset') {
@@ -711,6 +791,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         else {
           const v = typeof updates.studentId === 'string' ? updates.studentId.trim().slice(0, 20) : '';
           if (!v) return res.status(400).json({ error: 'Student ID is required.' });
+          if (!STUDENT_ID_RE.test(v)) return res.status(400).json({ error: STUDENT_ID_ERROR });
           updates.studentId = v;
         }
       }
@@ -733,10 +814,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if ((updates.role ?? target.role) !== 'attendee') updates.partnerOrg = null;
       if ('savedEventIds' in updates) updates.savedEventIds = idList(updates.savedEventIds);
       if ('tutorialSeen' in updates) updates.tutorialSeen = Boolean(updates.tutorialSeen);
-      if ('socials' in updates) updates.socials = cleanSocials(updates.socials);
+      if ('socials' in updates) {
+        const bad = socialsError(updates.socials);
+        if (bad) return res.status(400).json({ error: bad });
+        updates.socials = cleanSocials(updates.socials);
+      }
       if (updates.status === 'approved' && target.status !== 'approved') {
         updates.approvedAt = new Date().toISOString();
         updates.approvedBy = actorId;
+      }
+
+      // An admin asked them to fix something: saving those fields ticks them off
+      if (target.fixRequest && Array.isArray(target.fixRequest.fields)) {
+        const changed = (k: string) => k in updates && JSON.stringify(updates[k] ?? null) !== JSON.stringify(target[k] ?? null);
+        const left = target.fixRequest.fields.filter(
+          (f: string) => !(FIX_KEYS[f] || []).some(changed) && !(f === 'other' && actorId === id && PROFILE_EDIT_KEYS.some(changed)),
+        );
+        updates.fixRequest = left.length ? { ...target.fixRequest, fields: left } : undefined;
+        if (!left.length) updates.fixedAt = new Date().toISOString();
       }
 
       const merged = { ...target, ...updates, id, entityType: 'user', updatedAt: new Date().toISOString() };

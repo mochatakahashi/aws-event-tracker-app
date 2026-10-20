@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import PasswordField from './PasswordField';
 import Box from '@mui/material/Box';
-import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
 import Alert from '@mui/material/Alert';
 import Typography from '@mui/material/Typography';
@@ -119,9 +119,8 @@ export default function ChangePasswordForm({
       <Button size="small" onClick={() => void sendCode()} disabled={sending || wait > 0} sx={{ mb: 0.5 }}>
         {wait > 0 ? `Send a new code in ${wait}s` : 'Send a new code'}
       </Button>
-      <TextField
+      <PasswordField
         label={currentLabel}
-        type="password"
         value={current}
         onChange={(e) => setCurrent(e.target.value)}
         fullWidth
@@ -130,9 +129,8 @@ export default function ChangePasswordForm({
         autoComplete="current-password"
         required
       />
-      <TextField
+      <PasswordField
         label="New password"
-        type="password"
         value={next}
         onChange={(e) => setNext(e.target.value)}
         fullWidth
@@ -142,9 +140,8 @@ export default function ChangePasswordForm({
         required
       />
       <PasswordChecklist password={next} />
-      <TextField
+      <PasswordField
         label="Confirm new password"
-        type="password"
         value={confirm}
         onChange={(e) => setConfirm(e.target.value)}
         fullWidth
