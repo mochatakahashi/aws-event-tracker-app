@@ -5,6 +5,7 @@ import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
+import Alert from '@mui/material/Alert';
 import Chip from '@mui/material/Chip';
 import Avatar from '@mui/material/Avatar';
 import LinearProgress from '@mui/material/LinearProgress';
@@ -40,6 +41,8 @@ import type { AppNotification } from '../types/notification';
 import type { OfficerTask } from '../types/task';
 import AnnouncementsCard from '../components/AnnouncementsCard';
 import AnnouncementBanner from '../components/AnnouncementBanner';
+import RateReviewRoundedIcon from '@mui/icons-material/RateReviewRounded';
+import { evaluationOpen } from '../utils/evaluation';
 
 const TZ = 'Asia/Manila';
 const dayTime = (iso: string) =>
@@ -139,6 +142,7 @@ export default function DashboardPage() {
     [regs, events],
   );
   const liveRegs = myRegs.filter((x) => x.event.status === 'ongoing');
+  const toEvaluate = myRegs.filter((x) => x.reg.checkedIn && !x.reg.evaluatedAt && evaluationOpen(x.event, now));
   const nextRegs = myRegs.filter((x) => x.event.status === 'upcoming');
   const upcomingOpen = events.filter((e) => e.status === 'upcoming' && !regs.some((r) => r.eventId === e.id)).slice(0, 3);
 
@@ -201,6 +205,23 @@ export default function DashboardPage() {
 
       {/* New announcements stay at the top for 24 hours */}
       {user && <AnnouncementBanner viewer={user} />}
+      {/* Evaluations waiting (they unlock the certificate) */}
+      {toEvaluate.map(({ event }) => (
+        <Alert
+          key={event.id}
+          severity="info"
+          icon={<RateReviewRoundedIcon />}
+          data-testid={`evaluate-${event.id}`}
+          sx={{ mb: 2, borderRadius: '14px', alignItems: 'center' }}
+          action={
+            <Button color="inherit" size="small" sx={{ fontWeight: 700 }} onClick={() => navigate(`/events/${event.id}?evaluate=1`)}>
+              Answer
+            </Button>
+          }
+        >
+          <strong>{event.title}</strong>: answer the evaluation to get your certificate.
+        </Alert>
+      ))}
       {user && isPartnerStaff(user) && <MyDutiesCard user={user} />}
       {/* Earlier announcements */}
       {user && <AnnouncementsCard viewer={user} limit={3} />}

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Outlet, useNavigate, useLocation, Link as RouterLink } from 'react-router-dom';
 import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
@@ -34,6 +34,7 @@ import { useEvent } from '../context/EventContext';
 import { brand } from '../theme/theme';
 import BottomNav from './BottomNav';
 import OfflineNotice from './OfflineNotice';
+import { nudgeAfterEventNotices } from '../services/registrationService';
 import EventOrganizerLogo from './EventOrganizerLogo';
 import { useUnreadNotifications } from '../hooks/useUnreadNotifications';
 import QrCode2RoundedIcon from '@mui/icons-material/QrCode2Rounded';
@@ -74,6 +75,10 @@ export default function AppLayout() {
   const unreadLabel = unread > 0 ? `${unread} unread notification${unread === 1 ? '' : 's'}` : 'notifications';
 
   // Profile menu anchor
+  // Send evaluation reminders / certificate notices soon after an event ends (the server does it at most every 5 minutes)
+  useEffect(() => {
+    void nudgeAfterEventNotices();
+  }, []);
   const [profileAnchor, setProfileAnchor] = useState<null | HTMLElement>(null);
   const profileMenuOpen = Boolean(profileAnchor);
   // The sidebar avatar (laptops) opens the same menu, upwards

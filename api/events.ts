@@ -67,6 +67,24 @@ function pruneStaff(item: any) {
           .slice(0, 60)
       : [];
   }
+  // Evaluation form: up to 25 questions (rating / yesno / choice / text)
+  if (item.evaluation !== undefined) {
+    const t = (v: unknown, n: number) => (typeof v === 'string' ? v.trim().slice(0, n) : '');
+    const ev = item.evaluation && typeof item.evaluation === 'object' ? item.evaluation : {};
+    const seen = new Set<string>();
+    const questions = (Array.isArray(ev.questions) ? ev.questions : [])
+      .map((q: any, i: number) => {
+        const type = ['rating', 'yesno', 'choice', 'text'].includes(q?.type) ? q.type : 'text';
+        let id = t(q?.id, 40).replace(/[^\w-]/g, '') || `q-${i + 1}`;
+        while (seen.has(id)) id = `${id}-${i}`;
+        seen.add(id);
+        const options = type === 'choice' ? [...new Set((Array.isArray(q?.options) ? q.options : []).map((o: unknown) => t(o, 80)).filter(Boolean))].slice(0, 10) : undefined;
+        return { id, type, label: t(q?.label, 200), required: Boolean(q?.required), ...(options ? { options } : {}) };
+      })
+      .filter((q: any) => q.label && (q.type !== 'choice' || (q.options && q.options.length >= 2)))
+      .slice(0, 25);
+    item.evaluation = { enabled: ev.enabled !== false, questions };
+  }
   // Partner orgs co-organizing the event: up to 5 short names
   if (item.coOrganizers !== undefined) {
     item.coOrganizers = Array.isArray(item.coOrganizers)

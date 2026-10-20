@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Paper from '@mui/material/Paper';
@@ -48,6 +48,7 @@ import CertificateButton from '../components/CertificateButton';
 import RecentUploadsShelf from '../components/RecentUploadsShelf';
 import InlinePass from '../components/InlinePass';
 import EventStaffPanel from '../components/EventStaffPanel';
+import EvaluationResults from '../components/EvaluationResults';
 import EventDutyCard from '../components/EventDutyCard';
 import Chip from '@mui/material/Chip';
 import ProgramFlowTable from '../components/ProgramFlowTable';
@@ -74,6 +75,9 @@ async function lineupFor(data: AppEvent) {
 
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
+  // From the evaluation reminder: open the form right away
+  const [searchParams] = useSearchParams();
+  const wantsEvaluation = searchParams.get('evaluate') === '1';
   const navigate = useNavigate();
   const { user } = useAuth();
   const personId = user?.personId;
@@ -598,6 +602,9 @@ export default function EventDetailPage() {
                 setOfficers(await getPeopleByIds(updated.officerIds || []));
               }}
             />
+
+            {/* Evaluation answers (admins, the adviser, this event's officers) */}
+            <EvaluationResults event={event} viewer={user} />
           </Paper>
         </Grid>
 
@@ -672,7 +679,7 @@ export default function EventDetailPage() {
                 </Stack>
                 {personId && myReg.rsvp !== 'declined' && (
                   <Box sx={{ mb: 2.5 }}>
-                    <CertificateButton registration={myReg} personId={personId} event={event} />
+                    <CertificateButton registration={myReg} personId={personId} event={event} autoOpenEvaluation={wantsEvaluation} onChange={setMyReg} />
                   </Box>
                 )}
                 {regError && (

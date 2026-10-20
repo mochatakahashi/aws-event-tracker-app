@@ -15,6 +15,7 @@ export type NotificationKind =
   | 'stamp-declined'
   | 'checked-in'
   | 'certificate'
+  | 'evaluation'
   | 'registration-approved'
   | 'registration-declined'
   | 'connection-request'

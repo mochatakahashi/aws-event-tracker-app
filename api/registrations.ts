@@ -33,6 +33,11 @@ import QRCode from 'qrcode';
  * GET    /api/registrations?action=verify&certificateId=CERT-2026-ABCD2345   (public)
  *        → { valid, status: valid | not-yet | revoked | not-found, certificateId, name, eventTitle, eventDate, venue, issuedAt }
  *
+ * Evaluation (opens 30 minutes before the event ends; checked-in attendees answer it to get the certificate):
+ * GET    /api/registrations?action=evaluation&eventId=&personId=   → { questions, required, opensAt, open, response }
+ * POST   /api/registrations?action=evaluate { eventId, personId, answers }   → saves it, unlocks the certificate
+ * GET    /api/registrations?action=evaluations&eventId=&actorId=   → all answers (admin, adviser, the event's officers)
+ *
  * Certificates are saved to s3://$AWS_S3_BUCKET_NAME/certificates/<eventId>/<certificateId>.pdf
  */
 
@@ -247,6 +252,70 @@ async function certificateData(client: DynamoDBDocumentClient, tableName: string
   };
 }
 
+
+// ─── Evaluation ───────────────────────────────────────────────────────────────
+// Keep in sync with src/utils/evaluation.ts.
+
+const EVAL_OPENS_BEFORE_END_MS = 30 * 60 * 1000;
+/** Events that ended before evaluations existed keep their certificates without one. */
+const EVAL_REQUIRED_FROM = '2026-10-20T00:00:00+08:00';
+
+function standardQuestions(hasSpeakers: boolean) {
+  return [
+    { id: 'q-overall', type: 'rating', label: 'How would you rate the event overall?', required: true },
+    ...(hasSpeakers ? [{ id: 'q-speakers', type: 'rating', label: 'How would you rate the speakers?', required: true }] : []),
+    { id: 'q-organization', type: 'rating', label: 'How would you rate the venue and how the event was organized?', required: true },
+    { id: 'q-learned', type: 'text', label: 'What did you learn from this event?', required: false },
+    { id: 'q-improve', type: 'text', label: 'What can we improve?', required: false },
+    { id: 'q-again', type: 'yesno', label: 'Would you join our next event?', required: true },
+  ];
+}
+
+function evalQuestions(ev: any): any[] {
+  const own = ev?.evaluation?.questions;
+  return Array.isArray(own) && own.length ? own : standardQuestions(Array.isArray(ev?.speakerIds) && ev.speakerIds.length > 0);
+}
+
+function evalRequired(ev: any): boolean {
+  if (!ev || ev.evaluation?.enabled === false) return false;
+  const end = ev.endAt || ev.startAt;
+  return Boolean(end) && new Date(end).getTime() >= new Date(EVAL_REQUIRED_FROM).getTime();
+}
+
+function evalOpensAt(ev: any): string | undefined {
+  const end = ev?.endAt || ev?.startAt;
+  return end ? new Date(new Date(end).getTime() - EVAL_OPENS_BEFORE_END_MS).toISOString() : undefined;
+}
+
+/** Clean answers, or an error message. */
+function checkEvalAnswers(questions: any[], raw: any): { answers?: Record<string, number | string>; error?: string } {
+  const input = raw && typeof raw === 'object' ? raw : {};
+  const answers: Record<string, number | string> = {};
+  for (const q of questions) {
+    let a = input[q.id];
+    if (typeof a === 'string') a = a.trim();
+    const empty = a === undefined || a === null || a === '';
+    if (empty) {
+      if (q.required) return { error: `Please answer: ${q.label}` };
+      continue;
+    }
+    if (q.type === 'rating') {
+      const n = Number(a);
+      if (!Number.isInteger(n) || n < 1 || n > 5) return { error: `Pick 1 to 5 for: ${q.label}` };
+      answers[q.id] = n;
+    } else if (q.type === 'yesno') {
+      if (a !== 'yes' && a !== 'no') return { error: `Pick yes or no for: ${q.label}` };
+      answers[q.id] = a;
+    } else if (q.type === 'choice') {
+      if (!(q.options || []).includes(String(a))) return { error: `Pick one of the choices for: ${q.label}` };
+      answers[q.id] = String(a);
+    } else {
+      answers[q.id] = String(a).slice(0, 2000);
+    }
+  }
+  return { answers };
+}
+
 async function getEventItem(client: DynamoDBDocumentClient, tableName: string, eventId: string) {
   return (await client.send(new GetCommand({ TableName: tableName, Key: { id: eventId } }))).Item;
 }
@@ -344,7 +413,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!reg) return res.status(404).json({ valid: false, status: 'not-found', certificateId });
       const ev = await getEventItem(client, tableName, reg.eventId);
       const data = await certificateData(client, tableName, reg);
-      const status = !reg.checkedIn ? 'revoked' : !eventEnded(ev) ? 'not-yet' : 'valid';
+      const status = !reg.checkedIn ? 'revoked' : !eventEnded(ev) || (evalRequired(ev) && !reg.evaluatedAt) ? 'not-yet' : 'valid';
       return res.status(200).json({
         valid: status === 'valid',
         status,
@@ -355,6 +424,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         venue: data.venue,
         issuedAt: status === 'valid' ? issuedDate(reg, ev) : undefined,
         availableFrom: status === 'not-yet' ? ev?.endAt : undefined,
+        needsEvaluation: status === 'not-yet' && eventEnded(ev) ? true : undefined,
       });
     }
 
@@ -391,6 +461,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           error: 'The certificate unlocks after the event ends.',
           code: 'NOT_YET',
           availableFrom: ev?.endAt,
+        });
+      }
+      if (evalRequired(ev) && !reg.evaluatedAt) {
+        return res.status(409).json({
+          error: 'Answer the event evaluation first: the certificate unlocks when it is done.',
+          code: 'NEEDS_EVALUATION',
         });
       }
       const download = q.download === '1' || q.download === 'true';
@@ -430,6 +506,106 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', disposition);
       return res.status(200).send(Buffer.from(bytes));
+    }
+
+    // ── Evaluation ──
+    if (req.method === 'GET' && action === 'evaluation') {
+      const eventId = str(q.eventId);
+      const personId = str(q.personId);
+      if (!eventId || !personId) return res.status(400).json({ error: 'eventId and personId are required' });
+      const ev = await getEventItem(client, tableName, eventId);
+      if (!ev) return res.status(404).json({ error: 'Event not found' });
+      const reg = (await scanType(client, tableName, 'registration')).find((r) => r.eventId === eventId && r.personId === personId);
+      const response = reg ? (await client.send(new GetCommand({ TableName: tableName, Key: { id: `evl-${reg.id}` } }))).Item : undefined;
+      const opensAt = evalOpensAt(ev);
+      return res.status(200).json({
+        questions: evalQuestions(ev),
+        required: evalRequired(ev),
+        opensAt,
+        open: evalRequired(ev) && Boolean(opensAt) && Date.now() >= new Date(opensAt!).getTime(),
+        checkedIn: Boolean(reg?.checkedIn),
+        response: response ? clean(response) : null,
+      });
+    }
+
+    if (req.method === 'POST' && action === 'evaluate') {
+      const { eventId, personId, answers: raw } = req.body || {};
+      if (typeof eventId !== 'string' || typeof personId !== 'string') return res.status(400).json({ error: 'eventId and personId are required' });
+      const ev = await getEventItem(client, tableName, eventId);
+      if (!ev) return res.status(404).json({ error: 'Event not found' });
+      const reg = (await scanType(client, tableName, 'registration')).find((r) => r.eventId === eventId && r.personId === personId);
+      if (!reg) return res.status(404).json({ error: "You're not registered for this event." });
+      if (!reg.checkedIn) return res.status(403).json({ error: 'Only people checked in at the event can answer its evaluation.' });
+      if (!evalRequired(ev)) return res.status(409).json({ error: 'This event has no evaluation.' });
+      const opensAt = evalOpensAt(ev);
+      if (!opensAt || Date.now() < new Date(opensAt).getTime()) {
+        return res.status(409).json({ error: 'The evaluation opens 30 minutes before the event ends.', opensAt });
+      }
+      if (reg.evaluatedAt) return res.status(409).json({ error: 'You already answered this evaluation.' });
+      const checked = checkEvalAnswers(evalQuestions(ev), raw);
+      if (checked.error) return res.status(400).json({ error: checked.error });
+      const person = (await client.send(new GetCommand({ TableName: tableName, Key: { id: personId } }))).Item;
+      const now = new Date().toISOString();
+      const response = {
+        id: `evl-${reg.id}`,
+        entityType: 'evaluation',
+        eventId,
+        personId,
+        personName: person?.name || '',
+        registrationId: reg.id,
+        answers: checked.answers,
+        submittedAt: now,
+      };
+      await client.send(new PutCommand({ TableName: tableName, Item: response }));
+      const updated = { ...reg, evaluatedAt: now, updatedAt: now };
+      await client.send(new PutCommand({ TableName: tableName, Item: updated }));
+      if (eventEnded(ev)) {
+        await client.send(
+          new PutCommand({
+            TableName: tableName,
+            Item: {
+              id: `ntf-${Date.now()}-${Math.floor(Math.random() * 1e6)}`,
+              entityType: 'notification',
+              personId,
+              kind: 'certificate',
+              title: `Your certificate for ${ev.title} is ready 🎓`,
+              message: 'Thanks for answering the evaluation. View or download your certificate from your event pass.',
+              link: `/pass?event=${ev.id}`,
+              read: false,
+              createdAt: now,
+            },
+          }),
+        );
+      }
+      return res.status(201).json({ response: clean(response), registration: clean(updated) });
+    }
+
+    if (req.method === 'GET' && action === 'evaluations') {
+      const eventId = str(q.eventId);
+      const actorId = str(q.actorId);
+      const ev = eventId ? await getEventItem(client, tableName, eventId) : undefined;
+      if (!ev) return res.status(404).json({ error: 'Event not found' });
+      const actor = actorId ? (await client.send(new GetCommand({ TableName: tableName, Key: { id: actorId } }))).Item : undefined;
+      const active = actor?.entityType === 'user' && (actor.status ?? 'approved') === 'approved';
+      const allowed =
+        active &&
+        (actor!.role === 'admin' || actor!.role === 'adviser' || (actor!.role === 'officer' && Array.isArray(ev.officerIds) && ev.officerIds.includes(actor!.id)));
+      if (!allowed) return res.status(403).json({ error: "Only admins, the adviser and this event's officers can see the evaluations." });
+      const regs = (await scanType(client, tableName, 'registration')).filter((r) => r.eventId === eventId);
+      const responses = (await scanType(client, tableName, 'evaluation'))
+        .filter((r) => r.eventId === eventId)
+        .sort((a, b) => String(a.submittedAt).localeCompare(String(b.submittedAt)));
+      const users = await scanType(client, tableName, 'user');
+      const name = (id: string) => users.find((u) => u.id === id)?.name || '';
+      const pending = regs.filter((r) => r.checkedIn && !r.evaluatedAt).map((r) => ({ personId: r.personId, name: name(r.personId) }));
+      return res.status(200).json({
+        questions: evalQuestions(ev),
+        required: evalRequired(ev),
+        opensAt: evalOpensAt(ev),
+        checkedIn: regs.filter((r) => r.checkedIn).length,
+        responses: responses.map((r) => ({ ...clean(r), personName: name(r.personId) || r.personName })),
+        pending,
+      });
     }
 
     // Approve / decline registrations in bulk: { actorId, ids, rsvp }

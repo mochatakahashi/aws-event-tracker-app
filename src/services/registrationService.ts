@@ -4,6 +4,8 @@ import type { User } from '../types/auth';
 import { seedPeople, seedRegistrations } from './seedData';
 import { getUsers } from './authService';
 import { apiJson, delay, generateId, isRemoteAvailable, localCollection } from './apiClient';
+import type { EvalAnswers, EvalQuestion, EvaluationResponse, EventEvaluation } from '../types/evaluation';
+import { checkAnswers, evaluationOpen, evaluationOpensAt, evaluationQuestions, evaluationRequired } from '../utils/evaluation';
 
 /**
  * People directory + event registrations.
@@ -290,14 +292,135 @@ export function certificateShareLink(certificateId: string): string {
 
 /** Certificates unlock after the event ends, only for people checked in at it. */
 export function certificateState(
-  registration: Pick<Registration, 'checkedIn'> | null | undefined,
-  event: { startAt?: string; endAt?: string } | null | undefined,
+  registration: Pick<Registration, 'checkedIn' | 'evaluatedAt'> | null | undefined,
+  event: { startAt?: string; endAt?: string; speakerIds?: string[]; evaluation?: EventEvaluation } | null | undefined,
   now = Date.now(),
-): 'ready' | 'after-event' | 'needs-check-in' | 'none' {
+): 'ready' | 'after-event' | 'needs-evaluation' | 'needs-check-in' | 'none' {
   const end = event?.endAt || event?.startAt;
   const ended = Boolean(end) && now > new Date(end!).getTime();
-  if (registration?.checkedIn) return ended ? 'ready' : 'after-event';
+  if (registration?.checkedIn) {
+    if (!ended) return 'after-event';
+    return evaluationRequired(event) && !registration.evaluatedAt ? 'needs-evaluation' : 'ready';
+  }
   return ended ? 'none' : 'needs-check-in';
+}
+
+// ─── Evaluation ───────────────────────────────────────────────────────────────
+
+export interface EvaluationStatus {
+  questions: EvalQuestion[];
+  /** Whether the certificate needs it (false for older events or when the admin turned it off). */
+  required: boolean;
+  opensAt?: string;
+  open: boolean;
+  checkedIn: boolean;
+  response: EvaluationResponse | null;
+}
+
+export interface EvaluationSummary {
+  questions: EvalQuestion[];
+  required: boolean;
+  opensAt?: string;
+  checkedIn: number;
+  responses: EvaluationResponse[];
+  pending: { personId: string; name: string }[];
+}
+
+const localEvals = localCollection<EvaluationResponse>('aws-event-tracker.evaluations.v1', () => []);
+
+async function localEvent(eventId: string) {
+  const { getEvent } = await import('./eventService');
+  const ev = await getEvent(eventId);
+  if (!ev) throw new Error('Event not found');
+  return ev;
+}
+
+/** The evaluation form for this person at this event, and whether they answered it. */
+export async function getEvaluation(eventId: string, personId: string): Promise<EvaluationStatus> {
+  if (await isRemoteAvailable(API)) {
+    return apiJson<EvaluationStatus>(`${API}?action=evaluation&eventId=${encodeURIComponent(eventId)}&personId=${encodeURIComponent(personId)}`);
+  }
+  const ev = await localEvent(eventId);
+  const reg = local.load().find((r) => r.eventId === eventId && r.personId === personId);
+  const opens = evaluationOpensAt(ev);
+  return delay({
+    questions: evaluationQuestions(ev),
+    required: evaluationRequired(ev),
+    opensAt: opens ? new Date(opens).toISOString() : undefined,
+    open: evaluationOpen(ev),
+    checkedIn: Boolean(reg?.checkedIn),
+    response: (reg && localEvals.load().find((x) => x.registrationId === reg.id)) || null,
+  });
+}
+
+/** Send the answers; unlocks the certificate. Returns the updated registration. */
+export async function submitEvaluation(eventId: string, personId: string, answers: EvalAnswers): Promise<Registration> {
+  if (await isRemoteAvailable(API)) {
+    const res = await apiJson<{ registration: Registration }>(`${API}?action=evaluate`, {
+      method: 'POST',
+      body: JSON.stringify({ eventId, personId, answers }),
+    });
+    return res.registration;
+  }
+  const ev = await localEvent(eventId);
+  const regs = local.load();
+  const reg = regs.find((r) => r.eventId === eventId && r.personId === personId);
+  if (!reg) throw new Error("You're not registered for this event.");
+  if (!reg.checkedIn) throw new Error('Only people checked in at the event can answer its evaluation.');
+  if (!evaluationOpen(ev)) throw new Error('The evaluation opens 30 minutes before the event ends.');
+  if (reg.evaluatedAt) throw new Error('You already answered this evaluation.');
+  const problem = checkAnswers(evaluationQuestions(ev), answers);
+  if (problem) throw new Error(problem);
+  const now = new Date().toISOString();
+  localEvals.save([
+    ...localEvals.load(),
+    { id: `evl-${reg.id}`, eventId, personId, registrationId: reg.id, answers, submittedAt: now },
+  ]);
+  reg.evaluatedAt = now;
+  local.save(regs);
+  return delay({ ...reg });
+}
+
+/** Everyone's answers for an event (admins, the adviser, the event's officers). */
+export async function getEvaluationSummary(eventId: string, actorId: string): Promise<EvaluationSummary> {
+  if (await isRemoteAvailable(API)) {
+    return apiJson<EvaluationSummary>(`${API}?action=evaluations&eventId=${encodeURIComponent(eventId)}&actorId=${encodeURIComponent(actorId)}`);
+  }
+  const ev = await localEvent(eventId);
+  const regs = local.load().filter((r) => r.eventId === eventId);
+  const users = await getUsers();
+  const name = (id: string) => users.find((u) => u.personId === id)?.name || '';
+  const opens = evaluationOpensAt(ev);
+  return delay({
+    questions: evaluationQuestions(ev),
+    required: evaluationRequired(ev),
+    opensAt: opens ? new Date(opens).toISOString() : undefined,
+    checkedIn: regs.filter((r) => r.checkedIn).length,
+    responses: localEvals
+      .load()
+      .filter((x) => x.eventId === eventId)
+      .map((x) => ({ ...x, personName: name(x.personId) })),
+    pending: regs.filter((r) => r.checkedIn && !r.evaluatedAt).map((r) => ({ personId: r.personId, name: name(r.personId) })),
+  });
+}
+
+const SWEEP_KEY = 'aws-event-tracker.after-event-sweep';
+/**
+ * Ask the server to send the after-event notices now (evaluation reminders /
+ * certificate ready) instead of waiting for the daily job. At most every 10 minutes per tab.
+ */
+export async function nudgeAfterEventNotices(): Promise<void> {
+  try {
+    const last = Number(sessionStorage.getItem(SWEEP_KEY) || 0);
+    if (Date.now() - last < 10 * 60 * 1000) return;
+    sessionStorage.setItem(SWEEP_KEY, String(Date.now()));
+  } catch {
+    /* storage blocked: still try once */
+  }
+  if (!(await isRemoteAvailable(API))) return;
+  await fetch('/api/notify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'after-event' }) }).catch(
+    () => undefined,
+  );
 }
 
 /** Count of registrations for an event. */

@@ -1,3 +1,4 @@
+import type { EventEvaluation } from './evaluation';
 /** How the event is delivered. */
 export type EventModality = 'onsite' | 'hybrid' | 'virtual';
 
@@ -86,6 +87,8 @@ export interface AppEvent {
   audience?: 'everyone' | 'officers';
   /** Program flow (run of show), shown as a table on the event page. */
   programFlow?: ProgramRow[];
+  /** Evaluation form (missing: the standard questions). Opens 30 minutes before the event ends. */
+  evaluation?: EventEvaluation;
   /** Version of the club's official event info applied (see src/data/clubEventInfo.ts). */
   infoVersion?: number;
   /** Automatically assigned timestamp. */

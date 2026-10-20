@@ -9,6 +9,8 @@ import {
   normalizeCertificateId,
   verifyCertificate,
   certificateState,
+  getEvaluation,
+  submitEvaluation,
 } from './registrationService';
 import {
   __resetNotifications,
@@ -71,7 +73,10 @@ describe('certificate verification', () => {
     const during = new Date('2026-11-14T12:00:00+08:00').getTime();
     const after = new Date('2026-11-15T09:00:00+08:00').getTime();
     expect(certificateState({ checkedIn: true }, ev, during)).toBe('after-event');
-    expect(certificateState({ checkedIn: true }, ev, after)).toBe('ready');
+    expect(certificateState({ checkedIn: true }, ev, after)).toBe('needs-evaluation');
+    expect(certificateState({ checkedIn: true, evaluatedAt: '2026-11-14T16:45:00+08:00' }, ev, after)).toBe('ready');
+    expect(certificateState({ checkedIn: true }, { ...ev, evaluation: { enabled: false, questions: [] } }, after)).toBe('ready');
+    expect(certificateState({ checkedIn: true }, { startAt: '2026-05-01T09:00:00+08:00', endAt: '2026-05-01T12:00:00+08:00' }, after)).toBe('ready');
     expect(certificateState({ checkedIn: false }, ev, during)).toBe('needs-check-in');
     expect(certificateState({ checkedIn: false }, ev, after)).toBe('none');
   });
@@ -83,6 +88,15 @@ describe('certificate verification', () => {
     const { registration } = await checkIn(reg.id, 'per-1');
     expect((await verifyCertificate(registration.certificateId!)).status).toBe('not-yet');
     vi.setSystemTime(new Date('2026-11-15T09:00:00+08:00'));
+    // Ended, but the evaluation isn't answered yet
+    expect((await verifyCertificate(registration.certificateId!)).status).toBe('not-yet');
+    const form = await getEvaluation('evt-1', 'per-1');
+    expect(form.open).toBe(true);
+    const answers = Object.fromEntries(
+      form.questions.filter((q) => q.required).map((q) => [q.id, q.type === 'rating' ? 5 : q.type === 'yesno' ? 'yes' : q.options?.[0] ?? 'ok']),
+    );
+    const done = await submitEvaluation('evt-1', 'per-1', answers);
+    expect(done.evaluatedAt).toBeTruthy();
     const ok = await verifyCertificate(registration.certificateId!.toLowerCase());
     expect(ok.valid).toBe(true);
     expect(ok.status).toBe('valid');

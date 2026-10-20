@@ -43,6 +43,7 @@ import SocialLinksEditor from '../components/SocialLinksEditor';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Checkbox from '@mui/material/Checkbox';
 import ProgramFlowEditor from '../components/ProgramFlowEditor';
+import EvaluationEditor from '../components/EvaluationEditor';
 import { getPeople } from '../services/registrationService';
 import { officerTitle } from '../utils/people';
 import type { Person } from '../types/attendee';
@@ -292,6 +293,17 @@ export default function EventBuilderPage() {
         coOrganizers: (formData.coOrganizers || []).map((o) => o.trim()).filter(Boolean),
         audience: formData.audience === 'officers' ? 'officers' : 'everyone',
         programFlow: (formData.programFlow || []).filter((r) => r.time.trim() || r.activity.trim()),
+        // Only saved once the admin changes it (otherwise the standard questions apply)
+        ...(formData.evaluation
+          ? {
+              evaluation: {
+                enabled: formData.evaluation.enabled !== false,
+                questions: formData.evaluation.questions
+                  .map((q) => ({ ...q, label: q.label.trim(), options: q.type === 'choice' ? (q.options || []).map((o) => o.trim()).filter(Boolean) : undefined }))
+                  .filter((q) => q.label && (q.type !== 'choice' || (q.options || []).length >= 2)),
+              },
+            }
+          : {}),
         // Send '' (not undefined) so removing the banner is persisted too
         imageUrl: formData.imageUrl || '',
       };
@@ -643,6 +655,15 @@ export default function EventBuilderPage() {
 
           {/* Program flow: paste the table from the proposal, or edit rows */}
           <ProgramFlowEditor value={formData.programFlow || []} onChange={(rows) => setFormData((prev) => ({ ...prev, programFlow: rows }))} />
+
+          <Divider sx={{ my: 2 }} />
+
+          {/* Evaluation form: standard questions, editable; needed for the certificate */}
+          <EvaluationEditor
+            value={formData.evaluation}
+            hasSpeakers={speakers.length > 0}
+            onChange={(evaluation) => setFormData((prev) => ({ ...prev, evaluation }))}
+          />
 
           <Divider sx={{ my: 2 }} />
 

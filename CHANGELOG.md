@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.21] - 2026-10-20
+
+### Added
+- **Event evaluation form**: opens for checked-in attendees **30 minutes before the event ends** (on the event page, the event pass and the dashboard). It starts with the standard questions: overall rating, speakers (only when the event has speakers), venue and organization (1 to 5), what you learned, what we can improve, and "would you join again". Admins can edit, reorder, remove or **add questions** (rating, yes / no, multiple choice, written) in the event form.
+- **The certificate needs the evaluation**: it unlocks once the event has ended **and** the attendee answered. Checked server-side (certificate download and the public verify page). Events that ended before today keep their certificates as before; an admin can also turn it off per event (*Needed for the certificate*).
+- **Reminder after the event**: everyone checked in who hasn't answered gets a notification and an email ("Answer the evaluation to get your certificate") with a link that opens the form. People who already answered get "your certificate is ready". It goes out soon after the event ends (the app triggers it; at most every 5 minutes) and from the daily job, once per person.
+- **Evaluation results** on the event page for admins, the adviser and the event's officers: how many answered, average rating per question, yes / no and choice counts, the written answers, who hasn't answered yet, and **Download CSV**.
+
+---
+
 ## [0.6.20] - 2026-10-20
 
 ### Added

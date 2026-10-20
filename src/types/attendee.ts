@@ -82,6 +82,8 @@ export interface Registration {
   certificateKey?: string;
   /** Why the last upload failed; retried on the next check-in scan or download. */
   certificateError?: string;
+  /** When the attendee answered the event's evaluation (needed for the certificate). */
+  evaluatedAt?: string;
 }
 
 export type NewRegistrationInput = Omit<Registration, 'id' | 'registeredAt'> & {

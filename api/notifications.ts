@@ -41,6 +41,7 @@ const KINDS = [
   'stamp-declined',
   'checked-in',
   'certificate',
+  'evaluation',
   'registration-approved',
   'registration-declined',
   'connection-request',

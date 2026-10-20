@@ -12,11 +12,13 @@ import nodemailer from 'nodemailer';
  * POST /api/notify { type: 'task-assigned', taskId }               → officers given a task
  * POST /api/notify { type: 'run-reminders', actorId }              → admin runs today's reminders now
  * POST /api/notify { type: 'signup-pending', personId }            → tells the admin a sign-up is waiting
+ * POST /api/notify { type: 'after-event' }                         → after-event notices now (the app calls it; max every 5 min)
  * GET  /api/notify  (Vercel Cron, daily 8:00 AM Manila)             → reminders:
  *        - event tomorrow → registered attendees + assigned officers
  *        - event today    → "See you today!"
  *        - task due tomorrow → its officers
- *        - event ended (last 7 days) → "your certificate is ready" to everyone checked in (email + bell)
+ *        - event ended (last 7 days) → to everyone checked in (email + bell): "answer the evaluation
+ *          to get your certificate", or "your certificate is ready" if they already answered it
  *
  * Environment variables:
  *   GMAIL_USER          Gmail address (e.g. aws.apcofficial@gmail.com)
@@ -270,17 +272,30 @@ function eventReminderMail(u: any, ev: any, kind: 'tomorrow' | 'today', isOffice
 
 // ─── Reminders (cron) ─────────────────────────────────────────────────────────
 
+// Evaluation rules (keep in sync with src/utils/evaluation.ts and api/registrations.ts)
+const EVAL_REQUIRED_FROM = '2026-10-20T00:00:00+08:00';
+function evalRequired(ev: any): boolean {
+  if (!ev || ev.evaluation?.enabled === false) return false;
+  const end = ev.endAt || ev.startAt;
+  return Boolean(end) && new Date(end).getTime() >= new Date(EVAL_REQUIRED_FROM).getTime();
+}
+
 /**
- * Certificates unlock when an event ends: tell everyone who was checked in (bell + email),
- * once per event, for events that ended in the last week. Returns emails sent.
+ * When an event ends, tell everyone who was checked in (bell + email), once each,
+ * for events that ended in the last week:
+ *  - answered the evaluation (or none needed) → "your certificate is ready"
+ *  - not answered yet → "answer the evaluation to get your certificate"
+ * Stops at `deadline` (ms) and picks up where it left off next time.
+ * Returns emails sent.
  */
-async function certificateNotices(
+async function afterEventNotices(
   client: DynamoDBDocumentClient,
   tableName: string,
   events: any[],
   regs: any[],
   users: Map<string, any>,
   trySend: ((mail: Mail) => Promise<boolean>) | null,
+  deadline = Date.now() + 8000,
 ): Promise<number> {
   let sent = 0;
   const now = Date.now();
@@ -289,9 +304,16 @@ async function certificateNotices(
     if (ev.status === 'cancelled' || !end || ev.remindersSent?.certificates) continue;
     const endMs = new Date(end).getTime();
     if (endMs > now || now - endMs > 7 * 24 * 3600 * 1000) continue;
-    for (const r of regs.filter((x) => x.eventId === ev.id && x.checkedIn)) {
+    const needsEval = evalRequired(ev);
+    let finished = true;
+    for (const r of regs.filter((x) => x.eventId === ev.id && x.checkedIn && !x.afterEventNoticeAt)) {
+      if (Date.now() > deadline) {
+        finished = false;
+        break;
+      }
       const u = users.get(r.personId);
       if (!u) continue;
+      const askEval = needsEval && !r.evaluatedAt;
       await client.send(
         new PutCommand({
           TableName: tableName,
@@ -299,28 +321,45 @@ async function certificateNotices(
             id: `ntf-${Date.now()}-${Math.floor(Math.random() * 1e6)}`,
             entityType: 'notification',
             personId: u.id,
-            kind: 'certificate',
-            title: `Your certificate for ${ev.title} is ready 🎓`,
-            message: `View or download it from your event pass. Certificate code: ${r.certificateId || '-'}.`,
-            link: `/pass?event=${ev.id}`,
+            kind: askEval ? 'evaluation' : 'certificate',
+            title: askEval ? `Answer the evaluation for ${ev.title} 📝` : `Your certificate for ${ev.title} is ready 🎓`,
+            message: askEval
+              ? "Thanks for coming! Answer the short evaluation to get your certificate. It takes about 2 minutes."
+              : `View or download it from your event pass. Certificate code: ${r.certificateId || '-'}.`,
+            link: askEval ? `/events/${ev.id}?evaluate=1` : `/pass?event=${ev.id}`,
             read: false,
             createdAt: new Date().toISOString(),
           },
         })
       );
-      const mail: Mail = {
-        to: addresses(u),
-        subject: `Your certificate for ${ev.title} is ready`,
-        heading: `Congratulations, ${firstName(u)}!`,
-        lines: [
-          `Thank you for attending ${ev.title}. Your Certificate of Participation is ready.`,
-          ...(r.certificateId ? [`Certificate code: ${r.certificateId}`] : []),
-          'Open your event pass to view or download it, or share the certificate link so others can check it.',
-        ],
-        button: { label: 'Get my certificate', path: `/#/pass?event=${ev.id}` },
-      };
+      const mail: Mail = askEval
+        ? {
+            to: addresses(u),
+            subject: `Answer the evaluation for ${ev.title} to get your certificate`,
+            heading: `Thanks for coming, ${firstName(u)}!`,
+            lines: [
+              `We hope you enjoyed ${ev.title}. Please answer the short evaluation form. It takes about 2 minutes and helps us make the next event better.`,
+              'Your Certificate of Participation unlocks as soon as you answer it.',
+            ],
+            button: { label: 'Answer the evaluation', path: `/#/events/${ev.id}?evaluate=1` },
+          }
+        : {
+            to: addresses(u),
+            subject: `Your certificate for ${ev.title} is ready`,
+            heading: `Congratulations, ${firstName(u)}!`,
+            lines: [
+              `Thank you for attending ${ev.title}. Your Certificate of Participation is ready.`,
+              ...(r.certificateId ? [`Certificate code: ${r.certificateId}`] : []),
+              'Open your event pass to view or download it, or share the certificate link so others can check it.',
+            ],
+            button: { label: 'Get my certificate', path: `/#/pass?event=${ev.id}` },
+          };
       if (trySend && (await trySend(mail))) sent++;
+      // Remember it per person, so a run cut short continues without sending twice
+      r.afterEventNoticeAt = new Date().toISOString();
+      await client.send(new PutCommand({ TableName: tableName, Item: { ...r, afterEventNoticeAt: r.afterEventNoticeAt } }));
     }
+    if (!finished) break;
     await client.send(
       new PutCommand({
         TableName: tableName,
@@ -330,6 +369,38 @@ async function certificateNotices(
   }
 
   return sent;
+}
+
+/**
+ * Run the after-event notices soon after events end, without waiting for the
+ * daily cron: the app calls this (any signed-in page load); at most once every 5 minutes.
+ */
+async function afterEventSweep(client: DynamoDBDocumentClient, tableName: string, appUrl: string, emailOn: boolean) {
+  const marker = (await client.send(new GetCommand({ TableName: tableName, Key: { id: 'sys-after-event-sweep' } }))).Item;
+  if (marker?.at && Date.now() - new Date(marker.at).getTime() < 5 * 60 * 1000) return { skipped: 'ran recently', sent: 0 };
+  await client.send(new PutCommand({ TableName: tableName, Item: { id: 'sys-after-event-sweep', entityType: 'system', at: new Date().toISOString() } }));
+  const items = await scanAll(client, tableName);
+  const events = items.filter(isEvent);
+  const now = Date.now();
+  const due = events.some((ev) => {
+    const end = ev.endAt || ev.startAt;
+    const endMs = end ? new Date(end).getTime() : NaN;
+    return ev.status !== 'cancelled' && !ev.remindersSent?.certificates && endMs <= now && now - endMs <= 7 * 24 * 3600 * 1000;
+  });
+  if (!due) return { sent: 0 };
+  const users = new Map(items.filter((i) => i.entityType === 'user').map((u) => [u.id, u]));
+  const regs = items.filter((i) => i.entityType === 'registration');
+  const trySend = emailOn
+    ? async (mail: Mail) => {
+        try {
+          return await sendMail(mail, appUrl);
+        } catch (err) {
+          console.error('After-event email failed:', err);
+          return false;
+        }
+      }
+    : null;
+  return { sent: await afterEventNotices(client, tableName, events, regs, users, trySend) };
 }
 
 
@@ -390,7 +461,7 @@ async function runReminders(client: DynamoDBDocumentClient, tableName: string, a
     );
   }
 
-  sent += await certificateNotices(client, tableName, events, regs, users, emailOn ? trySend : null);
+  sent += await afterEventNotices(client, tableName, events, regs, users, emailOn ? trySend : null, Date.now() + 8000);
 
   // Unfinished tasks: a reminder the day before the deadline, then when it's overdue
   // (and every 3 days after) until it's done - bell + email to each assignee.
@@ -512,6 +583,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
     const body = req.body || {};
+    // After an event ends: evaluation reminders / certificate notices (bell always, email when set up)
+    if (body.type === 'after-event') {
+      return res.status(200).json(await afterEventSweep(client, tableName, appUrl, !notConfigured));
+    }
     if (notConfigured && body.type === 'run-reminders') {
       const actor = await get(body.actorId);
       if (actor?.entityType !== 'user' || actor.role !== 'admin') return res.status(403).json({ error: 'Only an admin can run reminders.' });
