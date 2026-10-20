@@ -13,6 +13,7 @@ import BoltRoundedIcon from '@mui/icons-material/BoltRounded';
 import { alpha } from '@mui/material/styles';
 import { useAuth } from '../context/AuthContext';
 import { brand } from '../theme/theme';
+import ForgotPasswordDialog from '../components/ForgotPasswordDialog';
 
 interface LocationState {
   from?: { pathname: string; search?: string };
@@ -23,14 +24,17 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [username, setUsername] = useState('');
+  const locState = location.state as any;
+  const [username, setUsername] = useState(locState?.prefilledEmail || '');
   const [password, setPassword] = useState('');
   const [fieldErrors, setFieldErrors] = useState<{
     username?: string;
     password?: string;
   }>({});
   const [error, setError] = useState<string | null>(null);
+  const [successNotice, setSuccessNotice] = useState<string | null>(locState?.message || null);
   const [submitting, setSubmitting] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
 
   const fromState = (location.state as LocationState)?.from;
   const from = fromState?.pathname ? `${fromState.pathname}${fromState.search || ''}` : '/home';
@@ -101,6 +105,11 @@ export default function LoginPage() {
         onSubmit={handleSubmit}
         noValidate
       >
+        {successNotice && (
+          <Alert severity="success" sx={{ mb: 2 }} role="alert">
+            {successNotice}
+          </Alert>
+        )}
         {error && (
           <Alert severity="error" sx={{ mb: 2 }} role="alert">
             {error}
@@ -136,6 +145,11 @@ export default function LoginPage() {
             component="button"
             type="button"
             variant="body2"
+            onClick={() => {
+              setError(null);
+              setSuccessNotice(null);
+              setForgotOpen(true);
+            }}
             sx={{ color: brand.primary, fontWeight: 500 }}
           >
             Forgot password?
@@ -188,6 +202,16 @@ export default function LoginPage() {
           <code>.env.local</code> file and restart <code>npm run dev</code>.
         </Typography>
       )}
+
+      <ForgotPasswordDialog
+        open={forgotOpen}
+        onClose={() => setForgotOpen(false)}
+        initialEmail={username}
+        onSuccess={(resetEmail, msg) => {
+          setUsername(resetEmail);
+          setSuccessNotice(msg);
+        }}
+      />
     </Box>
   );
 }

@@ -22,6 +22,10 @@ import { apiJson, delay, generateId, isRemoteAvailable, localCollection } from '
 
 interface LocalUser extends User {
   password: string;
+  resetCode?: string;
+  resetToken?: string;
+  resetExpiresAt?: string;
+  passwordChangedAt?: string;
 }
 
 const API = '/api/users';
@@ -105,7 +109,11 @@ function strip(u: LocalUser): User {
 
 function matchesLogin(u: User, login: string): boolean {
   const id = login.trim().toLowerCase();
-  return u.username.toLowerCase() === id || (u.email || '').toLowerCase() === id;
+  return (
+    u.username.toLowerCase() === id ||
+    (u.email || '').toLowerCase() === id ||
+    (u.personalEmail || '').toLowerCase() === id
+  );
 }
 
 /** Message shown when an account cannot sign in yet. */
@@ -250,6 +258,68 @@ export async function resetPassword(personId: string, newPassword: string, actor
   users[idx] = { ...users[idx], password: newPassword, mustChangePassword: true };
   local.save(users);
   return delay(strip(users[idx]));
+}
+
+/** Request a password reset code / link to the user's email. */
+export async function forgotPassword(email: string): Promise<{ success: boolean; message: string; devCode?: string }> {
+  if (await isRemoteAvailable(API)) {
+    return apiJson<{ success: boolean; message: string; devCode?: string }>(`${API}?action=forgot-password`, {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  }
+  const users = loadLocalUsers();
+  const user = users.find((u) => matchesLogin(u, email));
+  if (!user) {
+    return { success: true, message: 'If an account exists with that email, a password reset code has been sent.' };
+  }
+  const code = '123456';
+  const token = 'local-dev-token';
+  const idx = users.findIndex((u) => u.personId === user.personId);
+  users[idx] = {
+    ...users[idx],
+    resetCode: code,
+    resetToken: token,
+    resetExpiresAt: new Date(Date.now() + 3600 * 1000).toISOString(),
+  } as any;
+  local.save(users);
+  return { success: true, devCode: code, message: `Password reset code sent. (Dev mode code: ${code})` };
+}
+
+/** Reset password using the code or token sent via email. */
+export async function resetPasswordWithCode(
+  email: string,
+  code: string,
+  newPassword: string,
+): Promise<{ success: boolean; message: string }> {
+  const pwError = passwordError(newPassword);
+  if (pwError) throw new Error(pwError);
+
+  if (await isRemoteAvailable(API)) {
+    return apiJson<{ success: boolean; message: string }>(`${API}?action=reset-password`, {
+      method: 'POST',
+      body: JSON.stringify({ email, code, newPassword }),
+    });
+  }
+  const users = loadLocalUsers();
+  const idx = users.findIndex((u) => matchesLogin(u, email));
+  if (idx === -1) throw new Error('Account not found.');
+  const user = users[idx] as any;
+  const inputCode = code.trim().toLowerCase();
+  if (user.resetCode !== inputCode && user.resetToken !== inputCode && inputCode !== '123456') {
+    throw new Error('Invalid or incorrect reset code.');
+  }
+  users[idx] = {
+    ...users[idx],
+    password: newPassword,
+    resetCode: undefined,
+    resetToken: undefined,
+    resetExpiresAt: undefined,
+    mustChangePassword: false,
+    passwordChangedAt: new Date().toISOString(),
+  };
+  local.save(users);
+  return { success: true, message: 'Password has been successfully reset! You can now sign in.' };
 }
 
 /** Admin awards a badge (e.g. Best in Pubmat for one event). */

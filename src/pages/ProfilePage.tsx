@@ -98,7 +98,7 @@ export default function ProfilePage() {
       };
       if (outside) changes.organization = form.organization.trim();
       else changes.studentId = form.studentId.trim();
-      if (user.role === 'officer' || user.personalEmail) changes.personalEmail = form.personalEmail.trim();
+      changes.personalEmail = form.personalEmail.trim();
       setCurrentUser(await updateProfile(user.personId, changes));
       setEditing(false);
       setSaved(true);
@@ -356,9 +356,7 @@ export default function ProfilePage() {
                 ) : (
                   <TextField size="small" label="Student ID" value={form.studentId} onChange={(e) => setForm({ ...form, studentId: e.target.value })} required inputProps={{ maxLength: 20 }} />
                 )}
-                {(user?.role === 'officer' || user?.personalEmail) && (
-                  <TextField size="small" label="Personal email (optional)" type="email" value={form.personalEmail} onChange={(e) => setForm({ ...form, personalEmail: e.target.value })} />
-                )}
+                <TextField size="small" label="Personal email (optional)" type="email" value={form.personalEmail} onChange={(e) => setForm({ ...form, personalEmail: e.target.value })} helperText="Used for backup & password reset" />
                 <TextField
                   size="small"
                   label="Email (sign-in)"

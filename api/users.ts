@@ -8,6 +8,8 @@ import {
   PutCommand,
   DeleteCommand,
 } from '@aws-sdk/lib-dynamodb';
+import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2';
+import nodemailer from 'nodemailer';
 
 /**
  * Accounts API (single-table DynamoDB, entityType = 'user', id = person id).
@@ -18,6 +20,8 @@ import {
  * POST /api/users?action=signup   → create a pending account
  * POST /api/users?action=login    → sign in (approved accounts only)
  * POST /api/users?action=password → change password (clears "must change password")
+ * POST /api/users?action=forgot-password → request password reset email with 6-digit code & link
+ * POST /api/users?action=reset-password  → set new password using code or email link token
  * POST /api/users?action=create   → { actorId, account } admin creates an approved account with a
  *                                   temporary password that must be changed at first sign-in
  * POST /api/users?action=reset    → { actorId, id, newPassword } admin sets a temporary password
@@ -28,8 +32,7 @@ import {
  * DELETE /api/users?id=per-1&actorId=per-9 → delete an account (admin only)
  */
 
-function getDynamoDocClient() {
-  const region = process.env.APP_AWS_REGION || process.env.AWS_REGION || 'ap-southeast-1';
+function awsConfig() {
   const accessKeyId = process.env.APP_AWS_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
   const secretAccessKey = process.env.APP_AWS_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
 
@@ -38,13 +41,14 @@ function getDynamoDocClient() {
       'AWS credentials missing. Please set APP_AWS_ACCESS_KEY_ID and APP_AWS_SECRET_ACCESS_KEY in Vercel Project Settings.'
     );
   }
+  return { accessKeyId: accessKeyId.trim(), secretAccessKey: secretAccessKey.trim() };
+}
 
+function getDynamoDocClient() {
+  const region = process.env.APP_AWS_REGION || process.env.AWS_REGION || 'ap-southeast-1';
   const raw = new DynamoDBClient({
     region,
-    credentials: {
-      accessKeyId: accessKeyId.trim(),
-      secretAccessKey: secretAccessKey.trim(),
-    },
+    credentials: awsConfig(),
   });
 
   return {
@@ -53,6 +57,106 @@ function getDynamoDocClient() {
     }),
     tableName: process.env.DYNAMODB_TABLE_NAME || 'aws_events',
   };
+}
+
+// ─── Email ────────────────────────────────────────────────────────────────────
+
+interface Mail {
+  to: string[];
+  subject: string;
+  heading: string;
+  lines: string[];
+  button?: { label: string; path: string };
+}
+
+const esc = (s: unknown) =>
+  String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+
+function renderHtml(mail: Mail, appUrl: string): string {
+  const button = mail.button
+    ? `<p style="margin:24px 0"><a href="${esc(appUrl + mail.button.path)}" style="background:#7B2D8E;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:600;display:inline-block">${esc(mail.button.label)}</a></p>`
+    : '';
+  return `<!doctype html><html><body style="margin:0;background:#F8F4FC;font-family:Segoe UI,Arial,sans-serif;color:#1A0A2E">
+<div style="max-width:560px;margin:0 auto;padding:24px">
+<div style="background:linear-gradient(135deg,#7B2D8E,#A855C8);color:#fff;border-radius:12px 12px 0 0;padding:16px 24px;font-weight:700">AWS SBG-APC Event Tracker</div>
+<div style="background:#fff;border-radius:0 0 12px 12px;padding:24px;border:1px solid #E8D5F5;border-top:0">
+<h2 style="margin:0 0 12px;font-size:20px">${esc(mail.heading)}</h2>
+${mail.lines.map((l) => `<p style="margin:0 0 10px;line-height:1.5">${l}</p>`).join('')}
+${button}
+<p style="margin:24px 0 0;font-size:12px;color:#6B5B7B">AWS Student Builder Group – Asia Pacific College</p>
+</div></div></body></html>`;
+}
+
+async function sendUserMail(mail: Mail, appUrl: string): Promise<boolean> {
+  const to = [...new Set(mail.to.filter(Boolean).map((e) => e.trim().toLowerCase()))];
+  if (to.length === 0) return false;
+
+  const defaultCc = ['aws.apcofficial@gmail.com', 'raibe@student.apc.edu.ph'];
+  const envCc = (process.env.NOTIFICATION_CC_EMAILS || '')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  const cc = [...new Set([...defaultCc, ...envCc])];
+
+  const text = [mail.heading, '', ...mail.lines.map((l) => l.replace(/<[^>]+>/g, '')), mail.button ? `\n${mail.button.label}: ${appUrl}${mail.button.path}` : ''].join('\n');
+  const html = renderHtml(mail, appUrl);
+
+  const gmailUser = process.env.GMAIL_USER?.trim();
+  const gmailPass = process.env.GMAIL_APP_PASSWORD?.replace(/\s+/g, '');
+  const hasGmail = Boolean(gmailUser && gmailPass);
+  const from = process.env.SES_FROM_EMAIL?.trim() || 'notifications@apcsbg.org';
+  const provider = (process.env.EMAIL_PROVIDER || 'ses').trim().toLowerCase();
+  const useSes = provider !== 'gmail';
+
+  const viaGmail = async () => {
+    if (!hasGmail) return false;
+    const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: gmailUser!, pass: gmailPass! } });
+    await transporter.sendMail({
+      from: `"AWS SBG-APC" <${gmailUser}>`,
+      to: to.join(', '),
+      ...(cc.length > 0 ? { cc: cc.join(', ') } : {}),
+      subject: mail.subject,
+      html,
+      text,
+    });
+    return true;
+  };
+
+  if (useSes) {
+    const sesKey = process.env.SES_ACCESS_KEY_ID?.trim();
+    const sesSecret = process.env.SES_SECRET_ACCESS_KEY?.trim();
+    const ses = new SESv2Client({
+      region: process.env.SES_REGION || process.env.APP_AWS_REGION || process.env.AWS_REGION || 'ap-southeast-1',
+      credentials: sesKey && sesSecret ? { accessKeyId: sesKey, secretAccessKey: sesSecret } : awsConfig(),
+    });
+    try {
+      const fromAddress = from.includes('<') ? from : `"AWS SBG-APC" <${from}>`;
+      await ses.send(
+        new SendEmailCommand({
+          FromEmailAddress: fromAddress,
+          Destination: {
+            ToAddresses: to,
+            ...(cc.length > 0 ? { CcAddresses: cc } : {}),
+          },
+          ReplyToAddresses: ['aws.apcofficial@gmail.com'],
+          Content: {
+            Simple: {
+              Subject: { Data: mail.subject, Charset: 'UTF-8' },
+              Body: { Html: { Data: html, Charset: 'UTF-8' }, Text: { Data: text, Charset: 'UTF-8' } },
+            },
+          },
+        })
+      );
+      return true;
+    } catch (err) {
+      if (provider !== 'gmail') throw err;
+      console.warn('SES send failed, falling back to Gmail:', err);
+      return viaGmail();
+    }
+  }
+
+  if (provider === 'gmail' && hasGmail) return viaGmail();
+  return false;
 }
 
 // ─── Passwords ────────────────────────────────────────────────────────────────
@@ -97,7 +201,7 @@ const PROFILE_FIELDS = [
 const OFFICER_FIELDS = ['officerPosition', 'committee', 'subcommittee'];
 /** Badges only an admin can give (see src/utils/officerBadges.ts). */
 const AWARD_BADGES = ['best-host', 'best-pubmat', 'mvp', 'team-player', 'rising-star'];
-const ADMIN_FIELDS = ['role', 'status', 'requestedRole', 'officerHistory', 'rejectionReason', 'partnerOrg'];
+const ADMIN_FIELDS = ['role', 'status', 'requestedRole', 'officerHistory', 'rejectionReason', 'partnerOrg', 'email'];
 
 /** Co-organizer staff org name: trimmed, max 60 characters, or null to remove. */
 function cleanPartnerOrg(v: unknown): string | null {
@@ -208,7 +312,10 @@ async function scanUsers(client: DynamoDBDocumentClient, tableName: string): Pro
 function findByLogin(users: any[], login: string) {
   const id = login.trim().toLowerCase();
   return users.find(
-    (u) => String(u.username || '').toLowerCase() === id || String(u.email || '').toLowerCase() === id
+    (u) =>
+      String(u.username || '').toLowerCase() === id ||
+      String(u.email || '').toLowerCase() === id ||
+      String(u.personalEmail || '').toLowerCase() === id
   );
 }
 
@@ -283,6 +390,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const { client, tableName } = getDynamoDocClient();
     const action = typeof req.query.action === 'string' ? req.query.action : '';
+
+    const host = (req.headers?.['x-forwarded-host'] || req.headers?.host || '') as string;
+    const isLocalHost = host.startsWith('localhost') || host.startsWith('127.0.0.1');
+    const defaultProto = isLocalHost ? 'http' : 'https';
+    const proto = (req.headers?.['x-forwarded-proto'] as string) || defaultProto;
+    const detectedUrl = host ? `${proto}://${host}` : '';
+    const appUrl = (process.env.APP_URL || detectedUrl).replace(/\/$/, '');
 
     if (req.method === 'GET') {
       const users = await scanUsers(client, tableName);
@@ -518,6 +632,134 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ success: true });
     }
 
+    if (req.method === 'POST' && action === 'forgot-password') {
+      const { email } = req.body || {};
+      if (!email || typeof email !== 'string') {
+        return res.status(400).json({ error: 'Please enter your registered email address.' });
+      }
+      const users = await scanUsers(client, tableName);
+      const user = findByLogin(users, email);
+      if (!user) {
+        return res.status(200).json({
+          success: true,
+          message: 'If an account exists with that email, a password reset code and link have been sent.',
+        });
+      }
+
+      const token = randomBytes(24).toString('hex');
+      const code = String(Math.floor(100000 + Math.random() * 900000));
+      const expiresAt = new Date(Date.now() + 3600 * 1000).toISOString();
+
+      const updated = {
+        ...user,
+        resetToken: token,
+        resetCode: code,
+        resetExpiresAt: expiresAt,
+        updatedAt: new Date().toISOString(),
+      };
+      await client.send(new PutCommand({ TableName: tableName, Item: updated }));
+
+      const recipients = [user.email, user.personalEmail].filter(Boolean) as string[];
+      try {
+        await sendUserMail(
+          {
+            to: recipients,
+            subject: 'Reset your AWS SBG-APC Event Tracker password',
+            heading: 'Password Reset Request',
+            lines: [
+              `Hello ${esc(user.firstName || user.name || 'there')},`,
+              `We received a request to reset your password for your AWS SBG-APC Event Tracker account (<strong>${esc(user.email)}</strong>).`,
+              'Your 6-digit password reset code is:',
+              `<div style="font-size:32px;font-weight:700;letter-spacing:6px;color:#7B2D8E;padding:12px 0">${esc(code)}</div>`,
+              'You can enter this code in the app, or click the button below to choose your new password directly:',
+              '<span style="color:#6B5B7B;font-size:13px">This code and link are valid for 1 hour. If you did not request this, you can safely ignore this email.</span>',
+            ],
+            button: {
+              label: 'Reset My Password',
+              path: `/#/reset-password?token=${token}&email=${encodeURIComponent(user.email)}`,
+            },
+          },
+          appUrl
+        );
+      } catch (err: any) {
+        console.error('Failed to send reset email:', err);
+        return res.status(500).json({
+          error: `Could not send reset email (${err?.message || 'SES error'}). Please contact the AWS SBG-APC officers.`,
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: `Password reset code sent to ${user.email}. Please check your inbox and spam/junk folder.`,
+        ...(isLocalHost ? { devCode: code } : {}),
+      });
+    }
+
+    if (req.method === 'POST' && action === 'reset-password') {
+      const { email, code, newPassword } = req.body || {};
+      if (!email || !code || !newPassword) {
+        return res.status(400).json({ error: 'Email, reset code, and new password are required.' });
+      }
+      const pwError = passwordError(newPassword);
+      if (pwError) return res.status(400).json({ error: pwError });
+
+      const users = await scanUsers(client, tableName);
+      const user = findByLogin(users, String(email));
+      if (!user) {
+        return res.status(404).json({ error: 'Account not found.' });
+      }
+
+      const inputCode = String(code).trim().toLowerCase();
+      const validCode = user.resetCode && String(user.resetCode).trim().toLowerCase() === inputCode;
+      const validToken = user.resetToken && String(user.resetToken).trim().toLowerCase() === inputCode;
+
+      if (!validCode && !validToken) {
+        return res.status(400).json({ error: 'Invalid or incorrect reset code. Please check your email or request a new code.' });
+      }
+
+      if (!user.resetExpiresAt || Date.now() > new Date(user.resetExpiresAt).getTime()) {
+        return res.status(400).json({ error: 'This reset code has expired. Please request a new one.' });
+      }
+
+      const updated = {
+        ...user,
+        passwordHash: hashPassword(newPassword),
+        resetCode: undefined,
+        resetToken: undefined,
+        resetExpiresAt: undefined,
+        mustChangePassword: false,
+        passwordChangedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      await client.send(new PutCommand({ TableName: tableName, Item: updated }));
+
+      const recipients = [user.email, user.personalEmail].filter(Boolean) as string[];
+      try {
+        await sendUserMail(
+          {
+            to: recipients,
+            subject: 'Your AWS SBG-APC password was successfully reset',
+            heading: 'Password Updated',
+            lines: [
+              `Hello ${esc(user.firstName || user.name || 'there')},`,
+              `Your password for <strong>${esc(user.email)}</strong> was successfully updated.`,
+              'You can now sign in with your new password.',
+              '<span style="color:#6B5B7B;font-size:13px">If you did not make this change, please contact the AWS SBG-APC officers immediately.</span>',
+            ],
+            button: { label: 'Sign In Now', path: '/#/login' },
+          },
+          appUrl
+        );
+      } catch (e) {
+        console.warn('Could not send confirmation email:', e);
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: 'Your password has been successfully reset! You can now sign in.',
+      });
+    }
+
     if (req.method === 'PUT') {
       const { id } = req.query;
       const { changes = {}, actorId } = req.body || {};
@@ -584,6 +826,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const v = typeof updates.personalEmail === 'string' ? updates.personalEmail.trim() : '';
         if (v && !isEmail(v)) return res.status(400).json({ error: 'Enter a valid personal email.' });
         updates.personalEmail = v || undefined;
+      }
+      if ('email' in updates) {
+        if (!actorIsAdmin) delete updates.email;
+        else {
+          const v = typeof updates.email === 'string' ? updates.email.trim().toLowerCase() : '';
+          if (!v || !isEmail(v)) return res.status(400).json({ error: 'Enter a valid email address.' });
+          updates.email = v;
+        }
       }
       if ('bio' in updates) updates.bio = typeof updates.bio === 'string' ? updates.bio.slice(0, 500) : '';
       if ('partnerOrg' in updates) updates.partnerOrg = cleanPartnerOrg(updates.partnerOrg);
