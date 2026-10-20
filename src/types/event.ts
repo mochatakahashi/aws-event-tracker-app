@@ -87,6 +87,8 @@ export interface AppEvent {
   audience?: 'everyone' | 'officers';
   /** Program flow (run of show), shown as a table on the event page. */
   programFlow?: ProgramRow[];
+  /** false: the certificate doesn't need every stamp (default: events with stamp sessions need all of them). */
+  stampsRequired?: boolean;
   /** Evaluation form (missing: the standard questions). Opens 30 minutes before the event ends. */
   evaluation?: EventEvaluation;
   /** Version of the club's official event info applied (see src/data/clubEventInfo.ts). */

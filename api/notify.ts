@@ -296,6 +296,8 @@ async function afterEventNotices(
   users: Map<string, any>,
   trySend: ((mail: Mail) => Promise<boolean>) | null,
   deadline = Date.now() + 8000,
+  /** Everything in the table (sessions and stamps are read from it). */
+  items: any[] = [],
 ): Promise<number> {
   let sent = 0;
   const now = Date.now();
@@ -305,6 +307,19 @@ async function afterEventNotices(
     const endMs = new Date(end).getTime();
     if (endMs > now || now - endMs > 7 * 24 * 3600 * 1000) continue;
     const needsEval = evalRequired(ev);
+    // Events with stamp sessions: the certificate needs every stamp
+    const stampSessions = ev.stampsRequired !== false && new Date(end).getTime() >= new Date(EVAL_REQUIRED_FROM).getTime()
+      ? items.filter((x: any) => (x.entityType === 'session' || (!x.entityType && String(x.id).startsWith('ses-'))) && x.eventId === ev.id && x.requiresStamp)
+      : [];
+    const stampsLeft = (personId: string) => {
+      if (!stampSessions.length) return [] as string[];
+      const got = new Set(
+        items
+          .filter((x: any) => (x.entityType === 'stamp' || (!x.entityType && String(x.id).startsWith('stp-'))) && x.attendeeId === personId && x.status === 'approved')
+          .map((x: any) => x.sessionId),
+      );
+      return stampSessions.filter((x: any) => !got.has(x.id)).map((x: any) => String(x.title || 'Session'));
+    };
     let finished = true;
     for (const r of regs.filter((x) => x.eventId === ev.id && x.checkedIn && !x.afterEventNoticeAt)) {
       if (Date.now() > deadline) {
@@ -314,6 +329,10 @@ async function afterEventNotices(
       const u = users.get(r.personId);
       if (!u) continue;
       const askEval = needsEval && !r.evaluatedAt;
+      const missing = stampsLeft(r.personId);
+      const stampLine = missing.length
+        ? `Your certificate also needs all ${stampSessions.length} stamps of this event: you have ${stampSessions.length - missing.length}. Missing: ${missing.join(', ')}. If you joined those sessions, ask the officers to approve your stamps.`
+        : '';
       await client.send(
         new PutCommand({
           TableName: tableName,
@@ -322,17 +341,31 @@ async function afterEventNotices(
             entityType: 'notification',
             personId: u.id,
             kind: askEval ? 'evaluation' : 'certificate',
-            title: askEval ? `Answer the evaluation for ${ev.title} 📝` : `Your certificate for ${ev.title} is ready 🎓`,
+            title: askEval
+              ? `Answer the evaluation for ${ev.title} 📝`
+              : missing.length
+                ? `Your certificate for ${ev.title} needs all stamps`
+                : `Your certificate for ${ev.title} is ready 🎓`,
             message: askEval
-              ? "Thanks for coming! Answer the short evaluation to get your certificate. It takes about 2 minutes."
-              : `View or download it from your event pass. Certificate code: ${r.certificateId || '-'}.`,
+              ? `Thanks for coming! Answer the short evaluation to get your certificate. It takes about 2 minutes.${stampLine ? ` ${stampLine}` : ''}`.slice(0, 600)
+              : missing.length
+                ? stampLine.slice(0, 600)
+                : `View or download it from your event pass. Certificate code: ${r.certificateId || '-'}.`,
             link: askEval ? `/events/${ev.id}?evaluate=1` : `/pass?event=${ev.id}`,
             read: false,
             createdAt: new Date().toISOString(),
           },
         })
       );
-      const mail: Mail = askEval
+      const mail: Mail = !askEval && missing.length
+        ? {
+            to: addresses(u),
+            subject: `Your certificate for ${ev.title} needs all stamps`,
+            heading: `Thanks for coming, ${firstName(u)}!`,
+            lines: [stampLine],
+            button: { label: 'Open my event pass', path: `/#/pass?event=${ev.id}` },
+          }
+        : askEval
         ? {
             to: addresses(u),
             subject: `Answer the evaluation for ${ev.title} to get your certificate`,
@@ -340,6 +373,7 @@ async function afterEventNotices(
             lines: [
               `We hope you enjoyed ${ev.title}. Please answer the short evaluation form. It takes about 2 minutes and helps us make the next event better.`,
               'Your Certificate of Participation unlocks as soon as you answer it.',
+              ...(stampLine ? [stampLine] : []),
             ],
             button: { label: 'Answer the evaluation', path: `/#/events/${ev.id}?evaluate=1` },
           }
@@ -400,7 +434,7 @@ async function afterEventSweep(client: DynamoDBDocumentClient, tableName: string
         }
       }
     : null;
-  return { sent: await afterEventNotices(client, tableName, events, regs, users, trySend) };
+  return { sent: await afterEventNotices(client, tableName, events, regs, users, trySend, Date.now() + 8000, items) };
 }
 
 
@@ -461,7 +495,7 @@ async function runReminders(client: DynamoDBDocumentClient, tableName: string, a
     );
   }
 
-  sent += await afterEventNotices(client, tableName, events, regs, users, emailOn ? trySend : null, Date.now() + 8000);
+  sent += await afterEventNotices(client, tableName, events, regs, users, emailOn ? trySend : null, Date.now() + 8000, items);
 
   // Unfinished tasks: a reminder the day before the deadline, then when it's overdue
   // (and every 3 days after) until it's done - bell + email to each assignee.

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.24] - 2026-10-20
+
+### Changed
+- **Program flow**: the *Person-in-charge* column is only shown to officers, admins and the adviser. Attendees see time, duration and activity.
+- **Admins (and the adviser) don't attend events**: they monitor them. They have no Register button, and the server refuses their registrations.
+- **Events with stamp sessions: the certificate needs every stamp** (plus check-in and the evaluation). Checked server-side (certificate download and the public verify page). Applies to events ending from Oct 20, 2026; an admin can untick **Certificate needs all stamps** in the event form (for example when sessions run at the same time).
+
+### Added
+- **Stamp reminder** on the event page and the event pass: "Collect all N stamps to get your certificate", with how many are done and which are missing (refreshes every minute).
+- **Check-in notification** lists the stamps to collect (and mentions the evaluation).
+- After the event, attendees missing stamps are told which ones (app + email) instead of "certificate ready".
+
+---
+
 ## [0.6.23] - 2026-10-20
 
 ### Added

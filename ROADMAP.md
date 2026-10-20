@@ -106,13 +106,13 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 
 ---
 
-### ✅ Versions 0.6.16 - 0.6.23 - Event Info, Announcements, Evaluation & Sharing
+### ✅ Versions 0.6.16 - 0.6.24 - Event Info, Announcements, Evaluation & Sharing
 - [x] **Event duty card** for assigned officers and co-organizer staff (v0.6.16).
 - [x] **Program flow table** and the club's official event info applied by the admin (v0.6.17 - v0.6.18).
 - [x] **Officers-only events** (v0.6.19).
 - [x] **Pinned announcements** (24 hours, editable, officers or everyone), **saved copy when the database is down**, **last sign-in** for admins, tour only on the first sign-in, type-in session speakers, profile photo fix, officer comments on all their tasks (v0.6.20).
 - [x] **Event evaluation** required for the certificate, with reminders after the event and results with CSV (v0.6.21).
-- [x] **Share an event** with link previews and a public event page (v0.6.22); share from event cards, phone share-sheet fix, and speaker edit / remove on the event page (v0.6.23).
+- [x] **Share an event** with link previews and a public event page (v0.6.22); share from event cards, phone share-sheet fix, and speaker edit / remove on the event page (v0.6.23); all stamps for the certificate, admins monitor only, person-in-charge for the team only (v0.6.24).
 
 ---
 
@@ -196,6 +196,7 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 | Event evaluation (certificate gate, reminders, results) | v0.6.21 | ✅ Completed | High |
 | Share an event (link previews, public event page) | v0.6.22 | ✅ Completed | Medium |
 | Speakers lineup edit / remove on the event page | v0.6.23 | ✅ Completed | Medium |
+| All stamps for the certificate, admins monitor only | v0.6.24 | ✅ Completed | High |
 | Certificate of Completion (100% stamps) | v1.0.0 | ⏳ Planned | Low |
 
 ---

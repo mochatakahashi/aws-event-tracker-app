@@ -267,7 +267,7 @@ export async function createStamp(input: NewStampInput): Promise<Stamp> {
   const stamps = loadLocalStamps();
   const stamp: Stamp = {
     ...input,
-    id: `stp-${Date.now()}`,
+    id: `stp-${Date.now()}-${Math.floor(Math.random() * 1e6)}`,
   };
   stamps.push(stamp);
   saveLocalStamps(stamps);

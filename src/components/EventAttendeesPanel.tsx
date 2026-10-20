@@ -17,7 +17,7 @@ import HowToRegRoundedIcon from '@mui/icons-material/HowToRegRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import { alpha } from '@mui/material/styles';
 import { brand } from '../theme/theme';
-import { checkIn, reviewRegistrations } from '../services/registrationService';
+import { checkIn, reviewRegistrations, notifyCheckedIn } from '../services/registrationService';
 import { RsvpChip } from './EventChips';
 import type { RsvpStatus } from '../types/attendee';
 import { notifyInApp } from '../services/notificationService';
@@ -124,13 +124,7 @@ export default function EventAttendeesPanel({
     try {
       const { alreadyCheckedIn } = await checkIn(reg.id, actor.personId);
       if (!alreadyCheckedIn) {
-        void notifyInApp({
-          personIds: [reg.personId],
-          kind: 'checked-in',
-          title: `You're checked in to ${event.title}`,
-          message: 'Welcome! Your certificate of participation unlocks on your event pass after the event ends.',
-          link: `/pass?event=${event.id}`,
-        });
+        void notifyCheckedIn(reg.personId, event, event.id);
       }
       await onChanged();
     } catch (e) {

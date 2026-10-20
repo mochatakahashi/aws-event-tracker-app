@@ -67,6 +67,7 @@ function pruneStaff(item: any) {
           .slice(0, 60)
       : [];
   }
+  if (item.stampsRequired !== undefined) item.stampsRequired = item.stampsRequired !== false;
   // Evaluation form: up to 25 questions (rating / yesno / choice / text)
   if (item.evaluation !== undefined) {
     const t = (v: unknown, n: number) => (typeof v === 'string' ? v.trim().slice(0, n) : '');

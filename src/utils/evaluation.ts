@@ -65,3 +65,31 @@ export function checkAnswers(questions: EvalQuestion[], answers: EvalAnswers): s
 }
 
 export const RATING_LABELS = ['', 'Poor', 'Fair', 'Good', 'Very good', 'Excellent'];
+
+/** Stamp sessions the certificate needs (events ending from EVAL_REQUIRED_FROM on). */
+export function requiredStampSessions<T extends { eventId: string; requiresStamp?: boolean }>(
+  event: { id: string; startAt?: string; endAt?: string; stampsRequired?: boolean } | null | undefined,
+  sessions: T[],
+): T[] {
+  const end = event?.endAt || event?.startAt;
+  if (!event || !end || event.stampsRequired === false || new Date(end).getTime() < new Date(EVAL_REQUIRED_FROM).getTime()) return [];
+  return sessions.filter((x) => x.eventId === event.id && x.requiresStamp);
+}
+
+export interface StampProgress {
+  required: number;
+  done: number;
+  missing: string[];
+}
+
+/** How many of the event's stamps this person has (approved). */
+export function stampProgress(
+  event: { id: string; startAt?: string; endAt?: string; stampsRequired?: boolean } | null | undefined,
+  sessions: { id: string; eventId: string; requiresStamp?: boolean; title: string }[],
+  stamps: { sessionId: string; status: string }[],
+): StampProgress {
+  const needed = requiredStampSessions(event, sessions);
+  const got = new Set(stamps.filter((x) => x.status === 'approved').map((x) => x.sessionId));
+  const missing = needed.filter((x) => !got.has(x.id)).map((x) => x.title);
+  return { required: needed.length, done: needed.length - missing.length, missing };
+}

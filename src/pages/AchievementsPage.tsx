@@ -18,6 +18,7 @@ import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import { alpha } from '@mui/material/styles';
 import { useAuth } from '../context/AuthContext';
 import { getSessions, getStampsByAttendee } from '../services/sessionService';
+import { stampProgress } from '../utils/evaluation';
 import { getEvents } from '../services/eventService';
 import {
   certificateLink,
@@ -157,7 +158,7 @@ export default function AchievementsPage() {
         .sort((a, b) => b.event.startAt.localeCompare(a.event.startAt)),
     [regs, eventById],
   );
-  const certificates = attended.filter((x) => certificateState(x.reg, x.event) === 'ready');
+  const certificates = attended.filter((x) => certificateState(x.reg, x.event, Date.now(), stampProgress(x.event, sessions, stamps)) === 'ready');
   const earned = useMemo(
     () =>
       stamps

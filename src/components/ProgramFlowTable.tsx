@@ -10,9 +10,13 @@ import { alpha } from '@mui/material/styles';
 import { brand } from '../theme/theme';
 import type { ProgramRow } from '../types/event';
 
-/** The event's program flow as a table (laptops) or a stacked list (phones). */
-export default function ProgramFlowTable({ rows }: { rows: ProgramRow[] }) {
+/**
+ * The event's program flow as a table (laptops) or a stacked list (phones).
+ * The person-in-charge column is for the team (officers, admins, the adviser), not attendees.
+ */
+export default function ProgramFlowTable({ rows, showPersonInCharge = true }: { rows: ProgramRow[]; showPersonInCharge?: boolean }) {
   if (!rows.length) return null;
+  const heads = showPersonInCharge ? ['Time', 'Duration', 'Activity', 'Person-in-charge'] : ['Time', 'Duration', 'Activity'];
   return (
     <Box data-testid="program-flow">
       <Typography variant="h3" sx={{ fontWeight: 800, mb: 1.5 }}>
@@ -23,7 +27,7 @@ export default function ProgramFlowTable({ rows }: { rows: ProgramRow[] }) {
         <Table size="small">
           <TableHead>
             <TableRow sx={{ bgcolor: alpha(brand.primary, 0.06) }}>
-              {['Time', 'Duration', 'Activity', 'Person-in-charge'].map((h) => (
+              {heads.map((h) => (
                 <TableCell key={h} sx={{ fontWeight: 800, color: brand.primary, whiteSpace: 'nowrap' }}>
                   {h}
                 </TableCell>
@@ -36,7 +40,7 @@ export default function ProgramFlowTable({ rows }: { rows: ProgramRow[] }) {
                 <TableCell sx={{ whiteSpace: 'nowrap', fontWeight: 600 }}>{r.time}</TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap', color: 'text.secondary' }}>{r.duration}</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>{r.activity}</TableCell>
-                <TableCell sx={{ color: 'text.secondary' }}>{r.personInCharge}</TableCell>
+                {showPersonInCharge && <TableCell sx={{ color: 'text.secondary' }}>{r.personInCharge}</TableCell>}
               </TableRow>
             ))}
           </TableBody>
@@ -53,7 +57,7 @@ export default function ProgramFlowTable({ rows }: { rows: ProgramRow[] }) {
             <Typography variant="body2" sx={{ fontWeight: 700 }}>
               {r.activity}
             </Typography>
-            {r.personInCharge && (
+            {showPersonInCharge && r.personInCharge && (
               <Typography variant="caption" color="text.secondary">
                 {r.personInCharge}
               </Typography>

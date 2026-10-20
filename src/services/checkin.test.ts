@@ -97,6 +97,16 @@ describe('certificate verification', () => {
     );
     const done = await submitEvaluation('evt-1', 'per-1', answers);
     expect(done.evaluatedAt).toBeTruthy();
+    // Events with stamp sessions also need every stamp
+    const { getSessionsByEvent, createStamp, approveStamp } = await import('./sessionService');
+    const stampSessions = (await getSessionsByEvent('evt-1')).filter((x) => x.requiresStamp);
+    if (stampSessions.length) {
+      expect((await verifyCertificate(registration.certificateId!)).status).toBe('not-yet');
+      for (const ses of stampSessions) {
+        const st = await createStamp({ sessionId: ses.id, attendeeId: 'per-1', status: 'pending' });
+        await approveStamp(st.id, 'per-2');
+      }
+    }
     const ok = await verifyCertificate(registration.certificateId!.toLowerCase());
     expect(ok.valid).toBe(true);
     expect(ok.status).toBe('valid');

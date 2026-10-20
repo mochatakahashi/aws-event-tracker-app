@@ -17,7 +17,9 @@ import { certificateLink, certificateShareLink, certificateState, getEvaluation,
 import type { Registration } from '../types/attendee';
 import type { AppEvent } from '../types/event';
 import type { EvalQuestion } from '../types/evaluation';
-import { evaluationOpen, evaluationOpensAt, evaluationQuestions, evaluationRequired } from '../utils/evaluation';
+import { evaluationOpen, evaluationOpensAt, evaluationQuestions, evaluationRequired, stampProgress, type StampProgress } from '../utils/evaluation';
+import { getSessionsByEvent, getStampsByAttendee } from '../services/sessionService';
+import StarsRoundedIcon from '@mui/icons-material/StarsRounded';
 import EvaluationDialog from './EvaluationDialog';
 
 const when = (iso?: string) =>
@@ -79,7 +81,54 @@ export default function CertificateButton({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [evalIsOpen, event?.id, personId]);
-  const state = certificateState(registration, event, now);
+  // Events with stamp sessions: the certificate needs all of them
+  const [stamps, setStamps] = useState<StampProgress | null>(null);
+  useEffect(() => {
+    if (!event?.id || registration.rsvp === 'declined') return;
+    let alive = true;
+    const load = () =>
+      Promise.all([getSessionsByEvent(event.id!), getStampsByAttendee(personId)])
+        .then(([sessions, mine]) => alive && setStamps(stampProgress({ ...event, id: event.id! }, sessions, mine)))
+        .catch(() => undefined);
+    void load();
+    // Stamps get approved during the event: refresh now and then
+    const t = window.setInterval(load, 60_000);
+    return () => {
+      alive = false;
+      window.clearInterval(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [event?.id, personId, registration.rsvp]);
+  const state = certificateState(registration, event, now, stamps);
+
+  const stampNote =
+    stamps && stamps.required > 0 ? (
+      <Box
+        data-testid="stamp-requirement"
+        sx={{
+          p: 1.5,
+          mb: 1.5,
+          borderRadius: '12px',
+          border: `1px solid ${alpha(stamps.done >= stamps.required ? brand.success : brand.warning, 0.4)}`,
+          bgcolor: alpha(stamps.done >= stamps.required ? brand.success : brand.warning, 0.06),
+        }}
+      >
+        <Stack direction="row" spacing={1} alignItems="flex-start">
+          <StarsRoundedIcon fontSize="small" sx={{ color: stamps.done >= stamps.required ? brand.success : brand.warning, mt: 0.25 }} />
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography variant="body2" sx={{ fontWeight: 700 }}>
+              {stamps.done >= stamps.required
+                ? `All ${stamps.required} stamps collected`
+                : `Collect all ${stamps.required} stamps to get your certificate`}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+              {stamps.done} of {stamps.required} done
+              {stamps.missing.length > 0 ? `. Still to collect: ${stamps.missing.join(', ')}` : ''}
+            </Typography>
+          </Box>
+        </Stack>
+      </Box>
+    ) : null;
 
   const evaluation = evalIsOpen ? (
     <Box
@@ -137,7 +186,9 @@ export default function CertificateButton({
   if (state !== 'ready') {
     const opensAt = evaluationOpensAt(event);
     const text =
-      state === 'needs-evaluation'
+      state === 'needs-stamps'
+        ? `No certificate yet: it needs all ${stamps?.required ?? ''} stamps of this event. If you joined a session but its stamp is missing, ask the officers to approve it.`
+        : state === 'needs-evaluation'
         ? 'Your certificate unlocks as soon as you answer the event evaluation.'
         : state === 'after-event' && needsEval
           ? evalIsOpen
@@ -150,6 +201,7 @@ export default function CertificateButton({
           : "No certificate for this event - you weren't checked in at the venue.";
     return (
       <>
+      {stampNote}
       {evaluation}
       <Box
         data-testid="certificate-locked"
@@ -175,6 +227,7 @@ export default function CertificateButton({
 
   return (
     <Box data-testid="certificate-ready">
+      {stampNote}
       {evaluation}
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
         <WorkspacePremiumIcon sx={{ color: brand.primary }} />

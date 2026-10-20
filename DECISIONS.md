@@ -443,6 +443,7 @@ The club wants every attendee to answer the event evaluation, opening 30 minutes
 
 ### Consequences
 - **Positive**: complete feedback, results and CSV in the app, no Google Form to reconcile.
+- **Update (v0.6.24)**: events with stamp sessions also need every stamp for the certificate (same start date; admins can turn it off per event for parallel sessions). Admins and the adviser no longer register for events: they monitor.
 - **Negative**: reminder timing depends on someone opening the app (otherwise 8 AM the next day); answers can't be changed after submitting.
 
 ---

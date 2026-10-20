@@ -33,6 +33,7 @@ import QRCode from 'qrcode';
  * GET    /api/registrations?action=verify&certificateId=CERT-2026-ABCD2345   (public)
  *        → { valid, status: valid | not-yet | revoked | not-found, certificateId, name, eventTitle, eventDate, venue, issuedAt }
  *
+ * Certificates also need every stamp of the event when it has stamp sessions (NEEDS_STAMPS).
  * Evaluation (opens 30 minutes before the event ends; checked-in attendees answer it to get the certificate):
  * GET    /api/registrations?action=evaluation&eventId=&personId=   → { questions, required, opensAt, open, response }
  * POST   /api/registrations?action=evaluate { eventId, personId, answers }   → saves it, unlocks the certificate
@@ -316,6 +317,23 @@ function checkEvalAnswers(questions: any[], raw: any): { answers?: Record<string
   return { answers };
 }
 
+
+/**
+ * Events with stamp sessions: the certificate needs every stamp (approved).
+ * Same start date as the evaluation, so older certificates stay valid.
+ */
+async function stampProgress(client: DynamoDBDocumentClient, tableName: string, ev: any, personId: string) {
+  const end = ev?.endAt || ev?.startAt;
+  if (!ev || !end || ev.stampsRequired === false || new Date(end).getTime() < new Date(EVAL_REQUIRED_FROM).getTime()) return { required: 0, done: 0, missing: [] as string[] };
+  const sessions = (await scanType(client, tableName, 'session')).filter((x) => x.eventId === ev.id && x.requiresStamp);
+  if (!sessions.length) return { required: 0, done: 0, missing: [] as string[] };
+  const approved = new Set(
+    (await scanType(client, tableName, 'stamp')).filter((x) => x.attendeeId === personId && x.status === 'approved').map((x) => x.sessionId),
+  );
+  const missing = sessions.filter((x) => !approved.has(x.id)).map((x) => String(x.title || 'Session'));
+  return { required: sessions.length, done: sessions.length - missing.length, missing };
+}
+
 async function getEventItem(client: DynamoDBDocumentClient, tableName: string, eventId: string) {
   return (await client.send(new GetCommand({ TableName: tableName, Key: { id: eventId } }))).Item;
 }
@@ -413,7 +431,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!reg) return res.status(404).json({ valid: false, status: 'not-found', certificateId });
       const ev = await getEventItem(client, tableName, reg.eventId);
       const data = await certificateData(client, tableName, reg);
-      const status = !reg.checkedIn ? 'revoked' : !eventEnded(ev) || (evalRequired(ev) && !reg.evaluatedAt) ? 'not-yet' : 'valid';
+      const stampsLeft = reg.checkedIn && eventEnded(ev) ? (await stampProgress(client, tableName, ev, reg.personId)).missing.length : 0;
+      const status = !reg.checkedIn ? 'revoked' : !eventEnded(ev) || (evalRequired(ev) && !reg.evaluatedAt) || stampsLeft > 0 ? 'not-yet' : 'valid';
       return res.status(200).json({
         valid: status === 'valid',
         status,
@@ -424,7 +443,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         venue: data.venue,
         issuedAt: status === 'valid' ? issuedDate(reg, ev) : undefined,
         availableFrom: status === 'not-yet' ? ev?.endAt : undefined,
-        needsEvaluation: status === 'not-yet' && eventEnded(ev) ? true : undefined,
+        needsEvaluation: status === 'not-yet' && eventEnded(ev) && evalRequired(ev) && !reg.evaluatedAt ? true : undefined,
+        needsStamps: status === 'not-yet' && stampsLeft > 0 ? true : undefined,
       });
     }
 
@@ -461,6 +481,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           error: 'The certificate unlocks after the event ends.',
           code: 'NOT_YET',
           availableFrom: ev?.endAt,
+        });
+      }
+      const stamps = await stampProgress(client, tableName, ev, reg.personId);
+      if (stamps.missing.length) {
+        return res.status(409).json({
+          error: `Collect all the stamps of this event first (${stamps.done} of ${stamps.required}). Missing: ${stamps.missing.join(', ')}.`,
+          code: 'NEEDS_STAMPS',
+          stamps,
         });
       }
       if (evalRequired(ev) && !reg.evaluatedAt) {
@@ -525,6 +553,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         open: evalRequired(ev) && Boolean(opensAt) && Date.now() >= new Date(opensAt!).getTime(),
         checkedIn: Boolean(reg?.checkedIn),
         response: response ? clean(response) : null,
+        stamps: await stampProgress(client, tableName, ev, personId),
       });
     }
 
@@ -559,7 +588,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await client.send(new PutCommand({ TableName: tableName, Item: response }));
       const updated = { ...reg, evaluatedAt: now, updatedAt: now };
       await client.send(new PutCommand({ TableName: tableName, Item: updated }));
-      if (eventEnded(ev)) {
+      if (eventEnded(ev) && !(await stampProgress(client, tableName, ev, personId)).missing.length) {
         await client.send(
           new PutCommand({
             TableName: tableName,
@@ -696,13 +725,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!eventId || !personId) return res.status(400).json({ error: 'eventId and personId are required' });
       const rsvp = 'pending';
 
-      // Officers-only meetings: only officers and admins can register
       const ev = (await client.send(new GetCommand({ TableName: tableName, Key: { id: eventId } }))).Item;
-      if (ev?.audience === 'officers') {
-        const who = (await client.send(new GetCommand({ TableName: tableName, Key: { id: personId } }))).Item;
-        if (who?.role !== 'officer' && who?.role !== 'admin') {
-          return res.status(403).json({ error: 'This is an internal meeting for AWS SBG-APC officers.' });
-        }
+      const who = (await client.send(new GetCommand({ TableName: tableName, Key: { id: personId } }))).Item;
+      // Admins (and the adviser) monitor events; they don't attend them
+      if (who?.entityType === 'user' && (who.role === 'admin' || who.role === 'adviser')) {
+        return res.status(403).json({ error: 'Admins and the adviser monitor events and cannot register as attendees.' });
+      }
+      // Officers-only meetings: only officers can register
+      if (ev?.audience === 'officers' && who?.role !== 'officer') {
+        return res.status(403).json({ error: 'This is an internal meeting for AWS SBG-APC officers.' });
       }
 
       const regs = await scanType(client, tableName, 'registration');

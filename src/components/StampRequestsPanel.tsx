@@ -14,7 +14,7 @@ import HowToRegRoundedIcon from '@mui/icons-material/HowToRegRounded';
 import { alpha } from '@mui/material/styles';
 import { brand } from '../theme/theme';
 import { approveStamp, declineStamp } from '../services/sessionService';
-import { checkIn } from '../services/registrationService';
+import { checkIn, notifyCheckedIn } from '../services/registrationService';
 import { notifyInApp } from '../services/notificationService';
 import { canDo } from '../utils/eventStaff';
 import type { AppEvent } from '../types/event';
@@ -76,13 +76,7 @@ export default function StampRequestsPanel({
         if (!reg) throw new Error('This person is not registered for the event, so they can’t be checked in.');
         const { alreadyCheckedIn } = await checkIn(reg.id, actor.personId);
         if (!alreadyCheckedIn) {
-          void notifyInApp({
-            personIds: [stamp.attendeeId],
-            kind: 'checked-in',
-            title: `You're checked in to ${event.title}`,
-            message: 'Welcome! Your certificate of participation unlocks on your event pass after the event ends.',
-            link: `/pass?event=${event.id}`,
-          });
+          void notifyCheckedIn(stamp.attendeeId, event, event.id);
         }
       }
       await approveStamp(stamp.id, actor.personId);

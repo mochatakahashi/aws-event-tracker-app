@@ -460,7 +460,7 @@ export default function EventDetailPage() {
 
             {!!event.programFlow?.length && (
               <>
-                <ProgramFlowTable rows={event.programFlow} />
+                <ProgramFlowTable rows={event.programFlow} showPersonInCharge={user?.role === 'officer' || user?.role === 'admin' || user?.role === 'adviser'} />
                 <Divider sx={{ my: 3 }} />
               </>
             )}

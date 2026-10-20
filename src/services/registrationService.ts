@@ -5,7 +5,7 @@ import { seedPeople, seedRegistrations } from './seedData';
 import { getUsers } from './authService';
 import { apiJson, delay, generateId, isRemoteAvailable, localCollection } from './apiClient';
 import type { EvalAnswers, EvalQuestion, EvaluationResponse, EventEvaluation } from '../types/evaluation';
-import { checkAnswers, evaluationOpen, evaluationOpensAt, evaluationQuestions, evaluationRequired } from '../utils/evaluation';
+import { checkAnswers, evaluationOpen, evaluationOpensAt, evaluationQuestions, evaluationRequired, stampProgress } from '../utils/evaluation';
 
 /**
  * People directory + event registrations.
@@ -295,11 +295,14 @@ export function certificateState(
   registration: Pick<Registration, 'checkedIn' | 'evaluatedAt'> | null | undefined,
   event: { startAt?: string; endAt?: string; speakerIds?: string[]; evaluation?: EventEvaluation } | null | undefined,
   now = Date.now(),
-): 'ready' | 'after-event' | 'needs-evaluation' | 'needs-check-in' | 'none' {
+  /** The event's stamps for this person (events with stamp sessions need all of them). */
+  stamps?: { required: number; done: number } | null,
+): 'ready' | 'after-event' | 'needs-stamps' | 'needs-evaluation' | 'needs-check-in' | 'none' {
   const end = event?.endAt || event?.startAt;
   const ended = Boolean(end) && now > new Date(end!).getTime();
   if (registration?.checkedIn) {
     if (!ended) return 'after-event';
+    if (stamps && stamps.done < stamps.required) return 'needs-stamps';
     return evaluationRequired(event) && !registration.evaluatedAt ? 'needs-evaluation' : 'ready';
   }
   return ended ? 'none' : 'needs-check-in';
@@ -315,6 +318,7 @@ export interface EvaluationStatus {
   open: boolean;
   checkedIn: boolean;
   response: EvaluationResponse | null;
+  stamps?: { required: number; done: number; missing: string[] };
 }
 
 export interface EvaluationSummary {
@@ -475,7 +479,11 @@ export async function verifyCertificate(input: string): Promise<CertificateCheck
     iso ? new Date(iso).toLocaleDateString('en-US', { timeZone: 'Asia/Manila', month: 'long', day: 'numeric', year: 'numeric' }) : '';
   const start = fmt(event?.startAt);
   const end = fmt(event?.endAt);
-  const state = certificateState(reg, event);
+  const { getSessionsByEvent, getStampsByAttendee } = await import('./sessionService');
+  const progress = event
+    ? stampProgress(event, await getSessionsByEvent(event.id).catch(() => []), await getStampsByAttendee(reg.personId).catch(() => []))
+    : null;
+  const state = certificateState(reg, event, Date.now(), progress);
   const status = !reg.checkedIn ? 'revoked' : state === 'ready' ? 'valid' : 'not-yet';
   return {
     valid: status === 'valid',
@@ -488,4 +496,29 @@ export async function verifyCertificate(input: string): Promise<CertificateCheck
     venue: event?.venue ?? '',
     issuedAt: reg.certificateIssuedAt,
   };
+}
+
+/**
+ * The "you're checked in" notification. When the event has stamp sessions it
+ * lists them: the certificate needs all of them (and the evaluation).
+ */
+export async function notifyCheckedIn(
+  personId: string,
+  event: { id: string; title: string; startAt?: string; endAt?: string; speakerIds?: string[]; evaluation?: EventEvaluation } | null | undefined,
+  eventId: string,
+): Promise<void> {
+  const [{ getSessionsByEvent }, { notifyInApp }] = await Promise.all([import('./sessionService'), import('./notificationService')]);
+  const sessions = event ? await getSessionsByEvent(event.id).catch(() => []) : [];
+  const stamps = stampProgress(event, sessions, []);
+  const evalNote = evaluationRequired(event) ? ' and answer the evaluation (it opens 30 minutes before the end)' : '';
+  const message = stamps.required
+    ? `Welcome! To get your certificate, collect all ${stamps.required} stamp${stamps.required === 1 ? '' : 's'}: ${stamps.missing.join(', ')}${evalNote}.`
+    : `Welcome! Your certificate unlocks on your event pass after the event ends${evalNote ? `, once you${evalNote}` : ''}.`;
+  await notifyInApp({
+    personIds: [personId],
+    kind: 'checked-in',
+    title: `You're checked in to ${event?.title ?? 'the event'}`,
+    message: message.slice(0, 600),
+    link: `/pass?event=${eventId}`,
+  });
 }

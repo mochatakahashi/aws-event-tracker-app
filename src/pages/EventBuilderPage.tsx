@@ -293,6 +293,7 @@ export default function EventBuilderPage() {
         coOrganizers: (formData.coOrganizers || []).map((o) => o.trim()).filter(Boolean),
         audience: formData.audience === 'officers' ? 'officers' : 'everyone',
         programFlow: (formData.programFlow || []).filter((r) => r.time.trim() || r.activity.trim()),
+        stampsRequired: formData.stampsRequired !== false,
         // Only saved once the admin changes it (otherwise the standard questions apply)
         ...(formData.evaluation
           ? {
@@ -657,6 +658,27 @@ export default function EventBuilderPage() {
           <ProgramFlowEditor value={formData.programFlow || []} onChange={(rows) => setFormData((prev) => ({ ...prev, programFlow: rows }))} />
 
           <Divider sx={{ my: 2 }} />
+
+          {/* Certificate rule for events with stamp sessions */}
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={formData.stampsRequired !== false}
+                onChange={(e) => setFormData((prev) => ({ ...prev, stampsRequired: e.target.checked }))}
+              />
+            }
+            label={
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                  Certificate needs all stamps
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  When the event has sessions with stamps, attendees must collect every stamp to get the certificate. Untick it when sessions run at the same time.
+                </Typography>
+              </Box>
+            }
+            sx={{ alignItems: 'flex-start', mb: 2, '& .MuiCheckbox-root': { pt: 0.25 } }}
+          />
 
           {/* Evaluation form: standard questions, editable; needed for the certificate */}
           <EvaluationEditor

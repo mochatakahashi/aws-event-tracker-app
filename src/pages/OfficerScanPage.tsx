@@ -29,7 +29,7 @@ import { brand } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
 import { useEvent } from '../context/EventContext';
 import { getEvents } from '../services/eventService';
-import { checkIn, getPeople, getRegistration, getRegistrationsByEvent } from '../services/registrationService';
+import { checkIn, getPeople, getRegistration, getRegistrationsByEvent, notifyCheckedIn } from '../services/registrationService';
 import { approveStamp, createStamp, getSessionsByEvent, getStamps, getStampsByAttendee } from '../services/sessionService';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
@@ -229,13 +229,7 @@ export default function OfficerScanPage() {
       const { registration, alreadyCheckedIn } = await checkIn(scanned.reg.id, user.personId);
       setScanned({ ...scanned, reg: registration, justCheckedIn: !alreadyCheckedIn });
       if (!alreadyCheckedIn) {
-        void notifyInApp({
-          personIds: [registration.personId],
-          kind: 'checked-in',
-          title: `You're checked in to ${scanned.event?.title ?? 'the event'}`,
-          message: 'Welcome! Your certificate of participation unlocks on your event pass after the event ends.',
-          link: `/pass?event=${registration.eventId}`,
-        });
+        void notifyCheckedIn(registration.personId, scanned.event, registration.eventId);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Check-in failed. Try again.');
