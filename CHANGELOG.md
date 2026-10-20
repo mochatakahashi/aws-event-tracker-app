@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.30] - 2026-10-20
+
+### Added
+- **Whole org or an event**: when assigning a task, pick **This task is for: Whole org** (the default) or **An event** (then the event is required; upcoming events are listed first). Every task card shows a *Whole org* or event chip, and the board has a **Show** filter: All tasks, Whole org (no event), or one event. The stat tiles follow the filter. Officers' own task form has the same *Whole org (no event)* choice.
+- **Table view**: a **Cards / Table / By officer** switch on the tasks board (admins, the President, VPs, Directors and Assistant Directors). *Table* lists the tasks like a spreadsheet (Task, Committee, Sub-committee, For, Assigned to, Status, Deadline, Progress); tap a column name to sort. *By officer* has one row per officer: tasks, to do, in progress, done, done on time, done late, overdue. Both scroll sideways on phones.
+- **Download Excel**: exports what the board is showing (tab, sub-committee, Show and Open / Done / All filters) to an .xlsx with three sheets: *Tasks*, *By officer* and *By committee*.
+
+### Changed
+- The officer's *Add a task for yourself* note says who approves it (their Director, Assistant Director, VP or an admin), or that a lead's own task goes on the board right away.
+- The committee picker's "Any / whole org" option is now "Any committee" (whole org is chosen with *This task is for*).
+
+---
+
 ## [0.6.29] - 2026-10-20
 
 ### Added

@@ -168,7 +168,7 @@ export default function OfficerDashboardPage() {
       }
       setTaskNote(
         task.approval === 'pending'
-          ? 'Task added. It shows as “Waiting for approval” until your Director, Assistant Director or an admin approves it.'
+          ? 'Task added. It shows as “Waiting for approval” until your Director, Assistant Director, VP or an admin approves it.'
           : 'Task added.',
       );
       setTitle('');
@@ -419,7 +419,7 @@ export default function OfficerDashboardPage() {
           <CardContent component="form" onSubmit={addOwnTask} data-testid="own-task-form">
             <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Add a task for yourself</Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-              An admin approves it first; then it’s on your board like any other task.
+              {taskScope(user) ? 'You lead this committee, so it goes on your board right away.' : 'Your Director, Assistant Director, VP or an admin approves it first; then it’s on your board like any other task.'}
             </Typography>
             <Stack spacing={1.5}>
               <TextField label="Task" value={title} onChange={(e) => setTitle(e.target.value)} required size="small" inputProps={{ maxLength: 140 }} />
@@ -432,8 +432,8 @@ export default function OfficerDashboardPage() {
                 minRows={2}
               />
               <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'repeat(2, minmax(0, 1fr))' }, gap: 1.5 }}>
-                <TextField select label="For event (optional)" value={taskEventId} onChange={(e) => setTaskEventId(e.target.value)} size="small">
-                  <MenuItem value="">No specific event</MenuItem>
+                <TextField select label="This task is for" value={taskEventId} onChange={(e) => setTaskEventId(e.target.value)} size="small" SelectProps={{ displayEmpty: true }} InputLabelProps={{ shrink: true }}>
+                  <MenuItem value="">Whole org (no event)</MenuItem>
                   {events
                     .filter((ev) => ev.status !== 'cancelled' && ev.status !== 'accomplished')
                     .map((ev) => (

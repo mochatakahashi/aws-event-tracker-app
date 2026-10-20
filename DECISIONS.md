@@ -550,5 +550,24 @@ Only admins could assign and monitor officer tasks. Each committee's Director an
 
 ---
 
+## ADR-028: Task Board Views and Excel Summary
+
+### Status
+**Accepted** (v0.6.30)
+
+### Context
+Directors asked for a spreadsheet-style view of their committee's tasks and a way to see which tasks are for the whole org and which are for a specific event.
+
+### Decision
+- "Whole org" is a task with no `eventId`; no new field. The form asks *This task is for: Whole org / An event* so it is a clear choice, and the board filters by it.
+- The table, the per-officer summary and the Excel file are built from the same filtered list (`utils/taskSummary.ts`), so they always match what is on screen.
+- The Excel file uses the existing `downloadExcel` helper (loaded only when someone exports) with three sheets: Tasks, By officer, By committee.
+
+### Consequences
+- **Positive**: no database change; older tasks without an event show as Whole org; leads can share a summary file in meetings.
+- **Negative**: a task with two officers counts once for each officer in *By officer*, so those totals can add up to more than the number of tasks (the page says so).
+
+---
+
 *Last Updated: October 2026*
 

@@ -18,6 +18,10 @@ import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import AddTaskIcon from '@mui/icons-material/AddTask';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
+import ViewAgendaRoundedIcon from '@mui/icons-material/ViewAgendaRounded';
+import TableChartRoundedIcon from '@mui/icons-material/TableChartRounded';
+import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
 import { alpha } from '@mui/material/styles';
 import { useAuth } from '../context/AuthContext';
 import { getUsers } from '../services/authService';
@@ -45,8 +49,12 @@ import Tab from '@mui/material/Tab';
 import ContentTracker from '../components/ContentTracker';
 import TaskThread, { DeadlineChip } from '../components/TaskThread';
 import { canAssignTo, proposalInScope, taskInScope, taskScope } from '../utils/taskScope';
+import { WHOLE_ORG, WHOLE_ORG_FILTER, committeeSummary, matchesEventFilter, officerSummary, taskRows } from '../utils/taskSummary';
+import { OfficerSummaryTable, TaskTable } from '../components/TaskSummaryTables';
+import { downloadExcel, safeFileName, toDate } from '../utils/excelExport';
 
 type Filter = 'open' | 'done' | 'all';
+type View = 'cards' | 'table' | 'officers';
 
 const STATUS_COLOR: Record<TaskStatus, 'default' | 'warning' | 'success'> = {
   todo: 'default',
@@ -80,6 +88,7 @@ export default function AdminTasksPage() {
   // New task form
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [forWhat, setForWhat] = useState<'org' | 'event'>('org');
   const [eventId, setEventId] = useState('');
   const [assignees, setAssignees] = useState<User[]>([]);
   const [dueDate, setDueDate] = useState('');
@@ -90,6 +99,10 @@ export default function AdminTasksPage() {
   // Committee board
   const [tab, setTab] = useState<'all' | Committee>(single ?? 'all');
   const [subFilter, setSubFilter] = useState<Subcommittee | ''>('');
+  // '' = all, WHOLE_ORG_FILTER = tasks not for an event, else an event id
+  const [eventFilter, setEventFilter] = useState('');
+  const [view, setView] = useState<View>('cards');
+  const [exporting, setExporting] = useState(false);
   const [marketingView, setMarketingView] = useState<'tasks' | 'content'>('tasks');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState('');
@@ -124,7 +137,7 @@ export default function AdminTasksPage() {
       const task = await createTask({
         title: title.trim(),
         description: description.trim() || undefined,
-        eventId: eventId || undefined,
+        eventId: forWhat === 'event' && eventId ? eventId : undefined,
         assigneeIds: assignees.map((a) => a.personId),
         status: 'todo',
         dueAt: dueDate ? new Date(`${dueDate}T${dueTime || '23:59'}:00+08:00`).toISOString() : undefined,
@@ -155,6 +168,7 @@ export default function AdminTasksPage() {
       setTitle('');
       setDescription('');
       setEventId('');
+      setForWhat('org');
       setAssignees([]);
       setDueDate('');
       setSubcommittee('');
@@ -199,9 +213,12 @@ export default function AdminTasksPage() {
   const inTab = useMemo(
     () =>
       plainTasks.filter(
-        (t) => (tab === 'all' || t.committee === tab) && (!subFilter || t.subcommittee === subFilter),
+        (t) =>
+          (tab === 'all' || t.committee === tab) &&
+          (!subFilter || t.subcommittee === subFilter) &&
+          matchesEventFilter(t, eventFilter),
       ),
-    [plainTasks, tab, subFilter],
+    [plainTasks, tab, subFilter, eventFilter],
   );
   const visible = useMemo(
     () => inTab.filter((t) => (filter === 'all' ? true : filter === 'done' ? t.status === 'done' : t.status !== 'done')),
@@ -224,6 +241,72 @@ export default function AdminTasksPage() {
     setSubFilter('');
     setCommittee(next === 'all' ? '' : next);
     setSubcommittee('');
+  }
+
+  // Events that have tasks on this board (for the filter), newest first
+  const taskEvents = useMemo(() => {
+    const ids = new Set(plainTasks.map((t) => t.eventId).filter(Boolean) as string[]);
+    return events.filter((e) => ids.has(e.id)).sort((a, b) => (b.startAt || '').localeCompare(a.startAt || ''));
+  }, [plainTasks, events]);
+  // Events to pick in the form: upcoming and ongoing first, then past
+  const formEvents = useMemo(
+    () =>
+      [...events].sort((a, b) => {
+        const now = Date.now();
+        const pa = new Date(a.endAt || a.startAt || 0).getTime() < now;
+        const pb = new Date(b.endAt || b.startAt || 0).getTime() < now;
+        if (pa !== pb) return pa ? 1 : -1;
+        return pa ? (b.startAt || '').localeCompare(a.startAt || '') : (a.startAt || '').localeCompare(b.startAt || '');
+      }),
+    [events],
+  );
+  const rows = useMemo(() => taskRows(visible, (id) => nameOf(id), (id) => eventTitle(id)), [visible, allUsers, events]); // eslint-disable-line react-hooks/exhaustive-deps
+  const perOfficer = useMemo(
+    () => officerSummary(visible, (id) => { const u = personOf(id); return u ? { name: u.name, committee: u.committee } : undefined; }),
+    [visible, allUsers], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
+  const boardName = tab === 'all' ? (single ? COMMITTEE_LABELS[single] : limited ? 'Committee' : 'All committees') : COMMITTEE_LABELS[tab];
+  const filterName =
+    eventFilter === WHOLE_ORG_FILTER ? WHOLE_ORG : eventFilter ? eventTitle(eventFilter) || 'Event' : '';
+
+  async function exportExcel() {
+    setExporting(true);
+    try {
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
+      await downloadExcel(safeFileName(`${boardName} tasks ${filterName} ${today}`), [
+        {
+          name: 'Tasks',
+          headers: ['Task', 'Details', 'Committee', 'Sub-committee', 'For', 'Assigned to', 'Status', 'Deadline', 'Progress', 'Done at'],
+          rows: rows.map((r, i) => [
+            r.title,
+            visible[i].description || '',
+            r.committee,
+            r.subcommittee,
+            r.forWhat,
+            r.assignees,
+            r.status,
+            toDate(r.dueAt),
+            r.deadline,
+            toDate(r.completedAt),
+          ]),
+        },
+        {
+          name: 'By officer',
+          headers: ['Officer', 'Committee', 'Tasks', 'To do', 'In progress', 'Done', 'Done on time', 'Done late', 'Overdue'],
+          rows: perOfficer.map((o) => [o.name, o.committee, o.total, o.todo, o.inProgress, o.done, o.onTime, o.late, o.overdue]),
+        },
+        {
+          name: 'By committee',
+          headers: ['Committee', 'Tasks', 'To do', 'In progress', 'Done', 'Done on time', 'Done late', 'Overdue'],
+          rows: committeeSummary(visible).map((c) => [c.committee, c.total, c.todo, c.inProgress, c.done, c.onTime, c.late, c.overdue]),
+        },
+      ]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not make the Excel file.');
+    } finally {
+      setExporting(false);
+    }
   }
 
   if (loading) return <Box sx={{ p: 4, textAlign: 'center' }}><CircularProgress /></Box>;
@@ -321,6 +404,84 @@ export default function AdminTasksPage() {
           onChange={(next) => setTasks([...tasks.filter((t) => t.kind !== 'pubmat'), ...next, ...tasks.filter((t) => t.kind === 'pubmat' && !pubmats.some((p) => p.id === t.id))])}
         />
       ) : (
+      <>
+      {/* View, filters and Excel */}
+      <Stack
+        direction={{ xs: 'column', md: 'row' }}
+        spacing={1.25}
+        alignItems={{ xs: 'stretch', md: 'center' }}
+        flexWrap="wrap"
+        useFlexGap
+        sx={{ mb: 2 }}
+        data-testid="task-toolbar"
+      >
+        <ToggleButtonGroup
+          size="small"
+          exclusive
+          value={view}
+          onChange={(_e, v: View | null) => v && setView(v)}
+          aria-label="View"
+          sx={{ '& .MuiToggleButton-root': { textTransform: 'none', fontWeight: 600, gap: 0.5, flex: { xs: 1, md: 'none' } } }}
+        >
+          <ToggleButton value="cards"><ViewAgendaRoundedIcon fontSize="small" /> Cards</ToggleButton>
+          <ToggleButton value="table"><TableChartRoundedIcon fontSize="small" /> Table</ToggleButton>
+          <ToggleButton value="officers"><GroupsRoundedIcon fontSize="small" /> By officer</ToggleButton>
+        </ToggleButtonGroup>
+        <TextField
+          select
+          size="small"
+          label="Show"
+          value={eventFilter}
+          onChange={(e) => setEventFilter(e.target.value)}
+          sx={{ minWidth: 220, maxWidth: { md: 320 } }}
+          SelectProps={{ displayEmpty: true, MenuProps: { PaperProps: { sx: { maxHeight: 360 } } } }}
+          InputLabelProps={{ shrink: true }}
+          inputProps={{ 'data-testid': 'task-event-filter' }}
+        >
+          <MenuItem value="">All tasks</MenuItem>
+          <MenuItem value={WHOLE_ORG_FILTER}>Whole org (no event)</MenuItem>
+          {taskEvents.map((ev) => (
+            <MenuItem key={ev.id} value={ev.id}>
+              {ev.title}
+            </MenuItem>
+          ))}
+        </TextField>
+        <ToggleButtonGroup size="small" exclusive value={filter} onChange={(_e, v: Filter | null) => v && setFilter(v)} aria-label="Status">
+          <ToggleButton value="open">Open</ToggleButton>
+          <ToggleButton value="done">Done</ToggleButton>
+          <ToggleButton value="all">All</ToggleButton>
+        </ToggleButtonGroup>
+        <Box sx={{ flex: 1, display: { xs: 'none', md: 'block' } }} />
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<DownloadRoundedIcon />}
+          onClick={() => void exportExcel()}
+          disabled={exporting || visible.length === 0}
+          sx={{ textTransform: 'none', fontWeight: 600 }}
+        >
+          {exporting ? 'Making file…' : 'Download Excel'}
+        </Button>
+      </Stack>
+
+      {view !== 'cards' ? (
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            {visible.length} task{visible.length === 1 ? '' : 's'}
+            {filterName ? ` · ${filterName}` : ''}. Tap a column name to sort.
+            {view === 'officers' ? ' Counts are per officer (a task with two officers counts for both).' : ''}
+          </Typography>
+          {view === 'table' ? (
+            visible.length === 0 ? (
+              <EmptyNote>{filter === 'done' ? 'No finished tasks yet.' : 'No open tasks.'}</EmptyNote>
+            ) : (
+              <TaskTable rows={rows} />
+            )
+          ) : (
+            <OfficerSummaryTable rows={perOfficer} />
+          )}
+        </Box>
+      ) : (
       <Box
         sx={{
           display: 'grid',
@@ -373,7 +534,7 @@ export default function AdminTasksPage() {
                 size="small"
                 fullWidth
               >
-                {!limited && <MenuItem value="">Any / whole org</MenuItem>}
+                {!limited && <MenuItem value="">Any committee</MenuItem>}
                 {visibleCommittees.map((c) => (
                   <MenuItem key={c} value={c}>
                     {COMMITTEE_LABELS[c]}
@@ -429,23 +590,44 @@ export default function AdminTasksPage() {
               )}
               noOptionsText="No officers yet"
             />
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+            <Box>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                This task is for
+              </Typography>
+              <ToggleButtonGroup
+                size="small"
+                exclusive
+                fullWidth
+                value={forWhat}
+                onChange={(_e, v: 'org' | 'event' | null) => {
+                  if (!v) return;
+                  setForWhat(v);
+                  if (v === 'org') setEventId('');
+                }}
+                aria-label="This task is for"
+                sx={{ '& .MuiToggleButton-root': { textTransform: 'none', fontWeight: 600 } }}
+              >
+                <ToggleButton value="org" data-testid="task-for-org">Whole org</ToggleButton>
+                <ToggleButton value="event" data-testid="task-for-event">An event</ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+            {forWhat === 'event' && (
               <TextField
                 select
-                label="Event (optional)"
+                label="Event"
+                required
                 value={eventId}
                 onChange={(e) => setEventId(e.target.value)}
                 size="small"
                 fullWidth
               >
-                <MenuItem value="">No specific event</MenuItem>
-                {events.map((ev) => (
+                {formEvents.map((ev) => (
                   <MenuItem key={ev.id} value={ev.id}>
                     {ev.title}
                   </MenuItem>
                 ))}
               </TextField>
-            </Stack>
+            )}
             <Stack direction="row" spacing={1.5}>
               <TextField
                 label="Deadline"
@@ -472,7 +654,7 @@ export default function AdminTasksPage() {
                 type="submit"
                 variant="contained"
                 startIcon={<AddTaskIcon />}
-                disabled={saving || !title.trim() || assignees.length === 0 || !dueDate || (limited && !committee)}
+                disabled={saving || !title.trim() || assignees.length === 0 || !dueDate || (limited && !committee) || (forWhat === 'event' && !eventId)}
                 sx={{ background: brand.gradient }}
               >
                 {saving ? 'Assigning…' : 'Assign task'}
@@ -486,11 +668,6 @@ export default function AdminTasksPage() {
       <Box>
       <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" useFlexGap spacing={1} sx={{ mb: 1.5 }}>
         <Typography variant="h3">Tasks</Typography>
-        <ToggleButtonGroup size="small" exclusive value={filter} onChange={(_e, v: Filter | null) => v && setFilter(v)}>
-          <ToggleButton value="open">Open</ToggleButton>
-          <ToggleButton value="done">Done</ToggleButton>
-          <ToggleButton value="all">All</ToggleButton>
-        </ToggleButtonGroup>
       </Stack>
 
       {visible.length === 0 ? (
@@ -525,7 +702,11 @@ export default function AdminTasksPage() {
                           label={`${COMMITTEE_LABELS[t.committee]}${t.subcommittee ? ` · ${SUBCOMMITTEE_LABELS[t.subcommittee]}` : ''}`}
                         />
                       )}
-                      {t.eventId && <Chip size="small" variant="outlined" label={eventTitle(t.eventId) || t.eventId} />}
+                      {t.eventId ? (
+                        <Chip size="small" variant="outlined" label={eventTitle(t.eventId) || 'Event'} />
+                      ) : (
+                        <Chip size="small" variant="outlined" label={WHOLE_ORG} />
+                      )}
                       {t.dueAt && (
                         <Chip
                           size="small"
@@ -594,6 +775,8 @@ export default function AdminTasksPage() {
       )}
       </Box>
       </Box>
+      )}
+      </>
       )}
     </Box>
   );
