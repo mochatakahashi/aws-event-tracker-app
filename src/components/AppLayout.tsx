@@ -34,6 +34,9 @@ import { useEvent } from '../context/EventContext';
 import { brand } from '../theme/theme';
 import BottomNav from './BottomNav';
 import OfflineNotice from './OfflineNotice';
+import AssignmentTurnedInRoundedIcon from '@mui/icons-material/AssignmentTurnedInRounded';
+import { taskScope } from '../utils/taskScope';
+import { COMMITTEE_LABELS } from '../utils/people';
 import { nudgeAfterEventNotices } from '../services/registrationService';
 import EventOrganizerLogo from './EventOrganizerLogo';
 import { useUnreadNotifications } from '../hooks/useUnreadNotifications';
@@ -203,11 +206,25 @@ export default function AppLayout() {
             />
           </ListItemButton>
         )}
+        {user?.role === 'officer' && taskScope(user) && (
+          <ListItemButton component={RouterLink} to="/officer/tasks" selected={location.pathname.startsWith('/officer/tasks')} data-testid="nav-committee-tasks">
+            <ListItemIcon sx={{ minWidth: 40 }}>
+              <AssignmentTurnedInRoundedIcon />
+            </ListItemIcon>
+            <ListItemText
+              primary={(() => {
+                const sc = taskScope(user);
+                return Array.isArray(sc) && sc.length === 1 ? `${COMMITTEE_LABELS[sc[0]]} Tasks` : 'Committee Tasks';
+              })()}
+              primaryTypographyProps={{ fontWeight: location.pathname.startsWith('/officer/tasks') ? 600 : 400, fontSize: '0.9rem' }}
+            />
+          </ListItemButton>
+        )}
         {user?.role === 'officer' && (
           <ListItemButton
             component={RouterLink}
             to="/officer"
-            selected={isActive('/officer') && !location.pathname.startsWith('/officer/scan')}
+            selected={isActive('/officer') && !location.pathname.startsWith('/officer/scan') && !location.pathname.startsWith('/officer/tasks')}
             data-tour="nav-officer-dashboard"
           >
             <ListItemIcon sx={{ minWidth: 40 }}><VerifiedUserIcon /></ListItemIcon>

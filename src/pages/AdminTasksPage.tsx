@@ -44,6 +44,7 @@ import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import ContentTracker from '../components/ContentTracker';
 import TaskThread, { DeadlineChip } from '../components/TaskThread';
+import { canAssignTo, proposalInScope, taskInScope, taskScope } from '../utils/taskScope';
 
 type Filter = 'open' | 'done' | 'all';
 
@@ -53,9 +54,19 @@ const STATUS_COLOR: Record<TaskStatus, 'default' | 'warning' | 'success'> = {
   done: 'success',
 };
 
+/**
+ * Officer tasks by committee. Admins, the President and the VPs see every
+ * committee; a committee's Director and Assistant Director see and manage
+ * only their committee (at /officer/tasks). The server checks the same rules.
+ */
 export default function AdminTasksPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const scope = taskScope(user);
+  // Directors / Assistant Directors lead one committee; VPs lead three; admins and the President all
+  const limited = Array.isArray(scope);
+  const myCommittees: Committee[] = limited ? scope : COMMITTEES;
+  const single = limited && scope.length === 1 ? scope[0] : null;
 
   const [officers, setOfficers] = useState<User[]>([]);
   const [allUsers, setAllUsers] = useState<User[]>([]);
@@ -73,25 +84,26 @@ export default function AdminTasksPage() {
   const [assignees, setAssignees] = useState<User[]>([]);
   const [dueDate, setDueDate] = useState('');
   const [dueTime, setDueTime] = useState('17:00');
-  const [committee, setCommittee] = useState<Committee | ''>('');
+  const [committee, setCommittee] = useState<Committee | ''>(single ?? '');
   const [subcommittee, setSubcommittee] = useState<Subcommittee | ''>('');
 
   // Committee board
-  const [tab, setTab] = useState<'all' | Committee>('all');
+  const [tab, setTab] = useState<'all' | Committee>(single ?? 'all');
   const [subFilter, setSubFilter] = useState<Subcommittee | ''>('');
   const [marketingView, setMarketingView] = useState<'tasks' | 'content'>('tasks');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState('');
 
   useEffect(() => {
-    if (user?.role !== 'admin') {
+    if (!scope) {
       navigate('/home');
       return;
     }
     Promise.all([getUsers(), getEvents(), getTasks()])
       .then(([u, e, t]) => {
         setAllUsers(u);
-        setOfficers(u.filter((x) => x.role === 'officer' && (!x.status || x.status === 'approved')).sort(compareOfficers));
+        // Committee leads assign only to their committee's officers
+        setOfficers(u.filter((x) => canAssignTo(scope, x)).sort(compareOfficers));
         setEvents(e);
         setTasks(t);
       })
@@ -166,17 +178,24 @@ export default function AdminTasksPage() {
   async function remove(task: OfficerTask) {
     setConfirmDelete(null);
     try {
-      await deleteTask(task.id);
+      await deleteTask(task.id, user!.personId);
       setTasks((prev) => prev.filter((t) => t.id !== task.id));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not delete the task.');
     }
   }
 
+  // Only what this person leads: every committee, or their own
+  const personOf = (id: string) => allUsers.find((u) => u.personId === id);
+  const mine = useMemo(() => tasks.filter((t) => taskInScope(t, scope, personOf)), [tasks, allUsers, scope]); // eslint-disable-line react-hooks/exhaustive-deps
   // Officer-added tasks wait in "Tasks officers added" until approved
-  const plainTasks = useMemo(() => tasks.filter((t) => t.kind !== 'pubmat' && isApprovedTask(t)), [tasks]);
-  const taskRequests = useMemo(() => tasks.filter((t) => t.approval === 'pending'), [tasks]);
-  const pubmats = useMemo(() => tasks.filter((t) => t.kind === 'pubmat'), [tasks]);
+  const plainTasks = useMemo(() => mine.filter((t) => t.kind !== 'pubmat' && isApprovedTask(t)), [mine]);
+  const taskRequests = useMemo(
+    () => tasks.filter((t) => t.approval === 'pending' && proposalInScope(t, scope, personOf)),
+    [tasks, allUsers, scope], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const pubmats = useMemo(() => mine.filter((t) => t.kind === 'pubmat'), [mine]);
+  const visibleCommittees = myCommittees;
   const inTab = useMemo(
     () =>
       plainTasks.filter(
@@ -211,7 +230,15 @@ export default function AdminTasksPage() {
 
   return (
     <Box>
-      <AdminHeader title="Officer Tasks" subtitle="Assign tasks by committee. Officers see them on their Officer Dashboard and get notified." />
+      <AdminHeader
+        back={user?.role === 'admin' ? undefined : { label: 'Officer Dashboard', to: '/officer' }}
+        title={single ? `${COMMITTEE_LABELS[single]} committee tasks` : limited ? 'Committee tasks' : user?.role === 'admin' ? 'Officer Tasks' : 'Committee tasks'}
+        subtitle={
+          limited
+            ? `You assign and monitor tasks for ${single ? `your committee's officers` : myCommittees.map((c) => COMMITTEE_LABELS[c]).join(', ')} and approve the tasks they add. Your tasks go live right away.`
+            : 'Assign tasks by committee. Officers see them on their Officer Dashboard and get notified.'
+        }
+      />
 
       {user && (
         <TaskRequestsPanel
@@ -230,8 +257,8 @@ export default function AdminTasksPage() {
         allowScrollButtonsMobile
         sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}
       >
-        <Tab value="all" label={`All (${plainTasks.filter((t) => t.status !== 'done').length} open)`} />
-        {COMMITTEES.map((c) => (
+        {!single && <Tab value="all" label={`All (${plainTasks.filter((t) => t.status !== 'done').length} open)`} />}
+        {visibleCommittees.map((c) => (
           <Tab key={c} value={c} label={COMMITTEE_LABELS[c]} />
         ))}
       </Tabs>
@@ -291,7 +318,7 @@ export default function AdminTasksPage() {
           events={events}
           me={user}
           isAdmin
-          onChange={(next) => setTasks([...plainTasks, ...next])}
+          onChange={(next) => setTasks([...tasks.filter((t) => t.kind !== 'pubmat'), ...next, ...tasks.filter((t) => t.kind === 'pubmat' && !pubmats.some((p) => p.id === t.id))])}
         />
       ) : (
       <Box
@@ -336,6 +363,8 @@ export default function AdminTasksPage() {
               <TextField
                 select
                 label="Committee"
+                disabled={Boolean(single)}
+                required={limited}
                 value={committee}
                 onChange={(e) => {
                   setCommittee(e.target.value as Committee | '');
@@ -344,8 +373,8 @@ export default function AdminTasksPage() {
                 size="small"
                 fullWidth
               >
-                <MenuItem value="">Any / whole org</MenuItem>
-                {COMMITTEES.map((c) => (
+                {!limited && <MenuItem value="">Any / whole org</MenuItem>}
+                {visibleCommittees.map((c) => (
                   <MenuItem key={c} value={c}>
                     {COMMITTEE_LABELS[c]}
                   </MenuItem>
@@ -443,7 +472,7 @@ export default function AdminTasksPage() {
                 type="submit"
                 variant="contained"
                 startIcon={<AddTaskIcon />}
-                disabled={saving || !title.trim() || assignees.length === 0 || !dueDate}
+                disabled={saving || !title.trim() || assignees.length === 0 || !dueDate || (limited && !committee)}
                 sx={{ background: brand.gradient }}
               >
                 {saving ? 'Assigning…' : 'Assign task'}

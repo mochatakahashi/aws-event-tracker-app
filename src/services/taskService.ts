@@ -52,7 +52,7 @@ export async function updateTask(id: string, changes: UpdateTaskInput, actorId: 
   if (await isRemoteAvailable(API)) {
     return apiJson<OfficerTask>(`${API}?id=${encodeURIComponent(id)}`, {
       method: 'PUT',
-      body: JSON.stringify(withMeta),
+      body: JSON.stringify({ ...withMeta, actorId }),
     });
   }
   const tasks = local.load();
@@ -98,7 +98,7 @@ export async function proposeTask(input: TaskProposal, actorId: string, isAdmin 
   return delay(task);
 }
 
-/** Admin approves or declines an officer's task. */
+/** An admin, the President / a VP, or the committee's Director / Assistant Director approves or declines an officer's task. */
 export async function reviewTask(id: string, approve: boolean, actorId: string, note?: string): Promise<OfficerTask> {
   if (await isRemoteAvailable(API)) {
     return apiJson<OfficerTask>(`${API}?action=review`, { method: 'POST', body: JSON.stringify({ id, approve, actorId, note }) });
@@ -137,9 +137,9 @@ export async function commentOnTask(id: string, text: string, actor: { personId:
   return delay(tasks[idx]);
 }
 
-export async function deleteTask(id: string): Promise<void> {
+export async function deleteTask(id: string, actorId: string): Promise<void> {
   if (await isRemoteAvailable(API)) {
-    await apiJson(`${API}?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+    await apiJson(`${API}?id=${encodeURIComponent(id)}&actorId=${encodeURIComponent(actorId)}`, { method: 'DELETE' });
     return;
   }
   local.save(local.load().filter((t) => t.id !== id));

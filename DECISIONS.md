@@ -528,5 +528,27 @@ Anyone who knew (or saw) a password could change it right away, and "Forgot pass
 
 ---
 
+## ADR-027: Committee Leads Manage Their Committee's Tasks
+
+### Status
+**Accepted** (v0.6.29)
+
+### Context
+Only admins could assign and monitor officer tasks. Each committee's Director and Assistant Director needed to run their own committee's work, and the two VPs oversee several committees (VP External: Marketing, Relations, Technicals; VP Internal: Operations, Secretariat, Technicals). The task API also trusted the browser: any edit or delete went through without checking who sent it.
+
+### Decision
+- A **task scope** per account (`utils/taskScope.ts`, mirrored in `api/tasks.ts`): `all` for admins and the President; the VP's committee list; `[committee]` for Directors and Assistant Directors; none for everyone else.
+- Leads add tasks only for officers in their scope, and those tasks are approved right away. They edit and delete any task in their scope (a task is in scope by its committee; pubmats belong to Marketing) and approve or decline their associates' tasks.
+- Officers on a task change only its status and their pubmat progress. Associates keep adding their own tasks for approval.
+- Every create, edit and delete names the person doing it (`actorId`) and the server checks it.
+- Leads use the same task board as admins (`AdminTasksPage`) at `/officer/tasks`, limited to their committees.
+- If the club merges the two VPs later, only `VP_COMMITTEES` changes.
+
+### Consequences
+- **Positive**: Directors monitor their committee without an admin; tasks can no longer be changed by anyone who knows an id.
+- **Negative**: Technicals has two VPs, so both can manage it. A lead whose committee is wrong on their account sees the wrong tasks until an admin fixes it.
+
+---
+
 *Last Updated: October 2026*
 

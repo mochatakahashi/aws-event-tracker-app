@@ -32,7 +32,7 @@ describe('taskService', () => {
 
   it('deletes a task', async () => {
     const task = await createTask({ title: 'X', assigneeIds: ['per-2'], status: 'todo', createdBy: 'per-1' });
-    await deleteTask(task.id);
+    await deleteTask(task.id, 'per-1');
     expect(await getTasks()).toHaveLength(0);
   });
 });

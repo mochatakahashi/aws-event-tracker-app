@@ -35,6 +35,8 @@ import type { AppEvent } from '../types/event';
 import { canDo, staffEvents } from '../utils/eventStaff';
 import { deskChanged } from '../hooks/useDeskCounts';
 import AnnouncementBanner from '../components/AnnouncementBanner';
+import { proposalInScope, scopeLabel, taskScope } from '../utils/taskScope';
+import AssignmentTurnedInRoundedIcon from '@mui/icons-material/AssignmentTurnedInRounded';
 import { useAuth } from '../context/AuthContext';
 import type { Stamp, Session } from '../types/session';
 import type { Person, Registration } from '../types/attendee';
@@ -130,7 +132,7 @@ export default function OfficerDashboardPage() {
 
   async function removeTask(task: OfficerTask) {
     try {
-      await deleteTask(task.id);
+      await deleteTask(task.id, user!.personId);
       setTasks((prev) => prev.filter((t) => t.id !== task.id));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not remove the task.');
@@ -151,18 +153,24 @@ export default function OfficerDashboardPage() {
         user.role === 'admin',
       );
       setTasks((prev) => [task, ...prev]);
-      // Let the admins know there's a task to approve
-      const adminIds = officerUsers.filter((u) => u.role === 'admin').map((u) => u.personId);
-      if (task.approval === 'pending' && adminIds.length) {
-        void notifyInApp({
-          personIds: adminIds,
-          kind: 'task-proposed',
-          title: `${user.name} added a task: ${task.title}`,
-          message: 'Approve or decline it in Officer Tasks.',
-          link: '/admin/tasks',
-        });
+      // Let the admins and the committee's leads know there's a task to approve
+      if (task.approval === 'pending') {
+        const adminIds = officerUsers.filter((u) => u.role === 'admin').map((u) => u.personId);
+        const leadIds = officerUsers
+          .filter((u) => u.role === 'officer' && u.personId !== user.personId && proposalInScope(task, taskScope(u), (id) => (id === user.personId ? user : undefined)))
+          .map((u) => u.personId);
+        if (adminIds.length) {
+          void notifyInApp({ personIds: adminIds, kind: 'task-proposed', title: `${user.name} added a task: ${task.title}`, message: 'Approve or decline it in Officer Tasks.', link: '/admin/tasks' });
+        }
+        if (leadIds.length) {
+          void notifyInApp({ personIds: leadIds, kind: 'task-proposed', title: `${user.name} added a task: ${task.title}`, message: 'Approve or decline it in your committee tasks.', link: '/officer/tasks' });
+        }
       }
-      setTaskNote('Task added. It shows as “Waiting for approval” until an admin approves it.');
+      setTaskNote(
+        task.approval === 'pending'
+          ? 'Task added. It shows as “Waiting for approval” until your Director, Assistant Director or an admin approves it.'
+          : 'Task added.',
+      );
       setTitle('');
       setDescription('');
       setTaskEventId('');
@@ -201,6 +209,22 @@ export default function OfficerDashboardPage() {
         </Typography>
       )}
       {user && <AnnouncementBanner viewer={user} />}
+      {/* Directors / Assistant Directors (their committee), President and VPs (all): committee tasks */}
+      {user && taskScope(user) && (
+        <Alert
+          severity="info"
+          icon={<AssignmentTurnedInRoundedIcon />}
+          data-testid="committee-tasks-link"
+          sx={{ mb: 2, borderRadius: '14px', alignItems: 'center' }}
+          action={
+            <Button color="inherit" size="small" sx={{ fontWeight: 700 }} onClick={() => navigate('/officer/tasks')}>
+              Open
+            </Button>
+          }
+        >
+          {`Committee tasks (${scopeLabel(taskScope(user), COMMITTEE_LABELS)}): assign and monitor tasks, and approve the tasks officers add.`}
+        </Alert>
+      )}
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>

@@ -14,16 +14,19 @@ export function AdminHeader({
   title,
   subtitle,
   actions,
+  back = { label: 'Admin Dashboard', to: '/home' },
 }: {
   title: string;
   subtitle?: string;
   actions?: ReactNode;
+  /** Where the back button goes (defaults to the Admin Dashboard). */
+  back?: { label: string; to: string };
 }) {
   const navigate = useNavigate();
   return (
     <Box sx={{ mb: 3 }}>
-      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/home')} sx={{ mb: 1.5 }}>
-        Admin Dashboard
+      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(back.to)} sx={{ mb: 1.5 }}>
+        {back.label}
       </Button>
       <Stack
         direction={{ xs: 'column', sm: 'row' }}

@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.29] - 2026-10-20
+
+### Added
+- **Committee tasks for Directors and Assistant Directors**: a new **Committee Tasks** page (`/officer/tasks`, in the sidebar as e.g. *Marketing Tasks*, and linked from the Officer Dashboard). Directors and Assistant Directors see and add tasks for their own committee's officers, edit or delete any of their committee's tasks, and approve or decline the tasks their associates add. Their own tasks go live right away (no admin approval). They can't see or assign other committees.
+- **VPs**: VP External leads Marketing, Relations and Technicals; VP Internal leads Operations, Secretariat and Technicals. They get the same page with a tab for each of their committees and pick the committee when adding a task.
+- **President**: same access as the admin on tasks (every committee).
+- Officers who add their own task now notify their committee's leads too, not only the admins.
+
+### Changed
+- **Task changes are checked by the server**: adding, editing and deleting a task needs the person doing it (`actorId`). Admins and the President can change any task, committee leads only their committee's tasks, and the officers on a task can only update its status and their pubmat progress (not the title, deadline or who is on it). Before, anyone who knew a task id could edit or delete it.
+- Pubmat designers, caption writers and posters count as "on the task", so they can update their progress and comment.
+- Pubmats can only be added by Marketing leads (and admins / the President).
+- The back button on the Committee Tasks page goes to the Officer Dashboard.
+
+---
+
 ## [0.6.28] - 2026-10-20
 
 ### Added

@@ -102,6 +102,8 @@ function App() {
                 <Route path="/admin/attendees" element={<AdminAttendeesPage />} />
                 <Route path="/admin/officers" element={<AdminOfficersPage />} />
                 <Route path="/admin/tasks" element={<AdminTasksPage />} />
+                {/* Committee Directors / Assistant Directors, the President and VPs */}
+                <Route path="/officer/tasks" element={<AdminTasksPage />} />
                 <Route path="/admin/events/new" element={<EventBuilderPage />} />
                 <Route path="/admin/events/:id/edit" element={<EventBuilderPage />} />
 

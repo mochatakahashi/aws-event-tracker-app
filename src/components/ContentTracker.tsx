@@ -178,7 +178,7 @@ export default function ContentTracker({ items, officers, events, me, isAdmin, o
 
   async function remove(task: OfficerTask) {
     try {
-      await deleteTask(task.id);
+      await deleteTask(task.id, me.personId);
       onChange(items.filter((t) => t.id !== task.id));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not delete the pubmat.');
