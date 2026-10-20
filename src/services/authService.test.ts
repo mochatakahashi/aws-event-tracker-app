@@ -8,6 +8,8 @@ import {
   updateUser,
   updateProfile,
   changePassword,
+  requestPasswordCode,
+  resetPasswordWithCode,
   createAccount,
   resetPassword,
   archiveOfficer,
@@ -133,8 +135,14 @@ describe('authService', () => {
   });
 
   it('changes a password (including the admin password)', async () => {
-    await expect(changePassword('per-1', 'wrong', 'Newpass1!')).rejects.toThrow(/incorrect/i);
-    await changePassword('per-1', ADMIN.password, 'A-new-admin-pass1');
+    // A code is needed: emailed (shown in local mode), typed in
+    await expect(changePassword('per-1', ADMIN.password, 'A-new-admin-pass1', '123456')).rejects.toThrow(/code/i);
+    const sent = await requestPasswordCode({ personId: 'per-1' });
+    expect(sent.localCode).toMatch(/^\d{6}$/);
+    await expect(changePassword('per-1', 'wrong', 'Newpass1!', sent.localCode!)).rejects.toThrow(/incorrect/i);
+    const wrong = sent.localCode === '000000' ? '111111' : '000000';
+    await expect(changePassword('per-1', ADMIN.password, 'A-new-admin-pass1', wrong)).rejects.toThrow(/not right/i);
+    await changePassword('per-1', ADMIN.password, 'A-new-admin-pass1', sent.localCode!);
     await expect(login(ADMIN)).rejects.toThrow();
     expect((await login({ username: 'awsapc.admin', password: 'A-new-admin-pass1' })).personId).toBe('per-1');
   });
@@ -194,8 +202,16 @@ describe('account security', () => {
     expect(created.subcommittee).toBe('creatives');
     const first = await login({ username: 'mika@student.apc.edu.ph', password: 'Temp123!' });
     expect(first.mustChangePassword).toBe(true);
-    await expect(changePassword(first.personId, 'Temp123!', 'Temp123!')).rejects.toThrow(/different/);
-    await changePassword(first.personId, 'Temp123!', 'MyOwn123!');
+    await expect(changePassword(first.personId, 'Temp123!', 'Temp123!', '123456')).rejects.toThrow(/different/);
+    const code = (await requestPasswordCode({ personId: first.personId })).localCode!;
+    await changePassword(first.personId, 'Temp123!', 'MyOwn123!', code);
+    // the code works once
+    await expect(changePassword(first.personId, 'MyOwn123!', 'Again123!', code)).rejects.toThrow(/code/i);
+    // forgot password: code by email, typed with a new password
+    const forgot = (await requestPasswordCode({ login: 'mika@student.apc.edu.ph' })).localCode!;
+    await resetPasswordWithCode('mika@student.apc.edu.ph', forgot, 'Forgot123!');
+    expect((await login({ username: 'mika@student.apc.edu.ph', password: 'Forgot123!' })).personId).toBe(first.personId);
+    await resetPasswordWithCode('mika@student.apc.edu.ph', (await requestPasswordCode({ login: 'mika@student.apc.edu.ph' })).localCode!, 'MyOwn123!');
     expect((await login({ username: 'mika@student.apc.edu.ph', password: 'MyOwn123!' })).mustChangePassword).toBe(false);
     // admin reset → must change again
     await resetPassword(first.personId, 'Reset123!', admin.personId);

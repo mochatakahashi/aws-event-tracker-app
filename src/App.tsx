@@ -6,6 +6,7 @@ import { AuthProvider } from './context/AuthContext';
 import { EventProvider } from './context/EventContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import EventPreviewPage from './pages/EventPreviewPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import AppLayout from './components/AppLayout';
 
 // Public pages
@@ -55,6 +56,7 @@ function App() {
               <Route path="/verify/:id" element={<VerifyCertificatePage />} />
               {/* Shared event links: public preview (signed-in people go to the event page) */}
               <Route path="/e/:id" element={<EventPreviewPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
               <Route
                 path="/change-password"

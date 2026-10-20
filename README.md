@@ -40,7 +40,9 @@
 ### ✍️ Sign Up & Accounts
 - **Three sign-up types**: APC Student (APC email + student ID), Outside Attendee (any email + school/organization, no student ID) and Officer (APC email, optional personal Gmail, student ID, **position, committee and sub-committee**). What they picked is kept and shown to admins as *Signed up as …*.
 - **Password rules (everyone)**: at least 6 characters with **one capital letter, one small letter, one number and one special symbol** - a live checklist under every password field; checked again by the server.
-- **Change password**: profile menu → *Change password*, or **Profile → Password**. Forgot it? An admin can set a temporary one.
+- **Change password (with an emailed code)**: profile menu → *Change password*, or **Profile → Password**. Step 1 **Email me a code**; step 2 type the **6-digit code** from your email together with your current password and the new one. The app never fills the code in (no links, no autofill). Codes expire in 10 minutes, work once, allow 5 wrong tries, and at most one is sent a minute (five an hour). The same applies to the first password change after a temporary password.
+- **Forgot password?** (sign-in page): a dialog asks for your email (APC or personal) → a code is emailed → type it with a new password. It gives the same answer whether or not the email has an account. Old reset links open the same code page (`/forgot-password`). No access to the email? An admin can still set a temporary password.
+- **Sign-in protection**: after 5 wrong passwords in a row the account is locked for 15 minutes (resetting the password unlocks it).
 - **Accounts - the recommended way**: everyone has **their own** account (no shared or premade logins). People **sign up themselves** and an admin approves them (the type and officer role they picked is shown). For someone who can't sign up, an admin uses **Add account** and hands over a temporary password they must change at first sign-in. New **admins** are only created by an existing admin through Add account.
 - **Name format**: First Name, M.I. (optional), Last Name - shown as "Juan D. Dela Cruz".
 - **Admin approval for everyone**: new accounts are *pending* and can't sign in until an admin approves them. A declined person sees the reason (if given) and can sign up again with the same email.
@@ -103,7 +105,7 @@
 
 There are no demo accounts. The app has one built-in admin, **`awsapc.admin`** (email `aws.apcofficial@gmail.com`; you can sign in with either):
 
-- **Deployed (Vercel):** set `ADMIN_PASSWORD` in Vercel → Settings → Environment Variables before the first sign-in. The account is created with that password the first time the database has no accounts. Change it any time on **Profile → Change password**.
+- **Deployed (Vercel):** set `ADMIN_PASSWORD` in Vercel → Settings → Environment Variables before the first sign-in. The account is created with that password the first time the database has no accounts. Change it any time on **Profile → Change password** (needs the code emailed to the admin address, so email must be set up).
 - **Local (`npm run dev`):** create a `.env.local` file (not committed) with `VITE_LOCAL_ADMIN_PASSWORD=your-password`, then restart `npm run dev`.
 
 Everyone else signs up and waits for the admin to approve them.
@@ -121,9 +123,9 @@ Everyone else signs up and waits for the admin to approve them.
 
 ## ✉️ Email Notifications (Amazon SES or Gmail)
 
-`EMAIL_PROVIDER` picks the sender: `ses` (Amazon SES) or `gmail` (Gmail SMTP through Nodemailer). When it isn't set, Gmail is used if `GMAIL_USER` and `GMAIL_APP_PASSWORD` are set, otherwise SES. With `ses`, an email SES rejects is not retried through Gmail (while SES is still in the sandbox, only verified addresses receive SES email). The SES sender defaults to `notifications@apcsbg.org` (shown as "AWS SBG-APC") when `SES_FROM_EMAIL` isn't set.
+`EMAIL_PROVIDER` picks the sender: `ses` (Amazon SES, the default) or `gmail` (Gmail SMTP through Nodemailer). With `ses`, an email SES rejects is not retried through Gmail (while SES is still in the sandbox, only verified addresses receive SES email). The SES sender defaults to `notifications@apcsbg.org` (shown as "AWS SBG-APC") when `SES_FROM_EMAIL` isn't set.
 
-**Copies (CC)**: every email also goes, as CC, to a short list of club addresses set in `api/notify.ts`, plus any in `NOTIFICATION_CC_EMAILS` (comma-separated). Recipients can see CC addresses, so keep that list to club inboxes. The Google **App Password must be created while signed in to the same account as `GMAIL_USER`** (that account needs 2-Step Verification), or Gmail rejects the login with error 535. In-app notifications work either way.
+**Copies (CC)**: every email also goes, as CC, to a short list of club addresses set in `api/notify.ts`, plus any in `NOTIFICATION_CC_EMAILS` (comma-separated), **except password codes**, which only the account owner receives. Recipients can see CC addresses, so keep that list to club inboxes. The Google **App Password must be created while signed in to the same account as `GMAIL_USER`** (that account needs 2-Step Verification), or Gmail rejects the login with error 535. In-app notifications work either way.
 
 Emails are sent for: account approved / declined (with the reason), officer assigned to an event, new task, and every day at 8:00 AM (Manila) - event tomorrow, "see you today", and task due tomorrow. Officers get them on both their APC email and personal email. The admin inbox (`aws.apcofficial@gmail.com`) gets an email for every new sign-up waiting for approval, and a report if any reminder email fails or the daily job breaks.
 
@@ -136,7 +138,7 @@ Set these in Vercel → Settings → Environment Variables:
 | `SES_FROM_EMAIL` | `AWS SBG-APC <notifications@apcsbg.org>` | SES sender; its domain must be verified in Amazon SES |
 | `SES_REGION` | `ap-southeast-1` | Optional; defaults to `APP_AWS_REGION` |
 | `SES_ACCESS_KEY_ID`, `SES_SECRET_ACCESS_KEY` | keys of the send-only IAM user | Optional; used only for SES. Without them SES uses `APP_AWS_*` |
-| `EMAIL_PROVIDER` | `ses` | Optional: `ses` or `gmail`. Unset: Gmail when set up, else SES |
+| `EMAIL_PROVIDER` | `ses` | Optional: `ses` (default) or `gmail` |
 | `NOTIFICATION_CC_EMAILS` | `club-inbox@example.com` | Optional; extra addresses copied (CC) on every email, comma-separated |
 | `APP_URL` | `https://apcsbg.org` | Optional; used for links in emails |
 | `CRON_SECRET` | any long random string | Protects the daily reminder job (`vercel.json` → `crons`) |

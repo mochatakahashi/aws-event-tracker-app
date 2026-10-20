@@ -260,66 +260,17 @@ export async function resetPassword(personId: string, newPassword: string, actor
   return delay(strip(users[idx]));
 }
 
-/** Request a password reset code / link to the user's email. */
-export async function forgotPassword(email: string): Promise<{ success: boolean; message: string; devCode?: string }> {
-  if (await isRemoteAvailable(API)) {
-    return apiJson<{ success: boolean; message: string; devCode?: string }>(`${API}?action=forgot-password`, {
-      method: 'POST',
-      body: JSON.stringify({ email }),
-    });
-  }
-  const users = loadLocalUsers();
-  const user = users.find((u) => matchesLogin(u, email));
-  if (!user) {
-    return { success: true, message: 'If an account exists with that email, a password reset code has been sent.' };
-  }
-  const code = '123456';
-  const token = 'local-dev-token';
-  const idx = users.findIndex((u) => u.personId === user.personId);
-  users[idx] = {
-    ...users[idx],
-    resetCode: code,
-    resetToken: token,
-    resetExpiresAt: new Date(Date.now() + 3600 * 1000).toISOString(),
-  } as any;
-  local.save(users);
-  return { success: true, devCode: code, message: `Password reset code sent. (Dev mode code: ${code})` };
-}
-
-/** Reset password using the code or token sent via email. */
-export async function resetPasswordWithCode(
-  email: string,
-  code: string,
-  newPassword: string,
-): Promise<{ success: boolean; message: string }> {
-  const pwError = passwordError(newPassword);
-  if (pwError) throw new Error(pwError);
-
-  if (await isRemoteAvailable(API)) {
-    return apiJson<{ success: boolean; message: string }>(`${API}?action=reset-password`, {
-      method: 'POST',
-      body: JSON.stringify({ email, code, newPassword }),
-    });
-  }
-  const users = loadLocalUsers();
-  const idx = users.findIndex((u) => matchesLogin(u, email));
-  if (idx === -1) throw new Error('Account not found.');
-  const user = users[idx] as any;
-  const inputCode = code.trim().toLowerCase();
-  if (user.resetCode !== inputCode && user.resetToken !== inputCode && inputCode !== '123456') {
-    throw new Error('Invalid or incorrect reset code.');
-  }
-  users[idx] = {
-    ...users[idx],
-    password: newPassword,
-    resetCode: undefined,
-    resetToken: undefined,
-    resetExpiresAt: undefined,
-    mustChangePassword: false,
-    passwordChangedAt: new Date().toISOString(),
+/**
+ * "Forgot password?": email a 6-digit code (same answer whether or not the
+ * account exists). Kept for the sign-in dialog; see requestPasswordCode.
+ */
+export async function forgotPassword(email: string): Promise<{ success: boolean; message: string; localCode?: string }> {
+  const res = await requestPasswordCode({ login: email });
+  return {
+    success: true,
+    message: res.message || 'If an account uses that email, a 6-digit code is on its way. It expires in 10 minutes.',
+    localCode: res.localCode,
   };
-  local.save(users);
-  return { success: true, message: 'Password has been successfully reset! You can now sign in.' };
 }
 
 /** Admin awards a badge (e.g. Best in Pubmat for one event). */
@@ -590,19 +541,88 @@ export async function updateUserRole(
   return updateUser(user.personId, { role, requestedRole: null }, actorId);
 }
 
-/** Change your password. */
+// ─── Password codes ────────────────────────────────────────────────────────────
+// Changing or resetting a password needs a 6-digit code sent to the account's
+// email (typed in by the person; never filled in by the app).
+
+export interface CodeSent {
+  sent: boolean;
+  /** Where it went (masked), when signed in. */
+  to?: string[];
+  message?: string;
+  /** Local mode only (no email without the API): the code to type. */
+  localCode?: string;
+}
+
+const LOCAL_CODES = 'aws-event-tracker.local-password-codes';
+type LocalCode = { code: string; purpose: 'change' | 'reset'; expiresAt: number; tries: number };
+function localCodes(): Record<string, LocalCode> {
+  try {
+    return JSON.parse(localStorage.getItem(LOCAL_CODES) || '{}');
+  } catch {
+    return {};
+  }
+}
+function saveLocalCodes(v: Record<string, LocalCode>) {
+  try {
+    localStorage.setItem(LOCAL_CODES, JSON.stringify(v));
+  } catch {
+    /* ignore */
+  }
+}
+function checkLocalCode(personId: string, code: string, purpose: 'change' | 'reset') {
+  const all = localCodes();
+  const c = all[personId];
+  if (!c || c.purpose !== purpose) throw new Error('Ask for a code first: it is sent to your email.');
+  if (Date.now() > c.expiresAt || c.tries >= 5) {
+    delete all[personId];
+    saveLocalCodes(all);
+    throw new Error('That code has expired. Ask for a new one.');
+  }
+  if (code.trim() !== c.code) {
+    c.tries += 1;
+    saveLocalCodes(all);
+    throw new Error(`That code is not right. ${Math.max(0, 5 - c.tries)} tries left.`);
+  }
+  delete all[personId];
+  saveLocalCodes(all);
+}
+
+/**
+ * Email a 6-digit code: `{ personId }` when signed in (to change the password),
+ * `{ login }` for "Forgot password?".
+ */
+export async function requestPasswordCode(who: { personId: string } | { login: string }): Promise<CodeSent> {
+  if (await isRemoteAvailable(API)) {
+    return apiJson<CodeSent>('/api/notify', { method: 'POST', body: JSON.stringify({ type: 'password-code', ...who }) });
+  }
+  // Local mode: no email, so the code is shown on screen
+  const users = loadLocalUsers();
+  const user = 'personId' in who ? users.find((u) => u.personId === who.personId) : users.find((u) => matchesLogin(u, who.login));
+  if (!user) {
+    if ('personId' in who) throw new Error('Account not found.');
+    return delay({ sent: true, message: 'If an account uses that email, a 6-digit code is on its way.' });
+  }
+  const code = String(Math.floor(Math.random() * 1_000_000)).padStart(6, '0');
+  saveLocalCodes({ ...localCodes(), [user.personId]: { code, purpose: 'personId' in who ? 'change' : 'reset', expiresAt: Date.now() + 10 * 60000, tries: 0 } });
+  return delay({ sent: true, to: user.email ? [user.email] : [], localCode: code });
+}
+
+/** Change your password: current password + the emailed code + the new password. */
 export async function changePassword(
   personId: string,
   currentPassword: string,
   newPassword: string,
+  code: string,
 ): Promise<void> {
   const pwError = passwordError(newPassword);
   if (pwError) throw new Error(pwError);
   if (newPassword === currentPassword) throw new Error('Your new password must be different from the current one.');
+  if (!/^\d{6}$/.test(code.trim())) throw new Error('Type the 6-digit code from your email.');
   if (await isRemoteAvailable(API)) {
     await apiJson(`${API}?action=password`, {
       method: 'POST',
-      body: JSON.stringify({ id: personId, currentPassword, newPassword }),
+      body: JSON.stringify({ id: personId, currentPassword, newPassword, code: code.trim() }),
     });
     return;
   }
@@ -611,6 +631,28 @@ export async function changePassword(
   if (idx === -1 || users[idx].password !== currentPassword) {
     throw new Error('Your current password is incorrect.');
   }
+  checkLocalCode(personId, code, 'change');
+  users[idx] = { ...users[idx], password: newPassword, mustChangePassword: false };
+  local.save(users);
+  await delay(null);
+}
+
+/** Forgot password: the email you sign in with + the emailed code + a new password. */
+export async function resetPasswordWithCode(login: string, code: string, newPassword: string): Promise<void> {
+  const pwError = passwordError(newPassword);
+  if (pwError) throw new Error(pwError);
+  if (!/^\d{6}$/.test(code.trim())) throw new Error('Type the 6-digit code from your email.');
+  if (await isRemoteAvailable(API)) {
+    await apiJson(`${API}?action=reset-with-code`, {
+      method: 'POST',
+      body: JSON.stringify({ login: login.trim(), code: code.trim(), newPassword }),
+    });
+    return;
+  }
+  const users = loadLocalUsers();
+  const idx = users.findIndex((u) => matchesLogin(u, login));
+  if (idx === -1) throw new Error('Ask for a code first: it is sent to your email.');
+  checkLocalCode(users[idx].personId, code, 'reset');
   users[idx] = { ...users[idx], password: newPassword, mustChangePassword: false };
   local.save(users);
   await delay(null);

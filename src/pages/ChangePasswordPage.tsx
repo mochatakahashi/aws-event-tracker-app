@@ -38,11 +38,11 @@ export default function ChangePasswordPage() {
           {forced ? (
             <Alert severity="info" sx={{ mb: 2 }}>
               Welcome, {user?.firstName || user?.name}! Your account was set up with a temporary password. Choose your own
-              password to continue.
+              password to continue: we'll email you a code to confirm it's you.
             </Alert>
           ) : (
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Enter your current password, then your new one.
+              We'll email you a code. Type it with your current password and your new one.
             </Typography>
           )}
           <ChangePasswordForm
@@ -62,7 +62,7 @@ export default function ChangePasswordPage() {
           </Button>
         )}
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
-          Forgot your password? Ask an AWS SBG-APC admin to give you a temporary one.
+          No email access? Ask an AWS SBG-APC admin to give you a temporary password.
         </Typography>
       </Box>
     </Box>

@@ -3,6 +3,7 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
 import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2';
 import nodemailer from 'nodemailer';
+import { createHash, randomBytes, randomInt } from 'node:crypto';
 
 /**
  * Email notifications through Gmail SMTP (Nodemailer) or Amazon SES.
@@ -12,6 +13,9 @@ import nodemailer from 'nodemailer';
  * POST /api/notify { type: 'task-assigned', taskId }               → officers given a task
  * POST /api/notify { type: 'run-reminders', actorId }              → admin runs today's reminders now
  * POST /api/notify { type: 'signup-pending', personId }            → tells the admin a sign-up is waiting
+ * POST /api/notify { type: 'password-code', personId }           → signed in: emails a 6-digit code to change the password
+ * POST /api/notify { type: 'password-code', login }              → forgot password: emails a code (same answer whether or not
+ *                                                                  the account exists). 10 minutes, max 1 a minute and 5 an hour.
  * POST /api/notify { type: 'after-event' }                         → after-event notices now (the app calls it; max every 5 min)
  * GET  /api/notify  (Vercel Cron, daily 8:00 AM Manila)             → reminders:
  *        - event tomorrow → registered attendees + assigned officers
@@ -66,6 +70,8 @@ interface Mail {
   heading: string;
   lines: string[];
   button?: { label: string; path: string };
+  /** Private emails (password codes): no copies to the club addresses. */
+  noCc?: boolean;
 }
 
 const esc = (s: unknown) =>
@@ -96,7 +102,7 @@ async function sendMail(mail: Mail, appUrl: string): Promise<boolean> {
     .split(',')
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean);
-  const cc = [...new Set([...defaultCc, ...envCc])];
+  const cc = mail.noCc ? [] : [...new Set([...defaultCc, ...envCc])];
 
   const text = [mail.heading, '', ...mail.lines, mail.button ? `\n${mail.button.label}: ${appUrl}${mail.button.path}` : '']
     .join('\n');
@@ -606,6 +612,53 @@ async function reportToAdmin(subject: string, lines: string[], appUrl: string, b
   }
 }
 
+
+// ─── Password codes (checked in api/users.ts) ───────────────────────────────────
+const CODE_MINUTES = 10;
+const codeHash = (salt: string, code: string) => createHash('sha256').update(`${salt}:${code}`).digest('hex');
+const maskEmail = (e: string) => {
+  const [name, domain] = e.split('@');
+  return domain ? `${name.slice(0, 2)}${'*'.repeat(Math.max(1, name.length - 2))}@${domain}` : e;
+};
+
+/** Make a code, save it (hashed) on the account and email it. Returns an error text or null. */
+async function sendPasswordCode(client: DynamoDBDocumentClient, tableName: string, user: any, purpose: 'change' | 'reset', appUrl: string) {
+  const now = Date.now();
+  const recent = (Array.isArray(user.pwCodeSends) ? user.pwCodeSends : []).filter((t: string) => now - Date.parse(t) < 3600 * 1000);
+  if (user.pwCode?.sentAt && now - Date.parse(user.pwCode.sentAt) < 60 * 1000) return 'Wait a minute before asking for another code.';
+  if (recent.length >= 5) return 'Too many codes asked for in the last hour. Try again later.';
+  const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
+  const salt = randomBytes(8).toString('hex');
+  const sentAt = new Date(now).toISOString();
+  await client.send(
+    new PutCommand({
+      TableName: tableName,
+      Item: {
+        ...user,
+        pwCode: { purpose, salt, hash: codeHash(salt, code), expiresAt: new Date(now + CODE_MINUTES * 60000).toISOString(), tries: 0, sentAt },
+        pwCodeSends: [...recent, sentAt],
+      },
+    }),
+  );
+  // The code is only in the email body (not the subject, not a link): they type it in the app
+  await sendMail(
+    {
+      to: addresses(user),
+      subject: purpose === 'change' ? 'Your code to change your AWS SBG-APC password' : 'Your code to reset your AWS SBG-APC password',
+      // Only the account owner may see the code
+      noCc: true,
+      heading: `Hi ${firstName(user)}, here is your code`,
+      lines: [
+        `Your verification code is: ${code}`,
+        `Type it in the app to ${purpose === 'change' ? 'change' : 'reset'} your password. It expires in ${CODE_MINUTES} minutes and works once.`,
+        "Didn't ask for this? Ignore this email: your password stays the same. Never share this code with anyone, including officers.",
+      ],
+    },
+    appUrl,
+  );
+  return null;
+}
+
 // ─── Handler ──────────────────────────────────────────────────────────────────
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -620,6 +673,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const proto = (req.headers?.['x-forwarded-proto'] as string) || defaultProto;
   const detectedUrl = host ? `${proto}://${host}` : '';
   const appUrl = (process.env.APP_URL || detectedUrl).replace(/\/$/, '');
+  const hasGmail = Boolean(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD);
   const hasAwsCreds = Boolean(
     (process.env.APP_AWS_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID) &&
     (process.env.APP_AWS_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY)
@@ -653,6 +707,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
     const body = req.body || {};
+    // Password codes (change while signed in, or forgot password)
+    if (body.type === 'password-code') {
+      const generic = { sent: true, message: `If an account uses that email, a 6-digit code is on its way. It expires in ${CODE_MINUTES} minutes.` };
+      if (notConfigured) {
+        return res.status(503).json({ error: "Email isn't set up yet, so codes can't be sent. Ask an AWS SBG-APC admin to reset your password." });
+      }
+      if (typeof body.personId === 'string' && body.personId) {
+        const u = await get(body.personId);
+        if (u?.entityType !== 'user' || (u.status ?? 'approved') !== 'approved') return res.status(404).json({ error: 'Account not found.' });
+        if (addresses(u).length === 0) return res.status(400).json({ error: 'Your account has no email address. Ask an admin to reset your password.' });
+        try {
+          const problem = await sendPasswordCode(client, tableName, u, 'change', appUrl);
+          if (problem) return res.status(429).json({ error: problem });
+        } catch (err: any) {
+          return res.status(502).json({ error: `The code could not be emailed: ${sesErrorText(err)}` });
+        }
+        return res.status(200).json({ sent: true, to: addresses(u).map(maskEmail) });
+      }
+      const login = typeof body.login === 'string' ? body.login.trim().toLowerCase() : '';
+      if (!login) return res.status(400).json({ error: 'Enter the email you sign in with.' });
+      const u = (await scanAll(client, tableName)).find(
+        (x) =>
+          x.entityType === 'user' &&
+          (String(x.username || '').toLowerCase() === login ||
+            String(x.email || '').toLowerCase() === login ||
+            String(x.personalEmail || '').toLowerCase() === login),
+      );
+      // Same answer whether or not the account exists (or the code was sent recently)
+      if (u && (u.status ?? 'approved') === 'approved' && addresses(u).length) {
+        try {
+          await sendPasswordCode(client, tableName, u, 'reset', appUrl);
+        } catch (err) {
+          console.error('Password code email failed:', err);
+        }
+      }
+      return res.status(200).json(generic);
+    }
     // After an event ends: evaluation reminders / certificate notices (bell always, email when set up)
     if (body.type === 'after-event') {
       return res.status(200).json(await afterEventSweep(client, tableName, appUrl, !notConfigured));

@@ -23,6 +23,7 @@ import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { brand } from '../theme/theme';
 import { forgotPassword, resetPasswordWithCode } from '../services/authService';
+import VerificationCodeField from './VerificationCodeField';
 
 interface ForgotPasswordDialogProps {
   open: boolean;
@@ -89,10 +90,9 @@ export default function ForgotPasswordDialog({
     setLoading(true);
     try {
       const res = await forgotPassword(cleanEmail);
-      setInfo(res.message || `Password reset code sent to ${cleanEmail}. Please check your inbox and spam folder.`);
-      if (res.devCode) {
-        setCode(res.devCode);
-      }
+      // The person types the code from the email: never filled in here
+      setInfo(`${res.message}${res.localCode ? ` (Local test mode, no email: the code is ${res.localCode}.)` : ''}`);
+      setCode('');
       setStep('reset');
     } catch (err: any) {
       setError(err?.message || 'Failed to send reset code. Please try again or contact support.');
@@ -126,8 +126,8 @@ export default function ForgotPasswordDialog({
     setError('');
     setLoading(true);
     try {
-      const res = await resetPasswordWithCode(cleanEmail, cleanCode, newPassword);
-      onSuccess(cleanEmail, res.message || 'Password successfully reset! You can now sign in.');
+      await resetPasswordWithCode(cleanEmail, cleanCode, newPassword);
+      onSuccess(cleanEmail, 'Your password is changed. Sign in with your new password.');
       onClose();
     } catch (err: any) {
       setError(err?.message || 'Failed to reset password. Please check your reset code or request a new one.');
@@ -193,7 +193,7 @@ export default function ForgotPasswordDialog({
           <Box component="form" onSubmit={handleRequestCode} noValidate>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5, lineHeight: 1.5 }}>
               Enter your registered email address (e.g. your <strong>@student.apc.edu.ph</strong> or personal email).
-              We'll send you a 6-digit reset code and a direct link to reset your password.
+              We'll email you a 6-digit code to type on the next step.
             </Typography>
 
             <TextField
@@ -211,20 +211,10 @@ export default function ForgotPasswordDialog({
         ) : (
           <Box component="form" onSubmit={handleResetPassword} noValidate>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.5 }}>
-              We sent a 6-digit reset code to <strong>{email}</strong>. Check your inbox and spam folder.
+              If an account uses <strong>{email}</strong>, we sent it a 6-digit code. Check your inbox and spam folder.
             </Typography>
 
-            <TextField
-              label="6-Digit Reset Code"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              fullWidth
-              margin="dense"
-              placeholder="e.g. 583921"
-              disabled={loading}
-              autoFocus
-              sx={{ mb: 1.5 }}
-            />
+            <VerificationCodeField value={code} onChange={setCode} />
 
             <TextField
               label="New Password"

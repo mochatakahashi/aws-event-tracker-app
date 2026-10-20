@@ -506,5 +506,27 @@ Local development used `localStorage` because `/api` only ran on Vercel (or `ver
 
 ---
 
+## ADR-026: Emailed Codes for Password Changes and Resets
+
+### Status
+**Accepted** (v0.6.28)
+
+### Context
+Anyone who knew (or saw) a password could change it right away, and "Forgot password?" did nothing: people had to ask an admin.
+
+### Decision
+- Changing a password needs the **current password and a 6-digit code** sent to the account's email; forgetting it needs the **code** and a new password.
+- The code is **typed by the person** (no magic link, no autofill), lives 10 minutes, works once, allows 5 tries, and is stored only as a salted hash. Code emails are never CC'd.
+- "Forgot password?" answers the same for every email, so it can't be used to find accounts. Requests are limited to one a minute and five an hour.
+- 5 wrong passwords lock sign-in for 15 minutes.
+- Admin temporary passwords stay for people without email access (they still need the code for their own change afterwards).
+- This replaced a first version (reset email with a code and a link token) because its code and token were stored in plain text and returned by the public account list, the emails were CC'd to club inboxes, and the link filled the code in.
+
+### Consequences
+- **Positive**: a stolen password alone can't change the password; real self-service reset; brute-force sign-in is slowed down.
+- **Negative**: password changes depend on email working (while SES is in the sandbox, use Gmail or verified addresses); someone with a wrong email on their account needs an admin. A locked account can also be locked by someone guessing on purpose (15 minutes, and reset unlocks it).
+
+---
+
 *Last Updated: October 2026*
 

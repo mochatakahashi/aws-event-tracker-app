@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.28] - 2026-10-20
+
+### Added
+- **Password changes need a code from your email**: *Change password* (and the first change after a temporary password) is now two steps: **Email me a code**, then type the **6-digit code** with your current password and the new one. The app never fills the code in. Codes expire in 10 minutes, work once, allow 5 wrong tries, and can be asked for once a minute (5 an hour). They are stored hashed and the code emails are never copied (CC) to anyone.
+- **Forgot password, made safe**: the sign-in page's *Forgot password?* dialog asks for your email, a code is emailed, and you type it with a new password. Same answer whether or not the email has an account. It replaces the first version of this flow, which had serious problems: the reset code and link token were saved in plain text and returned by the public account list (anyone could read another person's code and take over the account, including the admin's), reset emails were copied (CC) to the club inboxes, codes had no try limit, the email link filled the code in automatically, and the reply revealed which emails have accounts. Old reset links now open the code page. You can also sign in or reset with your personal email.
+- **Sign-in lock**: 5 wrong passwords in a row lock the account for 15 minutes; resetting the password unlocks it.
+
+### Fixed
+- **`/api/notify` crashed on every call** (`hasGmail` was not defined in the handler after the SES-default change), which stopped every email and the daily reminders. Fixed.
+
+### Changed
+- **Dates in Philippine time**: events, sessions and tasks are shown and entered in Asia/Manila time on every device.
+- **Personal email**: everyone can add one on their profile (used for sign-in and password reset); admins can change an account's email.
+- **Email defaults**: SES is the default sender now (`EMAIL_PROVIDER=gmail` to use Gmail); every email is copied to the club inboxes, except password codes.
+- An admin's temporary password also clears a lock and any old code.
+- Password data, codes and lock counters are never sent to the browser.
+- If email isn't set up, asking for a code says so and points to an admin (temporary password).
+
+---
+
 ## [0.6.27] - 2026-10-20
 
 ### Added

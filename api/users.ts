@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import {
   DynamoDBDocumentClient,
@@ -8,8 +8,6 @@ import {
   PutCommand,
   DeleteCommand,
 } from '@aws-sdk/lib-dynamodb';
-import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2';
-import nodemailer from 'nodemailer';
 
 /**
  * Accounts API (single-table DynamoDB, entityType = 'user', id = person id).
@@ -19,9 +17,12 @@ import nodemailer from 'nodemailer';
  * GET  /api/users?id=per-1        → one account
  * POST /api/users?action=signup   → create a pending account
  * POST /api/users?action=login    → sign in (approved accounts only)
- * POST /api/users?action=password → change password (clears "must change password")
- * POST /api/users?action=forgot-password → request password reset email with 6-digit code & link
- * POST /api/users?action=reset-password  → set new password using code or email link token
+ * POST /api/users?action=password → { id, currentPassword, code, newPassword } change password: needs the
+ *                                  current password AND the 6-digit code emailed by
+ *                                  POST /api/notify { type: 'password-code', personId } (clears "must change password")
+ * POST /api/users?action=reset-with-code → { login, code, newPassword } forgot password: the code emailed by
+ *                                  POST /api/notify { type: 'password-code', login }
+ * Sign-in locks for 15 minutes after 5 wrong passwords in a row.
  * POST /api/users?action=create   → { actorId, account } admin creates an approved account with a
  *                                   temporary password that must be changed at first sign-in
  * POST /api/users?action=reset    → { actorId, id, newPassword } admin sets a temporary password
@@ -57,106 +58,6 @@ function getDynamoDocClient() {
     }),
     tableName: process.env.DYNAMODB_TABLE_NAME || 'aws_events',
   };
-}
-
-// ─── Email ────────────────────────────────────────────────────────────────────
-
-interface Mail {
-  to: string[];
-  subject: string;
-  heading: string;
-  lines: string[];
-  button?: { label: string; path: string };
-}
-
-const esc = (s: unknown) =>
-  String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
-
-function renderHtml(mail: Mail, appUrl: string): string {
-  const button = mail.button
-    ? `<p style="margin:24px 0"><a href="${esc(appUrl + mail.button.path)}" style="background:#7B2D8E;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:600;display:inline-block">${esc(mail.button.label)}</a></p>`
-    : '';
-  return `<!doctype html><html><body style="margin:0;background:#F8F4FC;font-family:Segoe UI,Arial,sans-serif;color:#1A0A2E">
-<div style="max-width:560px;margin:0 auto;padding:24px">
-<div style="background:linear-gradient(135deg,#7B2D8E,#A855C8);color:#fff;border-radius:12px 12px 0 0;padding:16px 24px;font-weight:700">AWS SBG-APC Event Tracker</div>
-<div style="background:#fff;border-radius:0 0 12px 12px;padding:24px;border:1px solid #E8D5F5;border-top:0">
-<h2 style="margin:0 0 12px;font-size:20px">${esc(mail.heading)}</h2>
-${mail.lines.map((l) => `<p style="margin:0 0 10px;line-height:1.5">${l}</p>`).join('')}
-${button}
-<p style="margin:24px 0 0;font-size:12px;color:#6B5B7B">AWS Student Builder Group – Asia Pacific College</p>
-</div></div></body></html>`;
-}
-
-async function sendUserMail(mail: Mail, appUrl: string): Promise<boolean> {
-  const to = [...new Set(mail.to.filter(Boolean).map((e) => e.trim().toLowerCase()))];
-  if (to.length === 0) return false;
-
-  const defaultCc = ['aws.apcofficial@gmail.com', 'raibe@student.apc.edu.ph'];
-  const envCc = (process.env.NOTIFICATION_CC_EMAILS || '')
-    .split(',')
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-  const cc = [...new Set([...defaultCc, ...envCc])];
-
-  const text = [mail.heading, '', ...mail.lines.map((l) => l.replace(/<[^>]+>/g, '')), mail.button ? `\n${mail.button.label}: ${appUrl}${mail.button.path}` : ''].join('\n');
-  const html = renderHtml(mail, appUrl);
-
-  const gmailUser = process.env.GMAIL_USER?.trim();
-  const gmailPass = process.env.GMAIL_APP_PASSWORD?.replace(/\s+/g, '');
-  const hasGmail = Boolean(gmailUser && gmailPass);
-  const from = process.env.SES_FROM_EMAIL?.trim() || 'notifications@apcsbg.org';
-  const provider = (process.env.EMAIL_PROVIDER || 'ses').trim().toLowerCase();
-  const useSes = provider !== 'gmail';
-
-  const viaGmail = async () => {
-    if (!hasGmail) return false;
-    const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: gmailUser!, pass: gmailPass! } });
-    await transporter.sendMail({
-      from: `"AWS SBG-APC" <${gmailUser}>`,
-      to: to.join(', '),
-      ...(cc.length > 0 ? { cc: cc.join(', ') } : {}),
-      subject: mail.subject,
-      html,
-      text,
-    });
-    return true;
-  };
-
-  if (useSes) {
-    const sesKey = process.env.SES_ACCESS_KEY_ID?.trim();
-    const sesSecret = process.env.SES_SECRET_ACCESS_KEY?.trim();
-    const ses = new SESv2Client({
-      region: process.env.SES_REGION || process.env.APP_AWS_REGION || process.env.AWS_REGION || 'ap-southeast-1',
-      credentials: sesKey && sesSecret ? { accessKeyId: sesKey, secretAccessKey: sesSecret } : awsConfig(),
-    });
-    try {
-      const fromAddress = from.includes('<') ? from : `"AWS SBG-APC" <${from}>`;
-      await ses.send(
-        new SendEmailCommand({
-          FromEmailAddress: fromAddress,
-          Destination: {
-            ToAddresses: to,
-            ...(cc.length > 0 ? { CcAddresses: cc } : {}),
-          },
-          ReplyToAddresses: ['aws.apcofficial@gmail.com'],
-          Content: {
-            Simple: {
-              Subject: { Data: mail.subject, Charset: 'UTF-8' },
-              Body: { Html: { Data: html, Charset: 'UTF-8' }, Text: { Data: text, Charset: 'UTF-8' } },
-            },
-          },
-        })
-      );
-      return true;
-    } catch (err) {
-      if (provider !== 'gmail') throw err;
-      console.warn('SES send failed, falling back to Gmail:', err);
-      return viaGmail();
-    }
-  }
-
-  if (provider === 'gmail' && hasGmail) return viaGmail();
-  return false;
 }
 
 // ─── Passwords ────────────────────────────────────────────────────────────────
@@ -253,12 +154,68 @@ function idList(v: unknown): string[] {
 
 function sanitize(item: any) {
   if (!item) return item;
-  const { passwordHash: _hash, entityType: _type, id: _id, ...user } = item;
+  // Never send password data, codes or lockout counters to the browser
+  const {
+    passwordHash: _hash,
+    entityType: _type,
+    id: _id,
+    pwCode: _code,
+    pwCodeSends: _sends,
+    failedLogins: _f,
+    lockedUntil: _l,
+    // Older reset fields (plain-text code and link token): never sent out, cleared on the next change
+    resetCode: _rc,
+    resetToken: _rt,
+    resetExpiresAt: _re,
+    ...user
+  } = item;
+  void _sends;
+  void _rc;
+  void _rt;
+  void _re;
   void _hash;
   void _type;
   void _id;
+  void _code;
+  void _f;
+  void _l;
   return user;
 }
+
+// ─── Password codes (sent by api/notify.ts, checked here) ───────────────────────
+// Keep in sync with api/notify.ts: 6 digits, stored hashed with a salt, 10 minutes, 5 tries.
+const CODE_MAX_TRIES = 5;
+const codeHash = (salt: string, code: string) => createHash('sha256').update(`${salt}:${code}`).digest('hex');
+
+/** '' when the code is right; otherwise why not. Counts wrong tries (saved by the caller). */
+function checkCode(user: any, code: unknown, purpose: 'change' | 'reset'): { ok: boolean; error?: string; user: any } {
+  const c = user?.pwCode;
+  const typed = String(code ?? '').replace(/\s+/g, '');
+  if (!c || c.purpose !== purpose || !c.hash || !c.salt) {
+    return { ok: false, error: 'Ask for a code first: it is sent to your email.', user };
+  }
+  if (Date.now() > Date.parse(c.expiresAt || '')) {
+    return { ok: false, error: 'That code has expired. Ask for a new one.', user: { ...user, pwCode: undefined } };
+  }
+  if ((c.tries || 0) >= CODE_MAX_TRIES) {
+    return { ok: false, error: 'Too many wrong codes. Ask for a new one.', user: { ...user, pwCode: undefined } };
+  }
+  const want = Buffer.from(String(c.hash), 'hex');
+  const got = Buffer.from(codeHash(c.salt, typed), 'hex');
+  if (!/^\d{6}$/.test(typed) || want.length !== got.length || !timingSafeEqual(want, got)) {
+    const tries = (c.tries || 0) + 1;
+    const left = CODE_MAX_TRIES - tries;
+    return {
+      ok: false,
+      error: left > 0 ? `That code is not right. ${left} ${left === 1 ? 'try' : 'tries'} left.` : 'Too many wrong codes. Ask for a new one.',
+      user: left > 0 ? { ...user, pwCode: { ...c, tries } } : { ...user, pwCode: undefined },
+    };
+  }
+  return { ok: true, user };
+}
+
+const LOCK_AFTER = 5;
+const LOCK_MINUTES = 15;
 
 function formatName(first: string, mi: string | undefined, last: string) {
   return [first.trim(), mi ? `${mi}.` : '', last.trim()].filter(Boolean).join(' ');
@@ -391,12 +348,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { client, tableName } = getDynamoDocClient();
     const action = typeof req.query.action === 'string' ? req.query.action : '';
 
-    const host = (req.headers?.['x-forwarded-host'] || req.headers?.host || '') as string;
-    const isLocalHost = host.startsWith('localhost') || host.startsWith('127.0.0.1');
-    const defaultProto = isLocalHost ? 'http' : 'https';
-    const proto = (req.headers?.['x-forwarded-proto'] as string) || defaultProto;
-    const detectedUrl = host ? `${proto}://${host}` : '';
-    const appUrl = (process.env.APP_URL || detectedUrl).replace(/\/$/, '');
 
     if (req.method === 'GET') {
       const users = await scanUsers(client, tableName);
@@ -419,7 +370,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
       }
       const user = findByLogin(users, String(username));
+      if (user && Date.parse(user.lockedUntil || '') > Date.now()) {
+        const mins = Math.max(1, Math.ceil((Date.parse(user.lockedUntil) - Date.now()) / 60000));
+        return res.status(429).json({
+          error: `Too many wrong passwords. Try again in ${mins} minute${mins === 1 ? '' : 's'}, or use "Forgot password?".`,
+        });
+      }
       if (!user || !verifyPassword(String(password), user.passwordHash)) {
+        if (user) {
+          // Lock the account for a while after several wrong passwords in a row
+          const failed = (Number(user.failedLogins) || 0) + 1;
+          const locked = failed >= LOCK_AFTER;
+          await client.send(
+            new PutCommand({
+              TableName: tableName,
+              Item: { ...user, failedLogins: locked ? 0 : failed, lockedUntil: locked ? new Date(Date.now() + LOCK_MINUTES * 60000).toISOString() : user.lockedUntil },
+            }),
+          );
+          if (locked) {
+            return res.status(429).json({ error: `Too many wrong passwords. Try again in ${LOCK_MINUTES} minutes, or use "Forgot password?".` });
+          }
+        }
         return res.status(401).json({ error: 'Invalid email or password.' });
       }
       if (user.status === 'pending') {
@@ -437,7 +408,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const now = new Date();
       const since = Date.parse(user.approvedAt || user.createdAt || '') || 0;
       const firstSignIn = !user.lastLoginAt && !user.tutorialSeen && now.getTime() - since < 14 * 24 * 3600 * 1000;
-      const signedIn = { ...user, lastLoginAt: now.toISOString(), loginCount: (Number(user.loginCount) || 0) + 1 };
+      const signedIn = { ...user, lastLoginAt: now.toISOString(), loginCount: (Number(user.loginCount) || 0) + 1, failedLogins: 0, lockedUntil: undefined };
       await client.send(new PutCommand({ TableName: tableName, Item: signedIn }));
       return res.status(200).json({ ...sanitize(signedIn), firstSignIn });
     }
@@ -509,7 +480,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (pwError) return res.status(400).json({ error: pwError });
       const user = (await client.send(new GetCommand({ TableName: tableName, Key: { id } }))).Item;
       if (!user || user.entityType !== 'user') return res.status(404).json({ error: 'User not found' });
-      const updated = { ...user, passwordHash: hashPassword(newPassword), mustChangePassword: true, updatedAt: new Date().toISOString() };
+      const updated = {
+        ...user,
+        passwordHash: hashPassword(newPassword),
+        mustChangePassword: true,
+        // A fresh start: no lock, no old code
+        failedLogins: 0,
+        lockedUntil: undefined,
+        pwCode: undefined,
+        updatedAt: new Date().toISOString(),
+      };
       await client.send(new PutCommand({ TableName: tableName, Item: updated }));
       return res.status(200).json(sanitize(updated));
     }
@@ -612,7 +592,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === 'POST' && action === 'password') {
-      const { id, currentPassword, newPassword } = req.body || {};
+      // Signed in: current password + the code from their email + the new password
+      const { id, currentPassword, code, newPassword } = req.body || {};
       const pwError = passwordError(newPassword);
       if (pwError) return res.status(400).json({ error: pwError });
       if (newPassword === currentPassword) {
@@ -623,141 +604,52 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!user || user.entityType !== 'user' || !verifyPassword(String(currentPassword || ''), user.passwordHash)) {
         return res.status(401).json({ error: 'Your current password is incorrect.' });
       }
+      const check = checkCode(user, code, 'change');
+      if (!check.ok) {
+        await client.send(new PutCommand({ TableName: tableName, Item: check.user }));
+        return res.status(400).json({ error: check.error, code: 'BAD_CODE' });
+      }
+      const now = new Date().toISOString();
       await client.send(
         new PutCommand({
           TableName: tableName,
-          Item: { ...user, passwordHash: hashPassword(newPassword), mustChangePassword: false, passwordChangedAt: new Date().toISOString() },
+          Item: { ...user, passwordHash: hashPassword(newPassword), mustChangePassword: false, passwordChangedAt: now, pwCode: undefined, failedLogins: 0, lockedUntil: undefined, resetCode: undefined, resetToken: undefined, resetExpiresAt: undefined },
         })
       );
       return res.status(200).json({ success: true });
     }
 
-    if (req.method === 'POST' && action === 'forgot-password') {
-      const { email } = req.body || {};
-      if (!email || typeof email !== 'string') {
-        return res.status(400).json({ error: 'Please enter your registered email address.' });
-      }
-      const users = await scanUsers(client, tableName);
-      const user = findByLogin(users, email);
-      if (!user) {
-        return res.status(200).json({
-          success: true,
-          message: 'If an account exists with that email, a password reset code and link have been sent.',
-        });
-      }
-
-      const token = randomBytes(24).toString('hex');
-      const code = String(Math.floor(100000 + Math.random() * 900000));
-      const expiresAt = new Date(Date.now() + 3600 * 1000).toISOString();
-
-      const updated = {
-        ...user,
-        resetToken: token,
-        resetCode: code,
-        resetExpiresAt: expiresAt,
-        updatedAt: new Date().toISOString(),
-      };
-      await client.send(new PutCommand({ TableName: tableName, Item: updated }));
-
-      const recipients = [user.email, user.personalEmail].filter(Boolean) as string[];
-      try {
-        await sendUserMail(
-          {
-            to: recipients,
-            subject: 'Reset your AWS SBG-APC Event Tracker password',
-            heading: 'Password Reset Request',
-            lines: [
-              `Hello ${esc(user.firstName || user.name || 'there')},`,
-              `We received a request to reset your password for your AWS SBG-APC Event Tracker account (<strong>${esc(user.email)}</strong>).`,
-              'Your 6-digit password reset code is:',
-              `<div style="font-size:32px;font-weight:700;letter-spacing:6px;color:#7B2D8E;padding:12px 0">${esc(code)}</div>`,
-              'You can enter this code in the app, or click the button below to choose your new password directly:',
-              '<span style="color:#6B5B7B;font-size:13px">This code and link are valid for 1 hour. If you did not request this, you can safely ignore this email.</span>',
-            ],
-            button: {
-              label: 'Reset My Password',
-              path: `/#/reset-password?token=${token}&email=${encodeURIComponent(user.email)}`,
-            },
-          },
-          appUrl
-        );
-      } catch (err: any) {
-        console.error('Failed to send reset email:', err);
-        return res.status(500).json({
-          error: `Could not send reset email (${err?.message || 'SES error'}). Please contact the AWS SBG-APC officers.`,
-        });
-      }
-
-      return res.status(200).json({
-        success: true,
-        message: `Password reset code sent to ${user.email}. Please check your inbox and spam/junk folder.`,
-        ...(isLocalHost ? { devCode: code } : {}),
-      });
-    }
-
-    if (req.method === 'POST' && action === 'reset-password') {
-      const { email, code, newPassword } = req.body || {};
-      if (!email || !code || !newPassword) {
-        return res.status(400).json({ error: 'Email, reset code, and new password are required.' });
-      }
+    if (req.method === 'POST' && action === 'reset-with-code') {
+      // Forgot password: email (or username) + the code from their email + the new password
+      const { login, code, newPassword } = req.body || {};
       const pwError = passwordError(newPassword);
       if (pwError) return res.status(400).json({ error: pwError });
-
-      const users = await scanUsers(client, tableName);
-      const user = findByLogin(users, String(email));
-      if (!user) {
-        return res.status(404).json({ error: 'Account not found.' });
+      const user = typeof login === 'string' && login.trim() ? findByLogin(await scanUsers(client, tableName), login) : null;
+      // Same answer whether or not the account exists
+      if (!user) return res.status(400).json({ error: 'Ask for a code first: it is sent to your email.', code: 'BAD_CODE' });
+      const check = checkCode(user, code, 'reset');
+      if (!check.ok) {
+        await client.send(new PutCommand({ TableName: tableName, Item: check.user }));
+        return res.status(400).json({ error: check.error, code: 'BAD_CODE' });
       }
-
-      const inputCode = String(code).trim().toLowerCase();
-      const validCode = user.resetCode && String(user.resetCode).trim().toLowerCase() === inputCode;
-      const validToken = user.resetToken && String(user.resetToken).trim().toLowerCase() === inputCode;
-
-      if (!validCode && !validToken) {
-        return res.status(400).json({ error: 'Invalid or incorrect reset code. Please check your email or request a new code.' });
-      }
-
-      if (!user.resetExpiresAt || Date.now() > new Date(user.resetExpiresAt).getTime()) {
-        return res.status(400).json({ error: 'This reset code has expired. Please request a new one.' });
-      }
-
-      const updated = {
-        ...user,
-        passwordHash: hashPassword(newPassword),
-        resetCode: undefined,
-        resetToken: undefined,
-        resetExpiresAt: undefined,
-        mustChangePassword: false,
-        passwordChangedAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      await client.send(new PutCommand({ TableName: tableName, Item: updated }));
-
-      const recipients = [user.email, user.personalEmail].filter(Boolean) as string[];
-      try {
-        await sendUserMail(
-          {
-            to: recipients,
-            subject: 'Your AWS SBG-APC password was successfully reset',
-            heading: 'Password Updated',
-            lines: [
-              `Hello ${esc(user.firstName || user.name || 'there')},`,
-              `Your password for <strong>${esc(user.email)}</strong> was successfully updated.`,
-              'You can now sign in with your new password.',
-              '<span style="color:#6B5B7B;font-size:13px">If you did not make this change, please contact the AWS SBG-APC officers immediately.</span>',
-            ],
-            button: { label: 'Sign In Now', path: '/#/login' },
+      await client.send(
+        new PutCommand({
+          TableName: tableName,
+          Item: {
+            ...user,
+            passwordHash: hashPassword(newPassword),
+            mustChangePassword: false,
+            passwordChangedAt: new Date().toISOString(),
+            pwCode: undefined,
+            failedLogins: 0,
+            lockedUntil: undefined,
+            resetCode: undefined,
+            resetToken: undefined,
+            resetExpiresAt: undefined,
           },
-          appUrl
-        );
-      } catch (e) {
-        console.warn('Could not send confirmation email:', e);
-      }
-
-      return res.status(200).json({
-        success: true,
-        message: 'Your password has been successfully reset! You can now sign in.',
-      });
+        })
+      );
+      return res.status(200).json({ success: true });
     }
 
     if (req.method === 'PUT') {
