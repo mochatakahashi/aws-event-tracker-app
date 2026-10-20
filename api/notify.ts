@@ -102,13 +102,13 @@ async function sendMail(mail: Mail, appUrl: string): Promise<boolean> {
     .join('\n');
   const html = renderHtml(mail, appUrl);
 
-  // Which service sends: EMAIL_PROVIDER = 'ses' | 'gmail' (defaults to 'ses' when AWS credentials exist).
+  // Which service sends: EMAIL_PROVIDER = 'ses' | 'gmail' (defaults to 'ses').
   const gmailUser = process.env.GMAIL_USER?.trim();
   const gmailPass = process.env.GMAIL_APP_PASSWORD?.replace(/\s+/g, '');
   const hasGmail = Boolean(gmailUser && gmailPass);
   const from = process.env.SES_FROM_EMAIL?.trim() || 'notifications@apcsbg.org';
-  const provider = (process.env.EMAIL_PROVIDER || (hasGmail ? 'gmail' : 'ses')).trim().toLowerCase();
-  const useSes = provider === 'ses' || (provider !== 'gmail' && Boolean(from));
+  const provider = (process.env.EMAIL_PROVIDER || 'ses').trim().toLowerCase();
+  const useSes = provider !== 'gmail';
 
   const viaGmail = async () => {
     const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: gmailUser!, pass: gmailPass! } });
@@ -153,13 +153,13 @@ async function sendMail(mail: Mail, appUrl: string): Promise<boolean> {
       );
       return true;
     } catch (err) {
-      if (provider === 'ses' || !hasGmail) throw err;
+      if (provider !== 'gmail') throw err;
       console.warn('SES send failed, sending through Gmail instead:', err);
       return viaGmail();
     }
   }
 
-  if (hasGmail && provider !== 'ses') return viaGmail();
+  if (provider === 'gmail' && hasGmail) return viaGmail();
   return false;
 }
 
@@ -620,8 +620,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const proto = (req.headers?.['x-forwarded-proto'] as string) || defaultProto;
   const detectedUrl = host ? `${proto}://${host}` : '';
   const appUrl = (process.env.APP_URL || detectedUrl).replace(/\/$/, '');
-  const hasGmail = Boolean(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD);
-  const notConfigured = !process.env.SES_FROM_EMAIL && !hasGmail;
+  const hasAwsCreds = Boolean(
+    (process.env.APP_AWS_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID) &&
+    (process.env.APP_AWS_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY)
+  );
+  const notConfigured = !hasAwsCreds && !process.env.SES_FROM_EMAIL && !hasGmail;
 
   try {
     const { client, tableName } = getDynamoDocClient();
