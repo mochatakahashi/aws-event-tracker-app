@@ -22,13 +22,13 @@ import { imageSrc } from '../utils/imageUrl';
 
 function formatMonthDay(iso: string): { month: string; day: string } {
   const d = new Date(iso);
-  const month = d.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
-  const day = d.getDate().toString();
+  const month = d.toLocaleDateString('en-US', { month: 'short', timeZone: 'Asia/Manila' }).toUpperCase();
+  const day = d.toLocaleDateString('en-US', { day: 'numeric', timeZone: 'Asia/Manila' });
   return { month, day };
 }
 
 function formatTimeOnly(iso: string): string {
-  return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Manila' });
 }
 
 interface SessionCardProps {

@@ -26,7 +26,7 @@ export default function OfflineNotice() {
   const when = (() => {
     const t = Date.parse(savedAt);
     if (!t) return 'earlier';
-    return new Date(t).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    return new Date(t).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Manila' });
   })();
 
   return (

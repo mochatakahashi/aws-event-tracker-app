@@ -61,20 +61,19 @@ const EMPTY_FORM: FormState = {
 
 type FieldErrors = Partial<Record<keyof FormState, string>>;
 
-/** Convert an ISO string to a value usable by <input type="datetime-local">. */
+/** Convert an ISO string to a value usable by <input type="datetime-local"> in Philippine time. */
 function isoToLocalInput(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
-    d.getHours(),
-  )}:${pad(d.getMinutes())}`;
+  return d.toLocaleString('sv-SE', { timeZone: 'Asia/Manila' }).replace(' ', 'T').slice(0, 16);
 }
 
-/** Convert a datetime-local value back to an ISO string. */
+/** Convert a datetime-local value (Manila time) back to an ISO string. */
 function localInputToIso(local: string): string {
-  const d = new Date(local);
-  return Number.isNaN(d.getTime()) ? '' : d.toISOString();
+  if (!local) return '';
+  if (local.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(local)) return new Date(local).toISOString();
+  const cleaned = local.length === 16 ? `${local}:00` : local;
+  return new Date(`${cleaned}+08:00`).toISOString();
 }
 
 export default function EventFormPage() {

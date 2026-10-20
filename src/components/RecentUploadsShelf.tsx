@@ -53,9 +53,10 @@ function formatTimeAgo(dateStr: string): string {
     if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
     if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
     if (diff < 86400 * 7) return `${Math.floor(diff / 86400)}d ago`;
-    return new Date(dateStr).toLocaleDateString(undefined, {
+    return new Date(dateStr).toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
+      timeZone: 'Asia/Manila',
     });
   } catch {
     return 'Recently';
@@ -473,7 +474,7 @@ export default function RecentUploadsShelf({
                 >
                   <Box>
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                      Uploaded: {new Date(previewItem.uploadedAt).toLocaleString()} · Size:{' '}
+                      Uploaded: {new Date(previewItem.uploadedAt).toLocaleString('en-US', { timeZone: 'Asia/Manila' })} · Size:{' '}
                       {formatBytes(previewItem.size)}
                     </Typography>
                     <Chip

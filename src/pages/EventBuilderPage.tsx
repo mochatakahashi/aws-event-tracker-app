@@ -68,12 +68,19 @@ interface SpeakerDraft {
   showLinks?: boolean;
 }
 
-/** ISO string → value for <input type="datetime-local"> in the browser's own time zone. */
+/** ISO string → value for <input type="datetime-local"> in Philippine time (Asia/Manila). */
 function toLocalInput(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return d.toLocaleString('sv-SE', { timeZone: 'Asia/Manila' }).replace(' ', 'T').slice(0, 16);
+}
+
+/** Value from <input type="datetime-local"> (in Manila time) → UTC ISO string. */
+function fromManilaInput(v?: string): string {
+  if (!v) return '';
+  if (v.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(v)) return new Date(v).toISOString();
+  const cleaned = v.length === 16 ? `${v}:00` : v;
+  return new Date(`${cleaned}+08:00`).toISOString();
 }
 
 export default function EventBuilderPage() {
@@ -284,8 +291,8 @@ export default function EventBuilderPage() {
         status: (formData.status as any) || 'upcoming',
         tags: formData.tags || [],
         venue: formData.venue || 'TBA',
-        startAt: new Date(formData.startAt!).toISOString(),
-        endAt: new Date(formData.endAt!).toISOString(),
+        startAt: fromManilaInput(formData.startAt),
+        endAt: fromManilaInput(formData.endAt),
         description: formData.description || '',
         capacity: Number(formData.capacity) || 100,
         participants: Number(formData.participants) || 0,

@@ -91,47 +91,56 @@ export function capitalize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-/** Format an ISO timestamp as a date + time. */
+const PH_TZ = 'Asia/Manila';
+
+/** Format an ISO timestamp as a date + time in Philippine Standard Time. */
 export function formatDateTime(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleString(undefined, {
+  return date.toLocaleString('en-US', {
+    timeZone: PH_TZ,
     year: 'numeric',
     month: 'short',
     day: 'numeric',
-    hour: '2-digit',
+    hour: 'numeric',
     minute: '2-digit',
+    hour12: true,
   });
 }
 
-/** Format an ISO timestamp as a date only. */
+/** Format an ISO timestamp as a date only in Philippine Standard Time. */
 export function formatDate(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleDateString(undefined, {
+  return date.toLocaleDateString('en-US', {
+    timeZone: PH_TZ,
     year: 'numeric',
     month: 'short',
     day: 'numeric',
   });
 }
 
-/** Format a start/end range compactly (same-day ranges collapse the date). */
+/** Format a start/end range compactly (same-day ranges collapse the date) in Philippine Standard Time. */
 export function formatDateRange(startIso: string, endIso: string): string {
   const start = new Date(startIso);
   const end = new Date(endIso);
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
     return `${startIso} – ${endIso}`;
   }
-  const sameDay = start.toDateString() === end.toDateString();
+  const startDateStr = start.toLocaleDateString('en-CA', { timeZone: PH_TZ });
+  const endDateStr = end.toLocaleDateString('en-CA', { timeZone: PH_TZ });
+  const sameDay = startDateStr === endDateStr;
   const timeOpts: Intl.DateTimeFormatOptions = {
-    hour: '2-digit',
+    timeZone: PH_TZ,
+    hour: 'numeric',
     minute: '2-digit',
+    hour12: true,
   };
   if (sameDay) {
     return `${formatDate(startIso)}, ${start.toLocaleTimeString(
-      undefined,
-      timeOpts,
-    )} – ${end.toLocaleTimeString(undefined, timeOpts)}`;
+      'en-US',
+      timeOpts
+    )} – ${end.toLocaleTimeString('en-US', timeOpts)}`;
   }
   return `${formatDateTime(startIso)} – ${formatDateTime(endIso)}`;
 }

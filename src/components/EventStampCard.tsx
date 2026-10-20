@@ -443,10 +443,10 @@ export default function EventStampCard({
                       }}
                     >
                       <Typography variant="caption" sx={{ fontWeight: 800, color: '#EF4444', display: 'block', fontSize: '0.65rem', lineHeight: 1.1 }}>
-                        {new Date(session.startTime).getDate() || '–'}
+                        {session.startTime ? new Date(session.startTime).toLocaleDateString('en-US', { day: 'numeric', timeZone: 'Asia/Manila' }) : '–'}
                       </Typography>
                       <Typography variant="caption" sx={{ fontWeight: 800, color: '#1A0A2E', display: 'block', fontSize: '0.65rem', lineHeight: 1.1 }}>
-                        {session.startTime ? new Date(session.startTime).toLocaleDateString('en-US', { month: 'short' }).toUpperCase() : ''}
+                        {session.startTime ? new Date(session.startTime).toLocaleDateString('en-US', { month: 'short', timeZone: 'Asia/Manila' }).toUpperCase() : ''}
                       </Typography>
                     </Box>
 

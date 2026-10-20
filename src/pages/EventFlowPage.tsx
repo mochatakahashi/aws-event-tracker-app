@@ -30,6 +30,7 @@ function formatTimeGroup(iso: string): string {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
+    timeZone: 'Asia/Manila',
   });
 }
 
