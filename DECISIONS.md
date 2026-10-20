@@ -478,12 +478,31 @@ Emails were sent from a Gmail account with an App Password: daily sending limits
 ### Decision
 - Send from **`notifications@apcsbg.org`** through SES in `ap-southeast-1`, with the domain verified by DKIM.
 - SES gets its **own IAM user that can only send email**, with keys in `SES_ACCESS_KEY_ID` / `SES_SECRET_ACCESS_KEY`. The app's DynamoDB / S3 keys stay separate, so neither key can do the other's job.
-- `EMAIL_PROVIDER` switches between SES and Gmail without code changes. While SES is still in the sandbox, `ses` falls back to Gmail for rejected recipients.
+- `EMAIL_PROVIDER` switches between SES and Gmail without code changes (since v0.6.27, `ses` doesn't retry through Gmail; leave it unset to keep Gmail while SES is in the sandbox).
 - Keys and account details live only in Vercel's environment variables, never in the repository or docs.
 
 ### Consequences
 - **Positive**: emails come from the club's domain, with higher limits and better deliverability; a leaked SES key can only send email.
-- **Negative**: two sets of AWS keys to manage and rotate; until production access is granted, SES only reaches verified addresses (Gmail covers the rest).
+- **Negative**: two sets of AWS keys to manage and rotate; until production access is granted, SES only reaches verified addresses (leave `EMAIL_PROVIDER` unset so Gmail keeps sending until then).
+
+---
+
+## ADR-025: Run the Real API in `npm run dev`
+
+### Status
+**Accepted** (v0.6.27)
+
+### Context
+Local development used `localStorage` because `/api` only ran on Vercel (or `vercel dev`). Bugs that only show with the real handlers and DynamoDB were found late.
+
+### Decision
+- A Vite middleware runs `api/<name>.ts` for `/api/<name>` with Vercel-style request and response helpers, reading `.env.local` each request.
+- Without AWS keys it answers 503, so the app keeps its `localStorage` mode.
+- Server-built links use `http://` for localhost.
+
+### Consequences
+- **Positive**: local testing exercises the same code as production.
+- **Negative**: with AWS keys in `.env.local`, local actions change the **live** table and can send real emails. Use a test table (`DYNAMODB_TABLE_NAME`) or leave email unset locally. `.env.local` must never be committed.
 
 ---
 

@@ -169,6 +169,16 @@ ${img ? `<meta property="og:image" content="${esc(img)}" />\n<meta name="twitter
 </body></html>`;
 }
 
+/** The app's address: APP_URL, else this request's host (http for localhost in `npm run dev`). */
+function appBase(req: VercelRequest): string {
+  const host = String(req.headers?.['x-forwarded-host'] || req.headers?.host || '');
+  if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, '');
+  if (!host) return '';
+  const local = /^(localhost|127\.0\.0\.1)(:|$)/.test(host);
+  const proto = String(req.headers?.['x-forwarded-proto'] || (local ? 'http' : 'https')).split(',')[0].trim();
+  return `${proto}://${host}`;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -180,15 +190,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const { client, tableName } = getDynamoDocClient();
-    const reqHost = String(req.headers?.['x-forwarded-host'] || req.headers?.host || '');
-    const baseUrl = (process.env.APP_URL || (reqHost ? `https://${reqHost}` : '')).replace(/\/$/, '');
+    const baseUrl = appBase(req);
 
     // GET /api/events?action=share&id=...  → a small page with the event's link preview
     // (title, date, picture for Facebook / Messenger / Discord), then it opens the event in the app.
     if (req.method === 'GET' && req.query.action === 'share') {
       const id = typeof req.query.id === 'string' ? req.query.id : '';
-      const host = String(req.headers?.['x-forwarded-host'] || req.headers?.host || '');
-      const appUrl = (process.env.APP_URL || (host ? `https://${host}` : '')).replace(/\/$/, '');
+      const appUrl = baseUrl;
       const item = id ? (await client.send(new GetCommand({ TableName: tableName, Key: { id } }))).Item : undefined;
       const ev = isOwnRecord(item) ? item : null;
       res.setHeader('Content-Type', 'text/html; charset=utf-8');

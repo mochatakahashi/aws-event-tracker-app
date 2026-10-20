@@ -7,12 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.27] - 2026-10-20
+
+### Added
+- **Local dev API**: `npm run dev` now runs the real `/api` functions through a Vite middleware (`vite.config.ts`), using `.env.local`. With AWS keys there, the local app uses the **live** DynamoDB table; without them it falls back to this browser's storage as before.
+- **Email copies**: every email is CC'd to the club's notification addresses, plus any listed in `NOTIFICATION_CC_EMAILS`.
+- Docs: a full API reference (all 12 functions and their `?action=` routes) and a map of screens and components in ARCHITECTURE.
+
+### Changed
+- **Email provider**: `EMAIL_PROVIDER=ses` sends only through SES (no Gmail retry); unset still means Gmail when it's set up, else SES. The SES sender defaults to `notifications@apcsbg.org`.
+- `.gitignore` lists `.env.local` explicitly.
+
+### Fixed
+- Links built by the server (share, registration and certificate links, links in emails) use `http://` for `localhost`, so they work in local development; deployed links stay `https://` (or `APP_URL`).
+
+---
+
 ## [0.6.26] - 2026-10-20
 
 ### Added
 - **Custom domain and Amazon SES (done outside the code)**: the app runs on `apcsbg.org`; SES is set up in `ap-southeast-1` with the domain verified (DKIM) and `notifications@apcsbg.org` as the sender; production access is requested from AWS; a separate send-only IAM user's keys, the region and the sender are stored in Vercel's environment variables.
 - **`SES_ACCESS_KEY_ID` / `SES_SECRET_ACCESS_KEY`**: SES can use its own send-only keys, separate from the app's DynamoDB / S3 keys (`APP_AWS_*`).
-- **`EMAIL_PROVIDER`** (`ses` or `gmail`): choose the sender. With `ses`, an email SES rejects (for example while still in the sandbox) is sent through Gmail instead, if Gmail is set up.
+- **`EMAIL_PROVIDER`** (`ses` or `gmail`): choose the sender (see 0.6.27 for how `ses` behaves now).
 
 ### Changed
 - Docs: deployment status, the new email settings, and examples use `notifications@apcsbg.org` and `https://apcsbg.org`. No keys or private details are in the docs.

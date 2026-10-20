@@ -405,6 +405,16 @@ async function requireCheckinStaff(client: DynamoDBDocumentClient, tableName: st
 }
 
 
+/** The app's address: APP_URL, else this request's host (http for localhost in `npm run dev`). */
+function appBase(req: VercelRequest): string {
+  const host = String(req.headers?.['x-forwarded-host'] || req.headers?.host || '');
+  if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, '');
+  if (!host) return '';
+  const local = /^(localhost|127\.0\.0\.1)(:|$)/.test(host);
+  const proto = String(req.headers?.['x-forwarded-proto'] || (local ? 'http' : 'https')).split(',')[0].trim();
+  return `${proto}://${host}`;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -418,8 +428,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const str = (v: unknown) => (typeof v === 'string' && v ? v : undefined);
 
     const action = str(q.action);
-    const host = (req.headers?.['x-forwarded-host'] || req.headers?.host || '') as string;
-    const appUrl = (process.env.APP_URL || (host ? `https://${host}` : '')).replace(/\/$/, '');
+    const appUrl = appBase(req);
 
     // Public certificate verification (only the details printed on the certificate)
     if (req.method === 'GET' && action === 'verify') {

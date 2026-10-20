@@ -143,7 +143,7 @@ graph TD
 
 ### 4. Notifications - email (Gmail SMTP / Amazon SES) and in-app
 
-Emails go through Amazon SES (domain `apcsbg.org`, sender `notifications@apcsbg.org`, region `ap-southeast-1`) or Gmail SMTP. `EMAIL_PROVIDER` chooses (`ses` / `gmail`; unset = Gmail when set up, else SES). SES uses its own send-only keys (`SES_ACCESS_KEY_ID` / `SES_SECRET_ACCESS_KEY`) when set, else `APP_AWS_*`; with `EMAIL_PROVIDER=ses`, a rejected SES send (sandbox) falls back to Gmail when configured. The app is served on the custom domain `https://apcsbg.org` (Vercel); `APP_URL` sets the links in emails. In-app notifications (the bell) are written by the page that performed the action:
+Emails go through Amazon SES (domain `apcsbg.org`, sender `SES_FROM_EMAIL` or by default `notifications@apcsbg.org`, region `ap-southeast-1`) or Gmail SMTP. `EMAIL_PROVIDER` chooses (`ses` / `gmail`; unset = Gmail when set up, else SES); with `ses` a rejected send is not retried through Gmail. SES uses its own send-only keys (`SES_ACCESS_KEY_ID` / `SES_SECRET_ACCESS_KEY`) when set, else `APP_AWS_*`. Every email is CC'd to a fixed list of club addresses in `sendMail()` plus `NOTIFICATION_CC_EMAILS`. Links in emails use `APP_URL`, else the request's host (`http` for localhost, otherwise `x-forwarded-proto` or `https`). The app is served on the custom domain `https://apcsbg.org` (Vercel); `APP_URL` sets the links in emails. In-app notifications (the bell) are written by the page that performed the action:
 
 | In-app notification | Recipient | Created by |
 | :--- | :--- | :--- |
@@ -223,7 +223,7 @@ sequenceDiagram
 
 ---
 
-### 6. Event info, announcements, saved copy, evaluation and sharing (v0.6.16 - v0.6.22)
+### 6. Event info, announcements, saved copy, evaluation, sharing and registration links (v0.6.16 - v0.6.27)
 
 - **Official event info** (`src/data/clubEventInfo.ts`, mirrored in `api/seed.ts` as `CLUB_EVENT_INFO` with a `version`): `GET /api/seed` lists events whose `infoVersion` is older (`outdatedEvents`); Admin Home's **Update them** calls `POST /api/seed?action=update-events` (admin), which fills descriptions, dates, venues, co-organizers, participants, `programFlow` rows and speakers, keeping pictures and staff lists. Events carry `programFlow` (`{time, duration, activity, personInCharge}[]`, max 60 rows, cleaned in `pruneStaff`), shown by `ProgramFlowTable` and edited by `ProgramFlowEditor` (paste from a document → `parseProgramFlow`).
 - **Officers-only events**: `audience: 'officers'`. Everyone sees them; `POST /api/registrations` refuses attendees; the event page hides the participant count and explains why.
@@ -238,6 +238,35 @@ sequenceDiagram
 - **Who attends**: `POST /api/registrations` refuses admins and the adviser (they monitor). `ProgramFlowTable` hides *Person-in-charge* unless `showPersonInCharge` (officers, admins, adviser).
 - **Sharing** (`components/ShareEventButton.tsx`): the link is `/api/events?action=share&id=<event>` when the API is live, an HTML page with Open Graph tags (title, date, venue, description, picture through `/api/uploads?action=image`) that redirects to `/#/e/<event>`. `EventPreviewPage` (public route) shows the event to signed-out visitors with Sign in (returns to `/events/<id>`) / Create an account, and sends signed-in people to the event page. The link is worked out when the button mounts so `navigator.share` runs directly in the tap (phones refuse it after an await); laptops get Copy link / Facebook / email, with a read-only link box when the clipboard is blocked. The button is on the event page and on each card in the events list.
 - **Speakers lineup admin**: `SpeakerEditDialog` (`PUT /api/speakers?id=`) edits a speaker from the event page; *Remove from event* drops the id from `event.speakerIds` and from every session of the event (`updateSession`), since the lineup also shows session speakers.
+
+---
+
+### 7. API reference (12 Vercel functions, Hobby plan limit)
+
+Extra features are `?action=` routes inside the existing files, so the function count stays at 12. Write routes check the acting account (`actorId`) on the server; see ADR-008 for the limits of that.
+
+| File | Routes |
+| :--- | :--- |
+| `api/users.ts` | `GET` all / `?id=`; `POST ?action=signup \| login \| password \| create \| reset \| connect \| connect-respond \| connect-cancel \| disconnect \| award \| unaward`; `PUT ?id=` (profile / admin changes); `DELETE ?id=&actorId=` (admin) |
+| `api/events.ts` | `GET` all / `?id=` (each with its `externalUrl` registration link); `GET ?action=share&id=[&register=1]` (HTML link preview → app); `POST`; `PUT ?id=`; `PUT ?id=&action=staff` (admin: officers, roles, stamp / check-in duty lists); `DELETE` |
+| `api/sessions.ts` | `GET [?eventId=]`; `POST` / `PUT ?id=` / `DELETE ?id=` (admin) |
+| `api/stamps.ts` | `GET [?attendeeId=&sessionId=]`; `POST` (always pending); `PUT ?id=` approve / decline (admin or the event's stamp team, attendee must be checked in); `DELETE` |
+| `api/registrations.ts` | `GET [?eventId=&personId=&id=]`; `POST` (pending; not for admins / adviser; officers-only events); `POST ?action=review \| checkin \| checkout`; `PUT ?id=` (status by staff, session picks by the attendee); `DELETE`; `GET ?action=certificate \| verify \| evaluation \| evaluations`; `POST ?action=evaluate` |
+| `api/tasks.ts` | `GET [?assigneeId=&eventId=]`; `POST`; `POST ?action=comment \| propose \| review`; `PUT ?id=`; `DELETE ?id=` |
+| `api/notifications.ts` | `GET ?personId=`; `POST`; `PUT ?id=` / `?personId=&all=1` (read); `DELETE ?id=`; `GET ?action=announcements \| signoffs`; `POST ?action=announce \| signoff \| signoff-review`; `PUT ?action=announcement-edit`; `DELETE ?action=announcement` |
+| `api/notify.ts` | `GET` (daily Vercel Cron, `CRON_SECRET`); `POST { type: account-reviewed \| event-assigned \| task-assigned \| signup-pending \| run-reminders \| after-event }` |
+| `api/speakers.ts` | `GET`; `POST`; `PUT ?id=` |
+| `api/seed.ts` | `GET` (missing / outdated club events); `POST` (admin: add missing); `POST ?action=update-events \| fix-sessions` (admin) |
+| `api/upload-url.ts` | `POST` → pre-signed S3 upload URL |
+| `api/uploads.ts` | `GET ?action=image&key=events/...` (redirect to a signed S3 link); `GET` / `POST` / `DELETE` recent uploads |
+
+### 8. Screens and components not described above
+
+- **Accounts**: `AddAccountPanel` (admin creates accounts with a temporary password; `OfficerRoleFields` for position / committee), `ChangePasswordPage` + `ChangePasswordForm` + `PasswordChecklist` (forced first change and Profile).
+- **Officer work**: `MyDutiesCard` (co-organizer staff and officers: their duties per event), `EventDutyCard` (your access on the event page), `RegistrationRequestsPanel` (approve / decline registrations), `TaskRequestsPanel` (admin reviews officer-added tasks), `TaskThread` (task comments + `DeadlineChip`).
+- **Attendees**: `InlinePass` (QR pass on the event page), `EventChips`, `utils/eventDisplay.ts` (tag colors and labels), `hooks/useSavedEvents.ts` (bookmarks), `EventOrganizerLogo`.
+- **Legacy, not routed**: `pages/EventFormPage.tsx`, `pages/EventListPage.tsx`, `pages/MyRegistrationsPage.tsx` and `components/EngagementScoreCard.tsx` are kept only for older unit tests; the app uses `EventBuilderPage`, `EventsPage` and the event pass instead.
+- **Local dev API** (`vite.config.ts` → `apiDevServer`): serves `/api/<name>` from `api/<name>.ts` through `server.ssrLoadModule`, with Vercel-style `req.query` / `req.body` and `res.status().json() / send()`; loads `.env.local` and Vite env into `process.env`; returns 503 when AWS keys are missing so the app falls back to `localStorage`.
 
 ---
 

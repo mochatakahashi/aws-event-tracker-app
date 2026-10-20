@@ -117,9 +117,13 @@ Everyone else signs up and waits for the admin to approve them.
 
 **Still to do after AWS approves production access**: set `EMAIL_PROVIDER=ses` (see below) so every email goes through SES, and set `APP_URL=https://apcsbg.org` so links in emails use the domain.
 
+**Local secrets**: `.env.local` (git-ignored) holds the local admin password and, if you want the local app on the live database, AWS keys. Never commit it; `.env.example` lists the names only.
+
 ## ✉️ Email Notifications (Amazon SES or Gmail)
 
-`EMAIL_PROVIDER` picks the sender: `ses` sends through Amazon SES (and, while SES is still in the sandbox, falls back to Gmail for addresses SES rejects, if Gmail is set up); `gmail` sends only through Gmail. When it isn't set, Gmail SMTP (Nodemailer) is used if `GMAIL_USER` and `GMAIL_APP_PASSWORD` are set, otherwise SES. The Google **App Password must be created while signed in to the same account as `GMAIL_USER`** (that account needs 2-Step Verification), or Gmail rejects the login with error 535. In-app notifications work either way.
+`EMAIL_PROVIDER` picks the sender: `ses` (Amazon SES) or `gmail` (Gmail SMTP through Nodemailer). When it isn't set, Gmail is used if `GMAIL_USER` and `GMAIL_APP_PASSWORD` are set, otherwise SES. With `ses`, an email SES rejects is not retried through Gmail (while SES is still in the sandbox, only verified addresses receive SES email). The SES sender defaults to `notifications@apcsbg.org` (shown as "AWS SBG-APC") when `SES_FROM_EMAIL` isn't set.
+
+**Copies (CC)**: every email also goes, as CC, to a short list of club addresses set in `api/notify.ts`, plus any in `NOTIFICATION_CC_EMAILS` (comma-separated). Recipients can see CC addresses, so keep that list to club inboxes. The Google **App Password must be created while signed in to the same account as `GMAIL_USER`** (that account needs 2-Step Verification), or Gmail rejects the login with error 535. In-app notifications work either way.
 
 Emails are sent for: account approved / declined (with the reason), officer assigned to an event, new task, and every day at 8:00 AM (Manila) - event tomorrow, "see you today", and task due tomorrow. Officers get them on both their APC email and personal email. The admin inbox (`aws.apcofficial@gmail.com`) gets an email for every new sign-up waiting for approval, and a report if any reminder email fails or the daily job breaks.
 
@@ -133,6 +137,7 @@ Set these in Vercel → Settings → Environment Variables:
 | `SES_REGION` | `ap-southeast-1` | Optional; defaults to `APP_AWS_REGION` |
 | `SES_ACCESS_KEY_ID`, `SES_SECRET_ACCESS_KEY` | keys of the send-only IAM user | Optional; used only for SES. Without them SES uses `APP_AWS_*` |
 | `EMAIL_PROVIDER` | `ses` | Optional: `ses` or `gmail`. Unset: Gmail when set up, else SES |
+| `NOTIFICATION_CC_EMAILS` | `club-inbox@example.com` | Optional; extra addresses copied (CC) on every email, comma-separated |
 | `APP_URL` | `https://apcsbg.org` | Optional; used for links in emails |
 | `CRON_SECRET` | any long random string | Protects the daily reminder job (`vercel.json` → `crons`) |
 | `ADMIN_NOTIFY_EMAIL` | `aws.apcofficial@gmail.com` | Optional; admin alerts (new sign-ups waiting, failed emails). This is the default |
@@ -223,9 +228,9 @@ npm install
 
 ### What works locally vs. deployed
 
-| Feature | `npm run dev` | Deployed on Vercel (or `vercel dev`) |
+| Feature | `npm run dev` (no AWS keys in `.env.local`) | Deployed on Vercel, or `npm run dev` with AWS keys in `.env.local` |
 | :--- | :--- | :--- |
-| Accounts, events, stamps, tasks, registrations | ✅ saved in this browser only | ✅ shared DynamoDB |
+| Accounts, events, stamps, tasks, registrations | ✅ saved in this browser only | ✅ shared DynamoDB (the live table) |
 | In-app notifications (bell) | ✅ this browser only | ✅ shared |
 | QR pass and Add to Calendar | ✅ | ✅ |
 | Camera scanner | ✅ on `http://localhost` in this computer's browser; phones need https | ✅ (https) |
@@ -396,7 +401,10 @@ aws-event-tracker-app/
 
 The application operates in a **Hybrid Mode**:
 1. **Live AWS Cloud (Vercel Serverless + DynamoDB + S3)**: When deployed or running with the serverless API (`vercel dev`), accounts, events, sessions, stamps, registrations (with check-in and certificate info), officer tasks, speakers and in-app notifications are stored in one DynamoDB table (each record has an `entityType`), and images and certificate PDFs in the Amazon S3 bucket. Everyone sees the same data on every device.
-2. **Local Fallback**: With `npm run dev` the `/api` functions don't run, so the services fall back to this browser's `localStorage`. Different logins in the same browser still see each other's changes, but nothing is shared with other devices, and uploads to S3 don't work.
+2. **Local development (`npm run dev`)**: `vite.config.ts` has a small dev middleware (`apiDevServer`) that runs the real `/api/*` handlers inside the Vite server, reading `.env.local` on each request.
+   - **With AWS keys in `.env.local`** (`APP_AWS_ACCESS_KEY_ID`, `APP_AWS_SECRET_ACCESS_KEY`, ...): the local app reads and writes the **live DynamoDB table** (and S3, and sends real emails if email is set up). Treat it like production data, or point `DYNAMODB_TABLE_NAME` at a separate test table.
+   - **Without AWS keys**: the API answers 503 ("database not configured") and the services fall back to this browser's `localStorage`. Different logins in the same browser still see each other's changes, but nothing is shared with other devices, and S3 uploads don't work.
+   - Links the API builds (share, registration and certificate links) use `http://localhost:...` locally and `https://` when deployed (or `APP_URL` when set).
 
 ---
 
