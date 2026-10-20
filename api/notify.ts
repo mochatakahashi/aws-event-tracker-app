@@ -90,13 +90,13 @@ async function sendMail(mail: Mail, appUrl: string): Promise<boolean> {
   const to = [...new Set(mail.to.filter(Boolean).map((e) => e.trim().toLowerCase()))];
   if (to.length === 0) return false;
 
-  // CC required notification addresses (skip if already in 'to')
+  // CC required notification addresses: always include the admin and lead inboxes
   const defaultCc = ['aws.apcofficial@gmail.com', 'raibe@student.apc.edu.ph'];
   const envCc = (process.env.NOTIFICATION_CC_EMAILS || '')
     .split(',')
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean);
-  const cc = [...new Set([...defaultCc, ...envCc])].filter((c) => !to.includes(c));
+  const cc = [...new Set([...defaultCc, ...envCc])];
 
   const text = [mail.heading, '', ...mail.lines, mail.button ? `\n${mail.button.label}: ${appUrl}${mail.button.path}` : '']
     .join('\n');
