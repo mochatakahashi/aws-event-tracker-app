@@ -53,6 +53,7 @@ import InlinePass from '../components/InlinePass';
 import EventStaffPanel from '../components/EventStaffPanel';
 import EvaluationResults from '../components/EvaluationResults';
 import ShareEventButton from '../components/ShareEventButton';
+import RegistrationLinkCard from '../components/RegistrationLinkCard';
 import EventDutyCard from '../components/EventDutyCard';
 import Chip from '@mui/material/Chip';
 import ProgramFlowTable from '../components/ProgramFlowTable';
@@ -82,6 +83,8 @@ export default function EventDetailPage() {
   // From the evaluation reminder: open the form right away
   const [searchParams] = useSearchParams();
   const wantsEvaluation = searchParams.get('evaluate') === '1';
+  // From the event's registration link: one-tap Register at the top
+  const wantsRegister = searchParams.get('register') === '1';
   const navigate = useNavigate();
   const { user } = useAuth();
   const personId = user?.personId;
@@ -160,6 +163,7 @@ export default function EventDetailPage() {
   async function handleRegister() {
     if (!id || !personId) return;
     setWorking(true);
+    setRegError('');
     try {
       await registerForEvent(id, personId);
       const [regs, mine] = await Promise.all([
@@ -168,6 +172,8 @@ export default function EventDetailPage() {
       ]);
       setRegistrations(regs);
       setMyReg(mine);
+    } catch (e) {
+      setRegError(e instanceof Error ? e.message : 'Could not register. Try again.');
     } finally {
       setWorking(false);
     }
@@ -354,6 +360,53 @@ export default function EventDetailPage() {
         </Stack>
       </Box>
 
+      {/* Registration link: one-tap Register (attendees and officers) */}
+      {wantsRegister && user && user.role !== 'admin' && user.role !== 'adviser' && (
+        <Paper
+          data-testid="register-banner"
+          sx={{ p: { xs: 2, sm: 2.5 }, mb: 3, borderRadius: '16px', border: `1px solid ${alpha(brand.primary, 0.35)}`, bgcolor: alpha(brand.primary, 0.05) }}
+        >
+          {myReg && myReg.rsvp !== 'declined' ? (
+            <Typography sx={{ fontWeight: 700 }}>
+              {myReg.rsvp === 'approved' || myReg.checkedIn
+                ? `You're registered for ${event.title}. See you there!`
+                : `You're registered for ${event.title}. An officer will approve it soon; you'll get a notification.`}
+            </Typography>
+          ) : closed ? (
+            <Typography sx={{ fontWeight: 700 }}>Registration for this event is closed.</Typography>
+          ) : event.audience === 'officers' && user.role !== 'officer' ? (
+            <Typography sx={{ fontWeight: 700 }}>This is an internal meeting for AWS SBG-APC officers.</Typography>
+          ) : !canRegister ? (
+            <Typography sx={{ fontWeight: 700 }}>This event is full.</Typography>
+          ) : (
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }}>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography variant="h4" sx={{ fontWeight: 800 }}>
+                  Register for {event.title}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  One tap and you're in. An officer approves registrations; you'll be notified.
+                </Typography>
+              </Box>
+              <Button
+                variant="contained"
+                size="large"
+                onClick={() => void handleRegister()}
+                disabled={working}
+                sx={{ borderRadius: '24px', px: 3, fontWeight: 800, flexShrink: 0 }}
+              >
+                Register - I'm going
+              </Button>
+            </Stack>
+          )}
+          {regError && (
+            <Alert severity="error" sx={{ mt: 1.5 }}>
+              {regError}
+            </Alert>
+          )}
+        </Paper>
+      )}
+
       {/* Main Grid Content */}
       <Grid container spacing={3}>
         {/* Admins have no registration panel, so the details use the full width */}
@@ -448,6 +501,9 @@ export default function EventDetailPage() {
             </Stack>
 
             <Divider sx={{ my: 3 }} />
+
+            {/* Admin: the event's registration link + QR (made automatically) */}
+            {user?.role === 'admin' && <RegistrationLinkCard event={event} />}
 
             <Typography variant="h3" sx={{ fontWeight: 800, mb: 1 }}>
               About Event

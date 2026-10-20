@@ -461,6 +461,7 @@ The app uses hash routes (`/#/...`), which social apps can't read, so a pasted e
 - `/#/e/<id>` is a **public preview** with Sign in (returns to the event) / Create an account; signed-in people go to the event page.
 
 ### Consequences
+- **Update (v0.6.25)**: the same link with `&register=1` is each event's automatic **registration link** (stored in `externalUrl`, shown to admins with a QR code); it ends on a one-tap Register box rather than registering silently, so people confirm the event and the approval flow stays the same.
 - **Positive**: rich previews in Messenger / Facebook / Discord, and a friendly landing page for new people.
 - **Negative**: event pictures saved inside the record (no S3) can't be used as previews; event details are visible without signing in (same as a public poster).
 

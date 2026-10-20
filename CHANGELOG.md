@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.25] - 2026-10-20
+
+### Added
+- **Registration link for every event, made automatically**: each event gets its own link (saved as the event's registration link, replacing the old external link field). Admins find it on the event page and in the event form with **Copy link** and **Download QR** (a PNG for posters and pubmats).
+- **One-tap register**: opening the link shows the event; people sign in (or sign up) and land on the event with a **Register for ...** box at the top, one tap to register (still approved by an officer). Signed-in people go straight there. New accounts are taken to the event on their first sign-in after approval.
+- The link's preview in Messenger / Facebook says "Register: <event>".
+
+### Changed
+- The app tour waits until after someone registers or answers an evaluation from a link, instead of covering it.
+- Registration errors now show a message instead of failing silently.
+
+---
+
 ## [0.6.24] - 2026-10-20
 
 ### Changed

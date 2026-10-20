@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { rememberRegisterIntent } from '../utils/registerIntent';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
@@ -38,6 +39,10 @@ export default function EventPreviewPage() {
   const { id = '' } = useParams<{ id: string }>();
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  // From the event's registration link: after signing in, open the one-tap Register
+  const [params] = useSearchParams();
+  const register = params.get('register') === '1';
+  const target = `/events/${encodeURIComponent(id)}${register ? '?register=1' : ''}`;
   const [event, setEvent] = useState<AppEvent | null | undefined>(undefined);
 
   useEffect(() => {
@@ -47,9 +52,14 @@ export default function EventPreviewPage() {
       .catch(() => setEvent(null));
   }, [id, isAuthenticated]);
 
-  if (isAuthenticated) return <Navigate to={`/events/${encodeURIComponent(id)}`} replace />;
+  if (isAuthenticated) return <Navigate to={target} replace />;
 
-  const signIn = () => navigate('/login', { state: { from: { pathname: `/events/${id}` } } });
+  const signIn = () => navigate('/login', { state: { from: { pathname: `/events/${id}`, search: register ? '?register=1' : '' } } });
+  const signUp = () => {
+    // New accounts wait for approval; their first sign-in comes back to this event
+    rememberRegisterIntent(id);
+    navigate('/signup');
+  };
   const picture = imageSrc(event?.imageUrl);
 
   return (
@@ -131,7 +141,7 @@ export default function EventPreviewPage() {
                     Sign in to register
                   </Button>
                   {event.audience !== 'officers' && (
-                    <Button variant="outlined" fullWidth onClick={() => navigate('/signup')} sx={{ borderRadius: '12px', fontWeight: 700 }}>
+                    <Button variant="outlined" fullWidth onClick={signUp} sx={{ borderRadius: '12px', fontWeight: 700 }}>
                       Create an account
                     </Button>
                   )}

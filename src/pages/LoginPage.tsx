@@ -1,3 +1,4 @@
+import { takeRegisterIntent } from '../utils/registerIntent';
 import { useState, type FormEvent } from 'react';
 import { useNavigate, useLocation, Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
@@ -14,7 +15,7 @@ import { useAuth } from '../context/AuthContext';
 import { brand } from '../theme/theme';
 
 interface LocationState {
-  from?: { pathname: string };
+  from?: { pathname: string; search?: string };
 }
 
 export default function LoginPage() {
@@ -31,7 +32,8 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const from = (location.state as LocationState)?.from?.pathname ?? '/home';
+  const fromState = (location.state as LocationState)?.from;
+  const from = fromState?.pathname ? `${fromState.pathname}${fromState.search || ''}` : '/home';
 
   function validate(): boolean {
     const errors: { username?: string; password?: string } = {};
@@ -49,7 +51,9 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       await login({ username, password });
-      navigate(from, { replace: true });
+      // Came from an event's registration link before signing up: go to that event
+      const intent = from === '/home' ? takeRegisterIntent() : null;
+      navigate(intent ? `/events/${encodeURIComponent(intent)}?register=1` : from, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed.');
     } finally {

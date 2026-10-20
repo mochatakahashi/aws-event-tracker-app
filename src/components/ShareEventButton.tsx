@@ -32,9 +32,19 @@ export async function eventShareLink(eventId: string): Promise<string> {
 }
 
 /** The page link (works everywhere, no preview), used until the preview link is known. */
-function directLink(eventId: string): string {
+function directLink(eventId: string, register = false): string {
   const page = typeof window === 'undefined' ? '' : `${window.location.origin}${window.location.pathname}`;
-  return `${page}#/e/${encodeURIComponent(eventId)}`;
+  return `${page}#/e/${encodeURIComponent(eventId)}${register ? '?register=1' : ''}`;
+}
+
+/**
+ * The event's registration link: opens the event (sign in / sign up first if
+ * needed) with a one-tap Register. Same as the event's saved `externalUrl` when deployed.
+ */
+export async function eventRegisterLink(eventId: string): Promise<string> {
+  const origin = typeof window === 'undefined' ? '' : window.location.origin;
+  if (await isRemoteAvailable('/api/events')) return `${origin}/api/events?action=share&id=${encodeURIComponent(eventId)}&register=1`;
+  return directLink(eventId, true);
 }
 
 /**

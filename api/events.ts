@@ -127,9 +127,21 @@ function shareWhen(ev: any): string {
   return start === end ? `${start}, ${time(ev.startAt)}${ev.endAt ? ` - ${time(ev.endAt)}` : ''}` : `${start} - ${end}`;
 }
 
-function sharePage(appUrl: string, ev: any, id: string): string {
-  const target = `${appUrl}/#/e/${encodeURIComponent(id)}`;
-  const title = ev ? `${ev.title} | AWS SBG-APC` : 'AWS SBG-APC Event';
+/**
+ * The event's own registration link (stored as externalUrl): opens the event in the app,
+ * with sign in / sign up if needed, then a one-tap Register.
+ */
+function registrationLink(appUrl: string, id: string): string {
+  return `${appUrl}/api/events?action=share&id=${encodeURIComponent(id)}&register=1`;
+}
+
+function withRegistrationLink(appUrl: string, ev: any) {
+  return ev && ev.id && appUrl ? { ...ev, externalUrl: registrationLink(appUrl, ev.id) } : ev;
+}
+
+function sharePage(appUrl: string, ev: any, id: string, register = false): string {
+  const target = `${appUrl}/#/e/${encodeURIComponent(id)}${register ? '?register=1' : ''}`;
+  const title = ev ? `${register ? 'Register: ' : ''}${ev.title} | AWS SBG-APC` : 'AWS SBG-APC Event';
   const when = ev ? shareWhen(ev) : '';
   const about = ev ? String(ev.description || '').replace(/\s+/g, ' ').trim() : '';
   const desc = ev
@@ -144,9 +156,9 @@ function sharePage(appUrl: string, ev: any, id: string): string {
 <meta name="description" content="${esc(desc)}" />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="AWS SBG-APC Event Tracker" />
-<meta property="og:title" content="${esc(ev?.title || title)}" />
+<meta property="og:title" content="${esc(ev ? `${register ? 'Register: ' : ''}${ev.title}` : title)}" />
 <meta property="og:description" content="${esc(desc)}" />
-<meta property="og:url" content="${esc(`${appUrl}/api/events?action=share&id=${encodeURIComponent(id)}`)}" />
+<meta property="og:url" content="${esc(`${appUrl}/api/events?action=share&id=${encodeURIComponent(id)}${register ? '&register=1' : ''}`)}" />
 ${img ? `<meta property="og:image" content="${esc(img)}" />\n<meta name="twitter:card" content="summary_large_image" />` : '<meta name="twitter:card" content="summary" />'}
 <meta http-equiv="refresh" content="0; url=${esc(target)}" />
 <style>body{font-family:system-ui,sans-serif;margin:0;padding:40px 16px;text-align:center;color:#2b1840;background:#f7f3fb}a{color:#7b2fa8;font-weight:700}</style>
@@ -168,6 +180,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const { client, tableName } = getDynamoDocClient();
+    const reqHost = String(req.headers?.['x-forwarded-host'] || req.headers?.host || '');
+    const baseUrl = (process.env.APP_URL || (reqHost ? `https://${reqHost}` : '')).replace(/\/$/, '');
 
     // GET /api/events?action=share&id=...  → a small page with the event's link preview
     // (title, date, picture for Facebook / Messenger / Discord), then it opens the event in the app.
@@ -179,7 +193,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const ev = isOwnRecord(item) ? item : null;
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.setHeader('Cache-Control', 'public, max-age=300');
-      return res.status(ev ? 200 : 404).send(sharePage(appUrl, ev, id));
+      return res.status(ev ? 200 : 404).send(sharePage(appUrl, ev, id, req.query.register === '1'));
     }
 
     // GET /api/events or GET /api/events?id=...
@@ -195,7 +209,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!isOwnRecord(result.Item)) {
           return res.status(404).json({ error: 'Event not found' });
         }
-        return res.status(200).json(result.Item);
+        return res.status(200).json(withRegistrationLink(baseUrl, result.Item));
       }
 
       const result = await client.send(
@@ -207,7 +221,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         (item: any) =>
           item.entityType === 'event' || (!item.entityType && item.id && String(item.id).startsWith('evt-'))
       );
-      return res.status(200).json(events);
+      return res.status(200).json(events.map((e: any) => withRegistrationLink(baseUrl, e)));
     }
 
     // POST /api/events (Create)
@@ -224,6 +238,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       void _c;
       const itemToSave = pruneStaff({
         ...fields,
+        // The app's own registration link for this event
+        ...(baseUrl ? { externalUrl: registrationLink(baseUrl, id) } : {}),
         id,
         entityType: 'event',
         createdAt: event.createdAt || new Date().toISOString(),
@@ -294,6 +310,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const merged = pruneStaff({
         ...(existing.Item || {}),
         ...fieldUpdates,
+        ...(baseUrl ? { externalUrl: registrationLink(baseUrl, eventId) } : {}),
         id: eventId,
         entityType: 'event',
         updatedAt: new Date().toISOString(),

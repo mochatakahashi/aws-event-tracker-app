@@ -1,3 +1,4 @@
+import { useLocation } from 'react-router-dom';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Box from '@mui/material/Box';
@@ -72,6 +73,7 @@ function findTarget(step: TourStep): { el: HTMLElement | null; text: string } {
 export default function TutorialTour() {
   const { user, setCurrentUser } = useAuth();
   const steps = useMemo(() => (user ? tourSteps(user.role, isPartnerStaff(user)) : []), [user]);
+  const location = useLocation();
   const [mode, setMode] = useState<'off' | 'offer' | 'tour'>('off');
   const [index, setIndex] = useState(0);
   const [rect, setRect] = useState<Rect | null>(null);
@@ -92,14 +94,16 @@ export default function TutorialTour() {
       /* storage blocked */
     }
     if (user.mustChangePassword || !first) return;
+    // Came from a registration / evaluation link: let them do that first, offer the tour on the next page
+    if (/[?&](register|evaluate)=1/.test(location.search)) return;
     let seen = Boolean(user.tutorialSeen);
     try {
       seen = seen || localStorage.getItem(seenKey(user.personId)) === '1';
     } catch {
       /* storage blocked */
     }
-    if (!seen) setMode('offer');
-  }, [user]);
+    if (!seen) setMode((m) => (m === 'off' ? 'offer' : m));
+  }, [user, location.search]);
 
   useEffect(() => {
     const start = () => {

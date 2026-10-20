@@ -44,6 +44,7 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import Checkbox from '@mui/material/Checkbox';
 import ProgramFlowEditor from '../components/ProgramFlowEditor';
 import EvaluationEditor from '../components/EvaluationEditor';
+import RegistrationLinkCard from '../components/RegistrationLinkCard';
 import { getPeople } from '../services/registrationService';
 import { officerTitle } from '../utils/people';
 import type { Person } from '../types/attendee';
@@ -646,6 +647,15 @@ export default function EventBuilderPage() {
               onChange={handleChange('capacity')}
             />
           </Stack>
+
+          {/* Registration link: made automatically for every event */}
+          {isEditing && id ? (
+            <RegistrationLinkCard event={{ id, title: formData.title || 'Event' }} compact />
+          ) : (
+            <Alert severity="success" icon={false} sx={{ borderRadius: '12px' }} data-testid="registration-link-later">
+              <strong>Registration link:</strong> made automatically when you save. You'll find it (with a QR code for posters) on the event page.
+            </Alert>
+          )}
 
           <Alert severity="info" sx={{ borderRadius: '12px' }}>
             Officers, their role at the event and who can approve stamps or check people in are set on the event page
