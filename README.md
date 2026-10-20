@@ -108,9 +108,18 @@ There are no demo accounts. The app has one built-in admin, **`awsapc.admin`** (
 
 Everyone else signs up and waits for the admin to approve them.
 
-## ✉️ Email Notifications (Gmail or Amazon SES)
+## 🌐 Deployment status (October 2026)
 
-When `GMAIL_USER` and `GMAIL_APP_PASSWORD` are set, emails go through Gmail SMTP (Nodemailer); otherwise through Amazon SES. The Google **App Password must be created while signed in to the same account as `GMAIL_USER`** (that account needs 2-Step Verification), or Gmail rejects the login with error 535. In-app notifications work either way.
+- **Custom domain**: the app runs at **`https://apcsbg.org`** (the domain's DNS points the root and `www` records to Vercel).
+- **Amazon SES** (`ap-southeast-1`): the `apcsbg.org` domain is verified (DKIM records added to the domain's DNS) and emails are sent from **`notifications@apcsbg.org`**. Production access has been requested from AWS; until it's granted, SES only delivers to addresses verified in the SES console.
+- **Least-privilege keys**: SES uses a separate IAM user that can only send email (`ses:SendEmail` / `ses:SendRawEmail`). Its keys live only in Vercel's environment variables, never in the code or these docs.
+- **Vercel**: the SES keys, region and sender are set as environment variables and the app was redeployed.
+
+**Still to do after AWS approves production access**: set `EMAIL_PROVIDER=ses` (see below) so every email goes through SES, and set `APP_URL=https://apcsbg.org` so links in emails use the domain.
+
+## ✉️ Email Notifications (Amazon SES or Gmail)
+
+`EMAIL_PROVIDER` picks the sender: `ses` sends through Amazon SES (and, while SES is still in the sandbox, falls back to Gmail for addresses SES rejects, if Gmail is set up); `gmail` sends only through Gmail. When it isn't set, Gmail SMTP (Nodemailer) is used if `GMAIL_USER` and `GMAIL_APP_PASSWORD` are set, otherwise SES. The Google **App Password must be created while signed in to the same account as `GMAIL_USER`** (that account needs 2-Step Verification), or Gmail rejects the login with error 535. In-app notifications work either way.
 
 Emails are sent for: account approved / declined (with the reason), officer assigned to an event, new task, and every day at 8:00 AM (Manila) - event tomorrow, "see you today", and task due tomorrow. Officers get them on both their APC email and personal email. The admin inbox (`aws.apcofficial@gmail.com`) gets an email for every new sign-up waiting for approval, and a report if any reminder email fails or the daily job breaks.
 
@@ -120,13 +129,15 @@ Set these in Vercel → Settings → Environment Variables:
 | :--- | :--- | :--- |
 | `GMAIL_USER` | `aws.apcofficial@gmail.com` | Gmail sender (preferred when set) |
 | `GMAIL_APP_PASSWORD` | 16-character Google App Password | Created on the `GMAIL_USER` account |
-| `SES_FROM_EMAIL` | `AWS SBG-APC <aws.apcofficial@gmail.com>` | SES sender (used when Gmail isn't set); must be verified in Amazon SES |
+| `SES_FROM_EMAIL` | `AWS SBG-APC <notifications@apcsbg.org>` | SES sender; its domain must be verified in Amazon SES |
 | `SES_REGION` | `ap-southeast-1` | Optional; defaults to `APP_AWS_REGION` |
-| `APP_URL` | `https://your-app.vercel.app` | Optional; used for links in emails |
+| `SES_ACCESS_KEY_ID`, `SES_SECRET_ACCESS_KEY` | keys of the send-only IAM user | Optional; used only for SES. Without them SES uses `APP_AWS_*` |
+| `EMAIL_PROVIDER` | `ses` | Optional: `ses` or `gmail`. Unset: Gmail when set up, else SES |
+| `APP_URL` | `https://apcsbg.org` | Optional; used for links in emails |
 | `CRON_SECRET` | any long random string | Protects the daily reminder job (`vercel.json` → `crons`) |
 | `ADMIN_NOTIFY_EMAIL` | `aws.apcofficial@gmail.com` | Optional; admin alerts (new sign-ups waiting, failed emails). This is the default |
 
-The AWS access key also needs the `ses:SendEmail` permission. While SES is in sandbox mode it can only email verified addresses, so approval/decline emails to new users will fail (Manage Accounts shows a warning and the admin inbox gets a report). Request production access in the SES console (**Account dashboard → Request production access**) so every user can receive emails.
+Keep the send-only SES keys in `SES_ACCESS_KEY_ID` / `SES_SECRET_ACCESS_KEY`, **not** in `APP_AWS_*`: those keys also read and write DynamoDB and S3, which the send-only user can't. (Without dedicated SES keys, the `APP_AWS_*` user needs `ses:SendEmail`.) While SES is in sandbox mode it can only email verified addresses, so approval/decline emails to new users will fail (Manage Accounts shows a warning and the admin inbox gets a report). Request production access in the SES console (**Account dashboard → Request production access**) so every user can receive emails.
 
 ---
 
@@ -234,7 +245,7 @@ Set these in Vercel → Settings → Environment Variables, then redeploy:
 | `DYNAMODB_TABLE_NAME` | Table name (default `aws_events`) |
 | `AWS_S3_BUCKET_NAME` | Bucket for banners, photos and certificates (`certificates/<eventId>/<certificateId>.pdf`). The IAM user needs `s3:PutObject` and `s3:GetObject`; the bucket can stay private (pictures open through `/api/uploads?action=image`, certificates through signed links). Without it, certificates are generated on the fly instead of stored |
 | `ADMIN_PASSWORD` | First password for `awsapc.admin` |
-| `GMAIL_USER` + `GMAIL_APP_PASSWORD` or `SES_FROM_EMAIL`, and `CRON_SECRET` (+ optional `SES_REGION`, `APP_URL`, `ADMIN_NOTIFY_EMAIL`) | Email notifications - see above |
+| `SES_FROM_EMAIL` (+ `SES_ACCESS_KEY_ID` / `SES_SECRET_ACCESS_KEY`, `EMAIL_PROVIDER`) or `GMAIL_USER` + `GMAIL_APP_PASSWORD`, and `CRON_SECRET` (+ optional `SES_REGION`, `APP_URL`, `ADMIN_NOTIFY_EMAIL`) | Email notifications - see above |
 
 > The camera scanner needs the **https** app link (browsers only allow the camera on secure pages). On the deployed Vercel URL this works automatically.
 
@@ -258,7 +269,7 @@ Set these in Vercel → Settings → Environment Variables, then redeploy:
    }
    ```
 
-   The `certificates/*` line is **new in v0.6.0**. The SES statement is only needed if you use SES instead of Gmail.
+   The `certificates/*` line is **new in v0.6.0**. Leave out the SES statement when SES has its own send-only keys (`SES_ACCESS_KEY_ID` / `SES_SECRET_ACCESS_KEY`).
 3. **Gmail app password** - sign in to Google **as `aws.apcofficial@gmail.com`**, turn on 2-Step Verification, create an App Password at `myaccount.google.com/apppasswords`, and paste it into `GMAIL_APP_PASSWORD`. A password created on any other Google account fails with error 535.
 4. **S3 bucket CORS** (already needed for image uploads) must allow `PUT` from your Vercel domain. Certificate downloads use signed links, so the bucket can stay private.
 5. **Cron** - `CRON_SECRET` set; `vercel.json` already schedules `/api/notify` daily at 8:00 AM Manila.

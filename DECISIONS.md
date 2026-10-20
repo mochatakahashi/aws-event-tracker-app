@@ -467,5 +467,25 @@ The app uses hash routes (`/#/...`), which social apps can't read, so a pasted e
 
 ---
 
+## ADR-024: Amazon SES on the Club's Own Domain, with Send-only Keys and a Gmail Fallback
+
+### Status
+**Accepted** (v0.6.26). SES production access requested.
+
+### Context
+Emails were sent from a Gmail account with an App Password: daily sending limits, and messages from a personal-looking address. The club bought `apcsbg.org` and set up Amazon SES for it.
+
+### Decision
+- Send from **`notifications@apcsbg.org`** through SES in `ap-southeast-1`, with the domain verified by DKIM.
+- SES gets its **own IAM user that can only send email**, with keys in `SES_ACCESS_KEY_ID` / `SES_SECRET_ACCESS_KEY`. The app's DynamoDB / S3 keys stay separate, so neither key can do the other's job.
+- `EMAIL_PROVIDER` switches between SES and Gmail without code changes. While SES is still in the sandbox, `ses` falls back to Gmail for rejected recipients.
+- Keys and account details live only in Vercel's environment variables, never in the repository or docs.
+
+### Consequences
+- **Positive**: emails come from the club's domain, with higher limits and better deliverability; a leaked SES key can only send email.
+- **Negative**: two sets of AWS keys to manage and rotate; until production access is granted, SES only reaches verified addresses (Gmail covers the rest).
+
+---
+
 *Last Updated: October 2026*
 

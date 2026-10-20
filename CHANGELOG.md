@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.26] - 2026-10-20
+
+### Added
+- **Custom domain and Amazon SES (done outside the code)**: the app runs on `apcsbg.org`; SES is set up in `ap-southeast-1` with the domain verified (DKIM) and `notifications@apcsbg.org` as the sender; production access is requested from AWS; a separate send-only IAM user's keys, the region and the sender are stored in Vercel's environment variables.
+- **`SES_ACCESS_KEY_ID` / `SES_SECRET_ACCESS_KEY`**: SES can use its own send-only keys, separate from the app's DynamoDB / S3 keys (`APP_AWS_*`).
+- **`EMAIL_PROVIDER`** (`ses` or `gmail`): choose the sender. With `ses`, an email SES rejects (for example while still in the sandbox) is sent through Gmail instead, if Gmail is set up.
+
+### Changed
+- Docs: deployment status, the new email settings, and examples use `notifications@apcsbg.org` and `https://apcsbg.org`. No keys or private details are in the docs.
+
+---
+
 ## [0.6.25] - 2026-10-20
 
 ### Added

@@ -143,7 +143,7 @@ graph TD
 
 ### 4. Notifications - email (Gmail SMTP / Amazon SES) and in-app
 
-Emails go through Gmail SMTP when `GMAIL_USER` + `GMAIL_APP_PASSWORD` are set, otherwise Amazon SES. In-app notifications (the bell) are written by the page that performed the action:
+Emails go through Amazon SES (domain `apcsbg.org`, sender `notifications@apcsbg.org`, region `ap-southeast-1`) or Gmail SMTP. `EMAIL_PROVIDER` chooses (`ses` / `gmail`; unset = Gmail when set up, else SES). SES uses its own send-only keys (`SES_ACCESS_KEY_ID` / `SES_SECRET_ACCESS_KEY`) when set, else `APP_AWS_*`; with `EMAIL_PROVIDER=ses`, a rejected SES send (sandbox) falls back to Gmail when configured. The app is served on the custom domain `https://apcsbg.org` (Vercel); `APP_URL` sets the links in emails. In-app notifications (the bell) are written by the page that performed the action:
 
 | In-app notification | Recipient | Created by |
 | :--- | :--- | :--- |

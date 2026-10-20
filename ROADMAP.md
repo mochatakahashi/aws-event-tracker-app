@@ -119,9 +119,10 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 ## 🔮 Upcoming Milestones & Next Steps
 
 ### 🚧 Version 0.6.5 - On-site Extras & Email Notification Delivery
-- [ ] **Instant Email Delivery via Official AWS Email (Amazon SES)**: Migrate email delivery from personal Gmail App Password to the official AWS sender address through Amazon SES for instant automated notifications (account approval/decline with reason, event assignments, officer tasks, and daily cron reminders).
+- [ ] **Instant Email Delivery via Official AWS Email (Amazon SES)**: Migrate email delivery from personal Gmail App Password to the official AWS sender address through Amazon SES. **In progress**: domain `apcsbg.org` verified in SES (DKIM), sender `notifications@apcsbg.org`, send-only IAM keys in Vercel, `EMAIL_PROVIDER` switch with Gmail fallback (v0.6.26); waiting for AWS to grant production access, then set `EMAIL_PROVIDER=ses`.
+- [x] **Custom domain**: the app runs on `https://apcsbg.org`.
 - [x] **Approve stamps from the scanner** (officer picks the session and approves on the spot).
-- [ ] **`.ics` attached to event emails** and a custom email domain for deliverability.
+- [ ] **`.ics` attached to event emails** (the custom email domain is done: `apcsbg.org`).
 - [x] **Certificate verification page** (`/#/verify/:id`, QR code on every certificate).
 - [x] **Builder Leaderboard & achievement badges** (moved up from v1.0.0).
 - [x] **Event Picture Storage & Recent Uploads Shelf**: IndexedDB persistent client storage and `/api/uploads` DynamoDB endpoint showing recent uploads on load with 1-click banner application.
@@ -170,7 +171,8 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 | Certificate of Participation (PDF → S3) | v0.6.0 | ✅ Completed | Medium |
 | Stamp Approval from Scanner | v0.6.5 | ✅ Completed | Medium |
 | Certificate Verification Page | v0.6.5 | ✅ Completed | Medium |
-| Instant Email via AWS Email (SES) | v0.6.5 | ⏳ Pending (AWS Email Setup) | High |
+| Instant Email via AWS Email (SES) | v0.6.26 | 🚧 Domain verified, waiting for SES production access | High |
+| Custom domain (apcsbg.org) | v0.6.26 | ✅ Completed | High |
 | Offline PWA Support | v0.6.5 | ⏳ Planned | Medium |
 | Real-Time Stamp Notifications | v0.7.0 | ⏳ Planned | High |
 | AWS Cognito Authentication | v0.7.0 | ⏳ Planned | High |

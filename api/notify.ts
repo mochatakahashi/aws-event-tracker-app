@@ -23,8 +23,12 @@ import nodemailer from 'nodemailer';
  * Environment variables:
  *   GMAIL_USER          Gmail address (e.g. aws.apcofficial@gmail.com)
  *   GMAIL_APP_PASSWORD  16-character Google App Password (prefers Gmail SMTP if set)
- *   SES_FROM_EMAIL      verified SES sender, e.g. "AWS SBG-APC <aws.apcofficial@gmail.com>"
+ *   SES_FROM_EMAIL      verified SES sender, e.g. "AWS SBG-APC <notifications@apcsbg.org>"
  *   SES_REGION          SES region (defaults to APP_AWS_REGION / ap-southeast-1)
+ *   SES_ACCESS_KEY_ID / SES_SECRET_ACCESS_KEY  optional send-only IAM keys for SES
+ *                       (otherwise the app's APP_AWS_* keys are used)
+ *   EMAIL_PROVIDER      'ses' or 'gmail' (unset: Gmail when set up, else SES). With 'ses',
+ *                       a failed SES send (e.g. sandbox) falls back to Gmail when it's set up.
  *   APP_URL             public app URL for links (defaults to this deployment's host)
  *   CRON_SECRET         protects the daily cron call (Vercel sends it automatically)
  *   ADMIN_NOTIFY_EMAIL  where admin alerts go (new sign-ups, failed emails);
@@ -90,48 +94,65 @@ async function sendMail(mail: Mail, appUrl: string): Promise<boolean> {
     .join('\n');
   const html = renderHtml(mail, appUrl);
 
-  // 1. Prefer Gmail SMTP (Nodemailer) when GMAIL_USER + GMAIL_APP_PASSWORD are set.
-  //    Kept in this file on purpose: Vercel functions here are self-contained
-  //    (an extensionless import like '../lib/mail' fails under "type": "module").
+  // Which service sends: EMAIL_PROVIDER = 'ses' | 'gmail' | (unset: Gmail when set up, else SES).
+  // Kept in this file on purpose: Vercel functions here are self-contained
+  // (an extensionless import like '../lib/mail' fails under "type": "module").
   const gmailUser = process.env.GMAIL_USER?.trim();
   const gmailPass = process.env.GMAIL_APP_PASSWORD?.replace(/\s+/g, '');
-  if (gmailUser && gmailPass) {
-    const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: gmailUser, pass: gmailPass } });
+  const hasGmail = Boolean(gmailUser && gmailPass);
+  const from = process.env.SES_FROM_EMAIL?.trim();
+  const provider = (process.env.EMAIL_PROVIDER || '').trim().toLowerCase();
+  const useSes = Boolean(from) && (provider === 'ses' || (provider !== 'gmail' && !hasGmail));
+
+  const viaGmail = async () => {
+    const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: gmailUser!, pass: gmailPass! } });
     await transporter.sendMail({
       from: `"AWS SBG-APC" <${gmailUser}>`,
       to: to.join(', '),
       // Keep a copy in the club inbox (skip when the club inbox is already the recipient).
-      ...(to.includes(gmailUser.toLowerCase()) ? {} : { cc: gmailUser }),
+      ...(to.includes(gmailUser!.toLowerCase()) ? {} : { cc: gmailUser }),
       replyTo: gmailUser,
       subject: mail.subject,
       html,
       text,
     });
     return true;
+  };
+
+  if (useSes) {
+    // Amazon SES (domain apcsbg.org). Its own send-only keys when set, else the app's AWS keys.
+    const sesKey = process.env.SES_ACCESS_KEY_ID?.trim();
+    const sesSecret = process.env.SES_SECRET_ACCESS_KEY?.trim();
+    const ses = new SESv2Client({
+      region: process.env.SES_REGION || process.env.APP_AWS_REGION || process.env.AWS_REGION || 'ap-southeast-1',
+      credentials: sesKey && sesSecret ? { accessKeyId: sesKey, secretAccessKey: sesSecret } : awsConfig(),
+    });
+    try {
+      await ses.send(
+        new SendEmailCommand({
+          FromEmailAddress: from,
+          Destination: { ToAddresses: to },
+          // Replies (e.g. "I fixed my email") go to the org inbox.
+          ReplyToAddresses: [ADMIN_NOTIFY_EMAIL],
+          Content: {
+            Simple: {
+              Subject: { Data: mail.subject, Charset: 'UTF-8' },
+              Body: { Html: { Data: html, Charset: 'UTF-8' }, Text: { Data: text, Charset: 'UTF-8' } },
+            },
+          },
+        })
+      );
+      return true;
+    } catch (err) {
+      // e.g. still in the SES sandbox (only verified addresses): use Gmail when it's set up
+      if (!hasGmail) throw err;
+      console.warn('SES send failed, sending through Gmail instead:', err);
+      return viaGmail();
+    }
   }
 
-  // 2. Fallback to Amazon SES
-  const from = process.env.SES_FROM_EMAIL;
-  if (!from) return false;
-  const ses = new SESv2Client({
-    region: process.env.SES_REGION || process.env.APP_AWS_REGION || process.env.AWS_REGION || 'ap-southeast-1',
-    credentials: awsConfig(),
-  });
-  await ses.send(
-    new SendEmailCommand({
-      FromEmailAddress: from,
-      Destination: { ToAddresses: to },
-      // Replies (e.g. "I fixed my email") go to the org inbox.
-      ReplyToAddresses: [ADMIN_NOTIFY_EMAIL],
-      Content: {
-        Simple: {
-          Subject: { Data: mail.subject, Charset: 'UTF-8' },
-          Body: { Html: { Data: html, Charset: 'UTF-8' }, Text: { Data: text, Charset: 'UTF-8' } },
-        },
-      },
-    })
-  );
-  return true;
+  if (hasGmail && provider !== 'ses') return viaGmail();
+  return false;
 }
 
 // ─── Data helpers ─────────────────────────────────────────────────────────────
