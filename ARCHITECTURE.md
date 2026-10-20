@@ -153,6 +153,9 @@ Emails go through Gmail SMTP when `GMAIL_USER` + `GMAIL_APP_PASSWORD` are set, o
 | New task | Assigned officers | Officer Tasks |
 | Stamp approved / declined | The attendee | Officer Dashboard |
 | Checked in (certificate ready) | The attendee | Event Desk |
+| Announcement (officers or everyone) | Its audience | `api/notifications.ts` (`action=announce`) |
+| Answer the evaluation / certificate ready | Each checked-in attendee, once, after the event | `api/notify.ts` (`after-event`, daily cron) |
+| Certificate ready after answering | The attendee | `api/registrations.ts` (`action=evaluate`) |
 
 Emails:
 | Trigger | Recipients | Sent by |
@@ -163,6 +166,7 @@ Emails:
 | New task | Assigned officers | Officer Tasks → `/api/notify` |
 | Event tomorrow / "See you today" | Registered attendees + assigned officers | Daily Vercel Cron → `/api/notify` |
 | Task due tomorrow | Assigned officers | Daily Vercel Cron |
+| Answer the evaluation to get your certificate / certificate ready | Checked-in attendees, once per event | After-event run (app load, max every 5 min) + daily Vercel Cron |
 | Failed reminders / daily job error | Admin inbox | Daily Vercel Cron |
 
 Each reminder is sent once (flags stored on the event/task); moving an event's date re-arms its reminders. Without Gmail or `SES_FROM_EMAIL` settings, no email is sent and the app says so (in-app notifications still work).
@@ -219,6 +223,20 @@ sequenceDiagram
 
 ---
 
+### 6. Event info, announcements, saved copy, evaluation and sharing (v0.6.16 - v0.6.22)
+
+- **Official event info** (`src/data/clubEventInfo.ts`, mirrored in `api/seed.ts` as `CLUB_EVENT_INFO` with a `version`): `GET /api/seed` lists events whose `infoVersion` is older (`outdatedEvents`); Admin Home's **Update them** calls `POST /api/seed?action=update-events` (admin), which fills descriptions, dates, venues, co-organizers, participants, `programFlow` rows and speakers, keeping pictures and staff lists. Events carry `programFlow` (`{time, duration, activity, personInCharge}[]`, max 60 rows, cleaned in `pruneStaff`), shown by `ProgramFlowTable` and edited by `ProgramFlowEditor` (paste from a document → `parseProgramFlow`).
+- **Officers-only events**: `audience: 'officers'`. Everyone sees them; `POST /api/registrations` refuses attendees; the event page hides the participant count and explains why.
+- **Pinned announcements** (`entityType: 'announcement'`, `api/notifications.ts`): `POST ?action=announce` stores `audience` (`officers`, or `everyone` for admins) and `expiresAt` (24 hours); `GET ?action=announcements` gives staff everything and members only `everyone`; `PUT ?action=announcement-edit` (author or admin). The bell notifications go out with `BatchWriteCommand` (25 per request, 4 at a time). `AnnouncementBanner` (top of every dashboard) shows the pinned ones with Edit / Remove; `AnnouncementsCard` posts and lists the earlier ones. Both reload on the `ANNOUNCEMENTS_CHANGED` window event.
+- **Saved copy when the database is down** (`services/apiClient.ts`): GET responses are kept in `localStorage` (`aws-event-tracker.cache.v1:<url>`, up to 1.5 MB each). `cachedGet()` and `apiJson()` return the saved copy on a network error or a 5xx, and fire `OFFLINE_EVENT`, which `OfflineNotice` turns into a banner. Writes are never faked: they show the error. `isRemoteAvailable()` treats any JSON answer except 503 as "the API exists". `clearSavedCopies()` runs on sign-out.
+- **Sign-in tracking**: login saves `lastLoginAt` and `loginCount` and returns `firstSignIn` (no earlier sign-in, tour not seen, account under 14 days old). `TutorialTour` only offers the tour when `firstSignIn` is set; Admin Home shows "Last signed in ...".
+- **Pictures**: every avatar goes through `imageSrc()` (private S3 links → `/api/uploads?action=image`). If the S3 upload fails, the profile photo is saved as a small JPEG data URL (≤ 120 KB, 480 px) on the account.
+- **Event evaluation** (`types/evaluation.ts`, `utils/evaluation.ts`, mirrored in `api/registrations.ts` and `api/notify.ts`): the event's `evaluation` (`{enabled, questions[]}`; missing = the standard questions, without the speakers question when the event has no speakers) is cleaned in `pruneStaff` (≤ 25 questions; types `rating` 1-5, `yesno`, `choice` with 2-10 options, `text`). Routes on `/api/registrations`: `GET ?action=evaluation&eventId&personId`, `POST ?action=evaluate` (registered + checked in, opens 30 minutes before `endAt`, once, answers validated) which saves `entityType: 'evaluation'` (`id: evl-<registrationId>`) and sets `registration.evaluatedAt` (the normal `PUT` can't set it), and `GET ?action=evaluations&eventId&actorId` (admin, adviser, the event's officers). **Certificates** (`action=certificate`, `action=verify`, and `certificateState()` on the client) need `evaluatedAt` when the evaluation is required: enabled and the event ends on or after `EVAL_REQUIRED_FROM` (2026-10-20), so older events keep their certificates. UI: `CertificateButton` (prompt + `EvaluationDialog`, re-checks every 30 s, `?evaluate=1` opens the form), Dashboard alerts, `EvaluationEditor` in the event form, `EvaluationResults` (averages, counts, written answers, who's missing, CSV) on the event page.
+- **After-event notices** (`afterEventNotices` in `api/notify.ts`): for events that ended in the last 7 days, each checked-in registration gets one bell + email, "answer the evaluation" (kind `evaluation`, link `/events/<id>?evaluate=1`) or "certificate ready", marked with `afterEventNoticeAt` so a run cut short (8-second budget) continues without duplicates; the event gets `remindersSent.certificates` when everyone is done. It runs from the daily cron and from `POST /api/notify {type:'after-event'}`, which every signed-in app load calls (`nudgeAfterEventNotices`, once per 10 minutes per tab) and the server limits to once per 5 minutes (`sys-after-event-sweep` record). Answering after the event posts "certificate ready" right away.
+- **Sharing** (`components/ShareEventButton.tsx`): the link is `/api/events?action=share&id=<event>` when the API is live, an HTML page with Open Graph tags (title, date, venue, description, picture through `/api/uploads?action=image`) that redirects to `/#/e/<event>`. `EventPreviewPage` (public route) shows the event to signed-out visitors with Sign in (returns to `/events/<id>`) / Create an account, and sends signed-in people to the event page. Phones use `navigator.share`; laptops get Copy link / Facebook / email.
+
+---
+
 ## 🗄️ Entity Relationship Diagram (ERD)
 
 ```mermaid
@@ -242,6 +260,10 @@ erDiagram
         map officerRoles
         list stampOfficerIds
         list checkinOfficerIds
+        string audience
+        list programFlow
+        map evaluation
+        int infoVersion
     }
 
     Session {
@@ -271,6 +293,8 @@ erDiagram
         list connections
         list savedEventIds
         list awards
+        string lastLoginAt
+        int loginCount
         string memberType
         string studentId
         string organization
@@ -301,6 +325,28 @@ erDiagram
         string checkedInBy FK
         string certificateId
         string certificateKey
+        string evaluatedAt
+        string afterEventNoticeAt
+    }
+
+    Evaluation {
+        string id PK
+        string eventId FK
+        string personId FK
+        string registrationId FK
+        map answers
+        string submittedAt
+    }
+
+    Announcement {
+        string id PK
+        string audience
+        string title
+        string message
+        string authorId FK
+        string createdAt
+        string expiresAt
+        string editedAt
     }
 
     Notification {
@@ -319,6 +365,8 @@ erDiagram
         string avatarUrl
     }
 
+    Registration ||--o| Evaluation : answers
+    User ||--o{ Announcement : posts
     User ||--o{ OfficerTask : "assigned to"
     User ||--o{ Notification : receives
     AppEvent ||--o{ Speaker : features
@@ -331,11 +379,12 @@ erDiagram
 
 | Role | Permissions |
 | :--- | :--- |
-| **public (signed out)** | Welcome, sign-in, sign-up, and **certificate verification** (`/verify/:id`). |
+| **public (signed out)** | Welcome, sign-in, sign-up, **certificate verification** (`/verify/:id`) and **shared event pages** (`/e/:id`, `/api/events?action=share`). |
 | **any signed-in account with a temporary password** | Only **Set your own password** (`/change-password`) until it's changed. |
-| **`attendee`** | View schedule, request stamps, edit personal bio/socials, view own stamp card, show the QR event pass, add events to a calendar, download own certificate after check-in, read own notifications, view the **leaderboard** and own badges. |
+| **`attendee`** | View schedule, request stamps, edit personal bio/socials, view own stamp card, show the QR event pass, add events to a calendar, answer the event evaluation (opens 30 minutes before the end) and download own certificate after check-in and the evaluation, share events, read own notifications, view the **leaderboard** and own badges. |
 | **`officer`** | All attendee privileges + `OfficerDashboardPage`: see and complete assigned tasks, approve/decline stamp requests and check attendees in (in the **Event Desk**, `/officer/scan` - stamps only after check-in) **only at events where an admin put them on the staff list for that duty**, update their **Content Tracker** items (status, file link, notes). |
-| **`admin`** | All officer privileges + approve/decline sign-ups (optional reason), change roles and delete accounts (`/admin`), monitor attendees and stamp finishers with Excel export (`/admin/attendees`), officer achievements, archive batches (`/admin/officers`), assign officer tasks (`/admin/tasks`), edit events, assign officers and set the **event staff list** (who can approve stamps / check in), **award officer badges**, send reminders. |
+| **`adviser`** | View-only dashboard, post announcements to the officers, review sign-off requests, see evaluation results. |
+| **`admin`** | All officer privileges + edit evaluation forms, see evaluation results, post announcements (officers or everyone) and edit them, approve/decline sign-ups (optional reason), change roles and delete accounts (`/admin`), monitor attendees and stamp finishers with Excel export (`/admin/attendees`), officer achievements, archive batches (`/admin/officers`), assign officer tasks (`/admin/tasks`), edit events, assign officers and set the **event staff list** (who can approve stamps / check in), **award officer badges**, send reminders. |
 
 The built-in admin is `awsapc.admin` (password from `ADMIN_PASSWORD`). There are no demo accounts. Admin actions - and check-ins (`/api/registrations?action=checkin`, officer or admin) - are checked on the server against the acting account's role; the app does not yet use signed sessions (see ADR-008). A certificate can only be downloaded by its owner or by an officer/admin.
 

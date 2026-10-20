@@ -100,6 +100,62 @@ async function getAdmin(client: DynamoDBDocumentClient, tableName: string, actor
   return actor?.entityType === 'user' && actor.role === 'admin' && (actor.status ?? 'approved') === 'approved' ? actor : null;
 }
 
+
+// ─── Share link ───────────────────────────────────────────────────────────────
+
+const esc = (v: unknown) =>
+  String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+
+/** An absolute link to the event picture that link previews can load (not the in-record data: pictures). */
+function shareImage(appUrl: string, url: unknown): string {
+  const u = typeof url === 'string' ? url : '';
+  const s3 = u.match(/^https:\/\/[a-z0-9.-]+\.s3[.-]([a-z0-9-]+\.)?amazonaws\.com\/(events\/[\w.-]+)$/i);
+  if (s3) return `${appUrl}/api/uploads?action=image&key=${encodeURIComponent(s3[2])}`;
+  if (/^https?:\/\//i.test(u)) return u;
+  if (u.startsWith('/')) return `${appUrl}${u}`;
+  return '';
+}
+
+function shareWhen(ev: any): string {
+  if (!ev?.startAt) return '';
+  const day = (iso: string) =>
+    new Date(iso).toLocaleDateString('en-US', { timeZone: 'Asia/Manila', weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  const time = (iso: string) => new Date(iso).toLocaleTimeString('en-US', { timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit' });
+  const start = day(ev.startAt);
+  const end = ev.endAt ? day(ev.endAt) : start;
+  return start === end ? `${start}, ${time(ev.startAt)}${ev.endAt ? ` - ${time(ev.endAt)}` : ''}` : `${start} - ${end}`;
+}
+
+function sharePage(appUrl: string, ev: any, id: string): string {
+  const target = `${appUrl}/#/e/${encodeURIComponent(id)}`;
+  const title = ev ? `${ev.title} | AWS SBG-APC` : 'AWS SBG-APC Event';
+  const when = ev ? shareWhen(ev) : '';
+  const about = ev ? String(ev.description || '').replace(/\s+/g, ' ').trim() : '';
+  const desc = ev
+    ? [when, ev.venue, about].filter(Boolean).join(' · ').slice(0, 280)
+    : 'Events by the AWS Student Builder Group - Asia Pacific College.';
+  const img = ev ? shareImage(appUrl, ev.imageUrl) : '';
+  return `<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>${esc(title)}</title>
+<meta name="description" content="${esc(desc)}" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="AWS SBG-APC Event Tracker" />
+<meta property="og:title" content="${esc(ev?.title || title)}" />
+<meta property="og:description" content="${esc(desc)}" />
+<meta property="og:url" content="${esc(`${appUrl}/api/events?action=share&id=${encodeURIComponent(id)}`)}" />
+${img ? `<meta property="og:image" content="${esc(img)}" />\n<meta name="twitter:card" content="summary_large_image" />` : '<meta name="twitter:card" content="summary" />'}
+<meta http-equiv="refresh" content="0; url=${esc(target)}" />
+<style>body{font-family:system-ui,sans-serif;margin:0;padding:40px 16px;text-align:center;color:#2b1840;background:#f7f3fb}a{color:#7b2fa8;font-weight:700}</style>
+</head><body>
+<p>Opening <strong>${esc(ev?.title || 'the event')}</strong>…</p>
+<p><a href="${esc(target)}">Tap here if it doesn't open</a></p>
+<script>location.replace(${JSON.stringify(target).replace(/</g, '\\u003c')});</script>
+</body></html>`;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -111,6 +167,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const { client, tableName } = getDynamoDocClient();
+
+    // GET /api/events?action=share&id=...  → a small page with the event's link preview
+    // (title, date, picture for Facebook / Messenger / Discord), then it opens the event in the app.
+    if (req.method === 'GET' && req.query.action === 'share') {
+      const id = typeof req.query.id === 'string' ? req.query.id : '';
+      const host = String(req.headers?.['x-forwarded-host'] || req.headers?.host || '');
+      const appUrl = (process.env.APP_URL || (host ? `https://${host}` : '')).replace(/\/$/, '');
+      const item = id ? (await client.send(new GetCommand({ TableName: tableName, Key: { id } }))).Item : undefined;
+      const ev = isOwnRecord(item) ? item : null;
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=300');
+      return res.status(ev ? 200 : 404).send(sharePage(appUrl, ev, id));
+    }
 
     // GET /api/events or GET /api/events?id=...
     if (req.method === 'GET') {

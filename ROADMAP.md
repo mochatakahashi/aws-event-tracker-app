@@ -106,6 +106,16 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 
 ---
 
+### ✅ Versions 0.6.16 - 0.6.22 - Event Info, Announcements, Evaluation & Sharing
+- [x] **Event duty card** for assigned officers and co-organizer staff (v0.6.16).
+- [x] **Program flow table** and the club's official event info applied by the admin (v0.6.17 - v0.6.18).
+- [x] **Officers-only events** (v0.6.19).
+- [x] **Pinned announcements** (24 hours, editable, officers or everyone), **saved copy when the database is down**, **last sign-in** for admins, tour only on the first sign-in, type-in session speakers, profile photo fix, officer comments on all their tasks (v0.6.20).
+- [x] **Event evaluation** required for the certificate, with reminders after the event and results with CSV (v0.6.21).
+- [x] **Share an event** with link previews and a public event page (v0.6.22).
+
+---
+
 ## 🔮 Upcoming Milestones & Next Steps
 
 ### 🚧 Version 0.6.5 - On-site Extras & Email Notification Delivery
@@ -131,7 +141,7 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 ### 🚀 Version 1.0.0 - Leaderboard, Gamification & Certificates
 - [x] **Builder Leaderboard & Badges**: delivered in v0.6.5.
 - [ ] **Certificate of Completion**: a second certificate for attendees who complete 100% of event stamps.
-- [ ] **Multi-Event Analytics**: Officer/Admin reporting dashboard showing attendance retention and workshop completion rates.
+- [ ] **Multi-Event Analytics**: Officer/Admin reporting dashboard showing attendance retention, workshop completion rates and evaluation trends across events.
 
 ---
 
@@ -179,6 +189,12 @@ To provide AWS Student Builder Group members at Asia Pacific College with an int
 | Co-organizer staff, officer-added tasks, profile editing, desk badge fix | v0.6.13 | ✅ Completed | High |
 | Adviser account (announcements, sign-off), task comments, deadlines & reminders | v0.6.14 | ✅ Completed | High |
 | Speakers linked to accounts, session move / misplaced-session fix | v0.6.15 | ✅ Completed | Medium |
+| Event duty card (officers / co-organizer staff) | v0.6.16 | ✅ Completed | Medium |
+| Program flow table & official event info | v0.6.17 | ✅ Completed | High |
+| Officers-only events | v0.6.19 | ✅ Completed | Medium |
+| Pinned announcements, saved copy when offline, last sign-in | v0.6.20 | ✅ Completed | High |
+| Event evaluation (certificate gate, reminders, results) | v0.6.21 | ✅ Completed | High |
+| Share an event (link previews, public event page) | v0.6.22 | ✅ Completed | Medium |
 | Certificate of Completion (100% stamps) | v1.0.0 | ⏳ Planned | Low |
 
 ---

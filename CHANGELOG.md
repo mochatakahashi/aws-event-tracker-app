@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.22] - 2026-10-20
+
+### Added
+- **Share an event**: a **Share** button on every event page. On phones it opens the phone's share sheet (Messenger, Facebook, Instagram, SMS...); on laptops it offers **Copy link**, **Share on Facebook** and **Send by email**.
+- **Link previews**: the shared link (`/api/events?action=share&id=...`) shows the event's title, date, venue and picture when pasted in Messenger, Facebook or Discord, then opens the event.
+- **Public event page** (`/#/e/<event>`): people without an account see the event (picture, date, venue, description, co-organizers) with **Sign in to register** and **Create an account**. After signing in they land on the event page. Signed-in people go straight to the event page. Officers-only events say it's an internal meeting.
+
+---
+
 ## [0.6.21] - 2026-10-20
 
 ### Added

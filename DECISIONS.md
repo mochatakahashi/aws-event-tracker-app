@@ -390,5 +390,80 @@ The org's adviser wants to follow how the org is doing, approve documents ("papi
 
 ---
 
+## ADR-020: Official Event Info as a Versioned Data File the Admin Applies
+
+### Status
+**Accepted** (v0.6.17)
+
+### Context
+The officers gave the official details of existing events (descriptions, dates, venues, program flow, speakers). The live database can't be edited from the development environment, and the details keep changing.
+
+### Decision
+- The details live in `src/data/clubEventInfo.ts` (mirrored in `api/seed.ts`) with a **version number**; events store the `infoVersion` they have.
+- Admin Home shows "N events have older info" and **Update them** applies it (admin-only), keeping pictures, staff lists and anything not in the file.
+- Nothing is made up: details the club hasn't given are left empty and asked for.
+
+### Consequences
+- **Positive**: one reviewed source, applied once by an admin, repeatable after each change.
+- **Negative**: an admin's later manual edit to a field in the file is overwritten when a newer version is applied.
+
+---
+
+## ADR-021: Saved Copy of the Last Good Data Instead of Static Info for Old Events
+
+### Status
+**Accepted** (v0.6.20)
+
+### Context
+If DynamoDB (or the connection) fails, pages went blank or fell back to the old built-in sample data. Hard-coding old events in the app was considered.
+
+### Decision
+- Every successful GET is saved in the browser; on a network error or a 5xx the saved copy is shown with a notice and the time it was saved.
+- **Writes are not faked offline**: they show an error instead of saving only on that device.
+- The built-in club info stays only as the last resort for a browser that never loaded the data. Saved copies are cleared on sign-out.
+
+### Consequences
+- **Positive**: one source of truth (the database); admin edits are never shadowed by code; pages keep working through short outages.
+- **Negative**: a device that never opened a page has no copy of it; data can be stale until the database is back.
+
+---
+
+## ADR-022: Evaluation Gates the Certificate, with Reminders Triggered by App Use
+
+### Status
+**Accepted** (v0.6.21)
+
+### Context
+The club wants every attendee to answer the event evaluation, opening 30 minutes before the end, and no certificate without it. Vercel Hobby crons run only once a day.
+
+### Decision
+- The form is **built into the app** (standard questions, editable per event), so completion is known and the certificate can be locked **server-side** (download and public verify).
+- It applies to events ending from 2026-10-20 on; older certificates stay valid. An admin can turn it off per event.
+- After the event, one reminder (bell + email) per checked-in attendee who hasn't answered. Besides the daily cron, any signed-in page load asks the server to run the after-event notices (at most every 5 minutes, per-person flags, 8-second budget), so reminders go out soon after an event ends.
+
+### Consequences
+- **Positive**: complete feedback, results and CSV in the app, no Google Form to reconcile.
+- **Negative**: reminder timing depends on someone opening the app (otherwise 8 AM the next day); answers can't be changed after submitting.
+
+---
+
+## ADR-023: Share Links Go Through the API for Link Previews
+
+### Status
+**Accepted** (v0.6.22)
+
+### Context
+The app uses hash routes (`/#/...`), which social apps can't read, so a pasted event link showed no preview. Signed-out people opening a link only saw the sign-in page.
+
+### Decision
+- The shared link is `/api/events?action=share&id=...`: a tiny HTML page with Open Graph tags (title, date, venue, picture) that redirects to `/#/e/<id>` (no new serverless function: 12-function limit).
+- `/#/e/<id>` is a **public preview** with Sign in (returns to the event) / Create an account; signed-in people go to the event page.
+
+### Consequences
+- **Positive**: rich previews in Messenger / Facebook / Discord, and a friendly landing page for new people.
+- **Negative**: event pictures saved inside the record (no S3) can't be used as previews; event details are visible without signing in (same as a public poster).
+
+---
+
 *Last Updated: October 2026*
 

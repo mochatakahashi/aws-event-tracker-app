@@ -49,6 +49,7 @@ import RecentUploadsShelf from '../components/RecentUploadsShelf';
 import InlinePass from '../components/InlinePass';
 import EventStaffPanel from '../components/EventStaffPanel';
 import EvaluationResults from '../components/EvaluationResults';
+import ShareEventButton from '../components/ShareEventButton';
 import EventDutyCard from '../components/EventDutyCard';
 import Chip from '@mui/material/Chip';
 import ProgramFlowTable from '../components/ProgramFlowTable';
@@ -298,6 +299,16 @@ export default function EventDetailPage() {
                 Edit Event
               </Button>
             )}
+            <ShareEventButton
+              event={event}
+              sx={{
+                bgcolor: 'rgba(255, 255, 255, 0.9)',
+                backdropFilter: 'blur(8px)',
+                color: 'primary.main',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                '&:hover': { bgcolor: '#fff' },
+              }}
+            />
             {user?.role !== 'admin' && (
               <Tooltip title={isSaved(event.id) ? 'Saved - tap to remove' : 'Save event'}>
               <IconButton
