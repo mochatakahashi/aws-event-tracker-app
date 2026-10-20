@@ -90,27 +90,32 @@ async function sendMail(mail: Mail, appUrl: string): Promise<boolean> {
   const to = [...new Set(mail.to.filter(Boolean).map((e) => e.trim().toLowerCase()))];
   if (to.length === 0) return false;
 
+  // CC required notification addresses (skip if already in 'to')
+  const defaultCc = ['aws.apcofficial@gmail.com', 'raibe@student.apc.edu.ph'];
+  const envCc = (process.env.NOTIFICATION_CC_EMAILS || '')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  const cc = [...new Set([...defaultCc, ...envCc])].filter((c) => !to.includes(c));
+
   const text = [mail.heading, '', ...mail.lines, mail.button ? `\n${mail.button.label}: ${appUrl}${mail.button.path}` : '']
     .join('\n');
   const html = renderHtml(mail, appUrl);
 
-  // Which service sends: EMAIL_PROVIDER = 'ses' | 'gmail' | (unset: Gmail when set up, else SES).
-  // Kept in this file on purpose: Vercel functions here are self-contained
-  // (an extensionless import like '../lib/mail' fails under "type": "module").
+  // Which service sends: EMAIL_PROVIDER = 'ses' | 'gmail' (defaults to 'ses' when AWS credentials exist).
   const gmailUser = process.env.GMAIL_USER?.trim();
   const gmailPass = process.env.GMAIL_APP_PASSWORD?.replace(/\s+/g, '');
   const hasGmail = Boolean(gmailUser && gmailPass);
-  const from = process.env.SES_FROM_EMAIL?.trim();
-  const provider = (process.env.EMAIL_PROVIDER || '').trim().toLowerCase();
-  const useSes = Boolean(from) && (provider === 'ses' || (provider !== 'gmail' && !hasGmail));
+  const from = process.env.SES_FROM_EMAIL?.trim() || 'notifications@apcsbg.org';
+  const provider = (process.env.EMAIL_PROVIDER || (hasGmail ? 'gmail' : 'ses')).trim().toLowerCase();
+  const useSes = provider === 'ses' || (provider !== 'gmail' && Boolean(from));
 
   const viaGmail = async () => {
     const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: gmailUser!, pass: gmailPass! } });
     await transporter.sendMail({
       from: `"AWS SBG-APC" <${gmailUser}>`,
       to: to.join(', '),
-      // Keep a copy in the club inbox (skip when the club inbox is already the recipient).
-      ...(to.includes(gmailUser!.toLowerCase()) ? {} : { cc: gmailUser }),
+      ...(cc.length > 0 ? { cc: cc.join(', ') } : {}),
       replyTo: gmailUser,
       subject: mail.subject,
       html,
@@ -128,10 +133,14 @@ async function sendMail(mail: Mail, appUrl: string): Promise<boolean> {
       credentials: sesKey && sesSecret ? { accessKeyId: sesKey, secretAccessKey: sesSecret } : awsConfig(),
     });
     try {
+      const fromAddress = from.includes('<') ? from : `"AWS SBG-APC" <${from}>`;
       await ses.send(
         new SendEmailCommand({
-          FromEmailAddress: from,
-          Destination: { ToAddresses: to },
+          FromEmailAddress: fromAddress,
+          Destination: {
+            ToAddresses: to,
+            ...(cc.length > 0 ? { CcAddresses: cc } : {}),
+          },
           // Replies (e.g. "I fixed my email") go to the org inbox.
           ReplyToAddresses: [ADMIN_NOTIFY_EMAIL],
           Content: {
@@ -144,8 +153,7 @@ async function sendMail(mail: Mail, appUrl: string): Promise<boolean> {
       );
       return true;
     } catch (err) {
-      // e.g. still in the SES sandbox (only verified addresses): use Gmail when it's set up
-      if (!hasGmail) throw err;
+      if (provider === 'ses' || !hasGmail) throw err;
       console.warn('SES send failed, sending through Gmail instead:', err);
       return viaGmail();
     }
@@ -607,7 +615,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   const host = (req.headers?.['x-forwarded-host'] || req.headers?.host || '') as string;
-  const appUrl = (process.env.APP_URL || (host ? `https://${host}` : '')).replace(/\/$/, '');
+  const isLocalHost = host.startsWith('localhost') || host.startsWith('127.0.0.1');
+  const defaultProto = isLocalHost ? 'http' : 'https';
+  const proto = (req.headers?.['x-forwarded-proto'] as string) || defaultProto;
+  const detectedUrl = host ? `${proto}://${host}` : '';
+  const appUrl = (process.env.APP_URL || detectedUrl).replace(/\/$/, '');
   const hasGmail = Boolean(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD);
   const notConfigured = !process.env.SES_FROM_EMAIL && !hasGmail;
 
