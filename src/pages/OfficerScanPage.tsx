@@ -106,6 +106,8 @@ export default function OfficerScanPage() {
   const [stampBusy, setStampBusy] = useState<string | null>(null);
   const [stampJustApproved, setStampJustApproved] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
+  useEffect(() => setInfo(''), [scanned?.reg.id]);
   const [loaded, setLoaded] = useState(false);
   const [deskSessions, setDeskSessions] = useState<Session[]>([]);
   const [deskStamps, setDeskStamps] = useState<Stamp[]>([]);
@@ -231,9 +233,23 @@ export default function OfficerScanPage() {
     setWorking(true);
     setError('');
     try {
-      const registration = await undoCheckIn(scanned.reg.id, user.personId);
-      setScanned({ ...scanned, reg: registration, justCheckedIn: false });
+      const { stampsTakenBack, ...registration } = await undoCheckIn(scanned.reg.id, user.personId);
+      // Stamps given at this event went back to "asked" on the server: show that here too
+      const ids = new Set(scanned.stampSessions.map((x) => x.id));
+      const fresh = await getStampsByAttendee(registration.personId).catch(() => null);
+      setScanned({
+        ...scanned,
+        reg: registration,
+        justCheckedIn: false,
+        stamps: fresh ? fresh.filter((x) => ids.has(x.sessionId)) : scanned.stamps.map((x) => ({ ...x, status: 'pending' as const })),
+      });
       setConfirmUndo(false);
+      setInfo(
+        stampsTakenBack
+          ? `Check-in undone. ${stampsTakenBack} stamp${stampsTakenBack === 1 ? '' : 's'} given here went back to “asked” (stamps need check-in).`
+          : 'Check-in undone.',
+      );
+      void refreshDesk();
       deskChanged();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not undo the check-in.');
@@ -242,12 +258,13 @@ export default function OfficerScanPage() {
     }
   }
 
-  async function handleCheckIn() {
+  async function handleCheckIn(confirmDeclined = false) {
     if (!scanned || !user) return;
     setWorking(true);
     setError('');
+    setInfo('');
     try {
-      const { registration, alreadyCheckedIn } = await checkIn(scanned.reg.id, user.personId);
+      const { registration, alreadyCheckedIn } = await checkIn(scanned.reg.id, user.personId, confirmDeclined);
       setScanned({ ...scanned, reg: registration, justCheckedIn: !alreadyCheckedIn });
       if (!alreadyCheckedIn) {
         void notifyCheckedIn(registration.personId, scanned.event, registration.eventId);
@@ -265,9 +282,16 @@ export default function OfficerScanPage() {
     setError('');
     try {
       const existing = scanned.stamps.find((x) => x.sessionId === session.id);
-      const pending =
-        existing ?? (await createStamp({ sessionId: session.id, attendeeId: scanned.reg.personId, status: 'pending' }));
-      const approved = await approveStamp(pending.id, user.personId);
+      const ask = () => createStamp({ sessionId: session.id, attendeeId: scanned.reg.personId, status: 'pending' });
+      const pending = existing ?? (await ask());
+      let approved: Stamp;
+      try {
+        approved = await approveStamp(pending.id, user.personId);
+      } catch (err) {
+        // Someone removed that request a moment ago: make it again and give it
+        if (!existing || !(err instanceof Error) || !/removed|not found/i.test(err.message)) throw err;
+        approved = await approveStamp((await ask()).id, user.personId);
+      }
       setScanned((cur) =>
         cur && { ...cur, stamps: [...cur.stamps.filter((x) => x.sessionId !== session.id), approved] },
       );
@@ -576,12 +600,22 @@ export default function OfficerScanPage() {
             variant="contained"
             color="success"
             startIcon={working ? <CircularProgress size={18} color="inherit" /> : <HowToRegRoundedIcon />}
-            onClick={handleCheckIn}
+            onClick={() => void handleCheckIn(scanned.reg.rsvp === 'declined')}
             disabled={working}
             sx={{ py: 1.5, borderRadius: '14px', fontWeight: 800, fontSize: '1.05rem', mb: 1.5 }}
           >
-            {working ? 'Checking in…' : 'Check in'}
+            {working ? 'Checking in…' : scanned.reg.rsvp === 'declined' ? 'Check in anyway' : 'Check in'}
           </Button>
+        )}
+        {!scanned.reg.checkedIn && mayCheckIn && scanned.reg.rsvp === 'declined' && (
+          <Alert severity="warning" sx={{ mb: 1.5 }} data-testid="declined-warning">
+            This registration was <b>declined</b>. Only check them in if they should be at this event; it will accept the registration.
+          </Alert>
+        )}
+        {info && (
+          <Alert severity="info" sx={{ mb: 1.5 }} onClose={() => setInfo('')} data-testid="desk-info">
+            {info}
+          </Alert>
         )}
         <Button fullWidth variant="outlined" startIcon={<QrCodeScannerRoundedIcon />} onClick={scanNext} sx={{ borderRadius: '14px' }}>
           Scan next
@@ -680,7 +714,7 @@ export default function OfficerScanPage() {
 
       {loaded && events.length === 0 && user?.role !== 'admin' && (
         <Alert severity="warning" sx={{ mb: 2 }} data-testid="no-staff-events">
-          You’re not on the staff list of any event yet. An admin can tick you for “Approve stamps” or “Check people in” on
+          You’re not on the staff list of any event yet. An admin can tick you for “Give stamps” or “Check people in” on
           the event page.
         </Alert>
       )}

@@ -172,9 +172,11 @@ export default function AchievementsPage() {
 
   // Events where they got at least one stamp: each has a story card to share
   const storyEvents = useMemo(() => {
-    const ids = new Set(earned.map((x) => x.event?.id).filter(Boolean) as string[]);
+    // Events they were checked in at (or got a stamp at) that have stamps
+    const withStamps = new Set(sessions.filter((x) => x.requiresStamp).map((x) => x.eventId));
+    const ids = new Set([...(earned.map((x) => x.event?.id).filter(Boolean) as string[]), ...attended.map((x) => x.event.id)].filter((id) => withStamps.has(id)));
     return events.filter((e) => ids.has(e.id)).sort((a, b) => b.startAt.localeCompare(a.startAt));
-  }, [earned, events]);
+  }, [earned, events, sessions, attended]);
 
   if (loading) {
     return (

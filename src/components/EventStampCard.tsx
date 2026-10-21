@@ -9,6 +9,7 @@ import Chip from '@mui/material/Chip';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import Divider from '@mui/material/Divider';
+import Alert from '@mui/material/Alert';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import HourglassTopRoundedIcon from '@mui/icons-material/HourglassTopRounded';
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
@@ -52,6 +53,7 @@ export default function EventStampCard({
   const [stamps, setStamps] = useState<Stamp[]>([]);
   const [loading, setLoading] = useState(true);
   const [requestingSessionId, setRequestingSessionId] = useState<string | null>(null);
+  const [requestError, setRequestError] = useState('');
   const { counts } = useSessionPicks(selectedEvent?.id);
 
   useEffect(() => {
@@ -136,9 +138,10 @@ export default function EventStampCard({
         attendeeId: user.personId,
         status: 'pending',
       });
-      setStamps((prev) => [...prev, newStamp]);
+      setStamps((prev) => [...prev.filter((x) => x.id !== newStamp.id), newStamp]);
+      setRequestError('');
     } catch (err) {
-      console.error(err);
+      setRequestError(err instanceof Error ? err.message : 'Could not send the stamp request. Try again.');
     } finally {
       setRequestingSessionId(null);
     }
@@ -339,7 +342,7 @@ export default function EventStampCard({
               </Typography>
             </Box>
           </Stack>
-          {approvedCount > 0 && user && (
+          {user && (
             <Box sx={{ mt: 2 }}>
               <ShareStampsButton event={selectedEvent} sessions={sessions} stamps={stamps} person={user} onDark />
             </Box>
@@ -356,6 +359,11 @@ export default function EventStampCard({
           EVENT SESSION STAMP SLOTS ({displaySessions.length})
         </Typography>
 
+        {requestError && (
+          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setRequestError('')} data-testid="passport-request-error">
+            {requestError}
+          </Alert>
+        )}
         {totalStampSlots === 0 ? (
           <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
             No stamp-required sessions for this event yet.

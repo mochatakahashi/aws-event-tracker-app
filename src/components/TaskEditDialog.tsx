@@ -20,6 +20,7 @@ import type { AppEvent } from '../types/event';
 import type { OfficerTask } from '../types/task';
 import { updateTask } from '../services/taskService';
 import { notifyInApp } from '../services/notificationService';
+import { notifyQuietly } from '../services/notifyService';
 import { COMMITTEE_LABELS, SUBCOMMITTEE_LABELS, officerTitle, subcommitteesOf } from '../utils/people';
 
 const toDate = (iso?: string) => (iso ? new Date(iso).toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' }) : '');
@@ -115,6 +116,8 @@ export default function TaskEditDialog({
       const moved = task.dueAt !== dueAt;
       if (added.length) {
         void notifyInApp({ personIds: added, kind: 'task-assigned', title: `New task: ${updated.title}`, message: `Deadline ${when(dueAt)}.`, link: '/officer' });
+        // Email only the officers just added
+        void notifyQuietly({ type: 'task-assigned', taskId: updated.id, personIds: added });
       }
       const changed = moved || title.trim() !== task.title || description.trim() !== (task.description || '');
       if (stayed.length && changed) {

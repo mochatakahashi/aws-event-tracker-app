@@ -19,6 +19,7 @@ import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import { useAuth } from '../context/AuthContext';
 import SessionEditor from './SessionEditor';
+import { StoryPreviewButton } from './StampStoryDialog';
 import { useSessionPicks } from '../hooks/useSessionPicks';
 import type { AppEvent } from '../types/event';
 import type { Session } from '../types/session';
@@ -119,6 +120,11 @@ export default function SessionsSection({
 
       {isAdmin && user && (
         <Box sx={{ mb: 1.5 }}>
+          {sessions && sessions.some((x) => x.requiresStamp) && (
+            <Box sx={{ mb: 1 }}>
+              <StoryPreviewButton event={event} sessions={sessions} person={user} />
+            </Box>
+          )}
           {adminError && (
             <Alert severity="error" sx={{ mb: 1 }} onClose={() => setAdminError('')}>
               {adminError}

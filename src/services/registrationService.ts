@@ -146,10 +146,10 @@ export async function reviewRegistrations(ids: string[], rsvp: RsvpStatus, actor
 }
 
 /** Cancel a person's registration for an event. Returns true if removed. */
-export async function cancelRegistration(eventId: string, personId: string): Promise<boolean> {
+export async function cancelRegistration(eventId: string, personId: string, actorId: string = personId): Promise<boolean> {
   if (await isRemoteAvailable(API)) {
     const res = await apiJson<{ removed: boolean }>(
-      `${API}?eventId=${encodeURIComponent(eventId)}&personId=${encodeURIComponent(personId)}`,
+      `${API}?eventId=${encodeURIComponent(eventId)}&personId=${encodeURIComponent(personId)}&actorId=${encodeURIComponent(actorId)}`,
       { method: 'DELETE' },
     );
     return res.removed;
@@ -205,8 +205,10 @@ export async function getRegistration(registrationId: string): Promise<Registrat
   if (await isRemoteAvailable(API)) {
     try {
       return await apiJson<Registration>(`${API}?id=${encodeURIComponent(registrationId)}`);
-    } catch {
-      return null;
+    } catch (e) {
+      // Only "not found" means the pass is gone; a bad connection is shown as an error, not as "cancelled"
+      if (e instanceof Error && /not found/i.test(e.message)) return null;
+      throw e;
     }
   }
   return delay(local.load().find((r) => r.id === registrationId) ?? null);
@@ -225,11 +227,11 @@ function localCertificateId(): string {
  * Check an attendee in (officers / admins). The server also issues the
  * certificate of participation and stores the PDF in S3.
  */
-export async function checkIn(registrationId: string, actorId: string): Promise<CheckInResult> {
+export async function checkIn(registrationId: string, actorId: string, confirmDeclined = false): Promise<CheckInResult> {
   if (await isRemoteAvailable(API)) {
     return apiJson<CheckInResult>(`${API}?action=checkin`, {
       method: 'POST',
-      body: JSON.stringify({ id: registrationId, actorId }),
+      body: JSON.stringify({ id: registrationId, actorId, confirmDeclined }),
     });
   }
   const regs = local.load();
@@ -250,13 +252,14 @@ export async function checkIn(registrationId: string, actorId: string): Promise<
 }
 
 /** Undo a check-in (admins). */
-export async function undoCheckIn(registrationId: string, actorId: string): Promise<Registration> {
+/** Undo a check-in. Stamps given at that event go back to "asked" (stamps need check-in); see `stampsTakenBack`. */
+export async function undoCheckIn(registrationId: string, actorId: string): Promise<Registration & { stampsTakenBack?: number }> {
   if (await isRemoteAvailable(API)) {
-    const res = await apiJson<{ registration: Registration }>(`${API}?action=checkout`, {
+    const res = await apiJson<{ registration: Registration; stampsTakenBack?: number }>(`${API}?action=checkout`, {
       method: 'POST',
       body: JSON.stringify({ id: registrationId, actorId }),
     });
-    return res.registration;
+    return { ...res.registration, stampsTakenBack: res.stampsTakenBack };
   }
   return updateRegistration(registrationId, () => ({ checkedIn: false, checkedInAt: undefined, checkedInBy: undefined }));
 }

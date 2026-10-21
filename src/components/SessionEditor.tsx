@@ -86,8 +86,8 @@ export default function SessionEditor({
     if (session) getEvents().then(setEvents).catch(() => setEvents([]));
   }, []);
 
-  async function submit(e: FormEvent) {
-    e.preventDefault();
+  async function submit(e?: FormEvent | KeyboardEvent) {
+    e?.preventDefault();
     setError('');
     if (!title.trim()) return setError('Give the session a title.');
     if (!start || !end) return setError('Set when the session starts and ends.');
@@ -137,9 +137,20 @@ export default function SessionEditor({
   }
 
   return (
+    // Not a <form>: this editor also sits inside the Edit event form, and forms can't be nested
     <Paper
-      component="form"
-      onSubmit={submit}
+      component="div"
+      role="group"
+      aria-label="Session"
+      onKeyDown={(e) => {
+        // Enter in a one-line field saves the session (not the surrounding event form)
+        const t = e.target as HTMLElement;
+        if (e.key === 'Enter' && t.tagName === 'INPUT' && (t as HTMLInputElement).type !== 'checkbox' && !t.getAttribute('aria-autocomplete')) {
+          e.preventDefault();
+          e.stopPropagation();
+          void submit();
+        }
+      }}
       variant="outlined"
       sx={{ p: 2, borderRadius: '14px', borderColor: alpha(brand.primary, 0.35), bgcolor: alpha(brand.primary, 0.02) }}
       data-testid="session-editor"
@@ -272,7 +283,7 @@ export default function SessionEditor({
         <Button onClick={onCancel} disabled={saving}>
           Cancel
         </Button>
-        <Button type="submit" variant="contained" disabled={saving}>
+        <Button type="button" variant="contained" disabled={saving} onClick={() => void submit()}>
           {saving ? 'Saving…' : session ? 'Save session' : 'Add session'}
         </Button>
       </Stack>

@@ -245,22 +245,23 @@ export async function getStampsBySession(sessionId: string): Promise<Stamp[]> {
 }
 
 export async function createStamp(input: NewStampInput): Promise<Stamp> {
-  try {
-    if (await checkRemoteApi()) {
-      const res = await fetch('/api/stamps', {
+  if (await checkRemoteApi()) {
+    // With the server up, a failed request is an error (never a pretend local stamp the team can't see)
+    let res: Response;
+    try {
+      res = await fetch('/api/stamps', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(input),
       });
-      if (res.ok) {
-        const created = await res.json();
-        const local = loadLocalStamps().filter((s) => s.id !== created.id);
-        saveLocalStamps([...local, created]);
-        return created;
-      }
+    } catch {
+      throw new Error('Can’t reach the server, so the stamp request wasn’t sent. Check your connection and try again.');
     }
-  } catch (err) {
-    console.warn('Falling back to local createStamp:', err);
+    if (!res.ok) throw await errorFrom(res, 'Could not send the stamp request. Try again.');
+    const created = await res.json();
+    const local = loadLocalStamps().filter((s) => s.id !== created.id);
+    saveLocalStamps([...local, created]);
+    return created;
   }
 
   ensureLocalSeeded();

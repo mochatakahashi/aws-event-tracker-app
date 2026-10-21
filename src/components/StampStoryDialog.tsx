@@ -69,6 +69,7 @@ export default function StampStoryDialog({
   sessions,
   stamps,
   person,
+  sample = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -76,6 +77,8 @@ export default function StampStoryDialog({
   sessions: Session[];
   stamps: Stamp[];
   person: { name: string; firstName?: string; avatarUrl?: string };
+  /** Admin preview with sample stamps (nothing is saved). */
+  sample?: boolean;
 }) {
   const phone = useMediaQuery(useTheme().breakpoints.down('sm'));
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -305,6 +308,11 @@ export default function StampStoryDialog({
 
           {/* Actions */}
           <Stack spacing={1.5} sx={{ minWidth: 0 }}>
+            {sample && (
+              <Alert severity="info" data-testid="story-sample">
+                Preview with sample stamps. Attendees see their own name, photo and the stamps they actually got.
+              </Alert>
+            )}
             <Typography variant="body2" color="text.secondary">
               Post it as an Instagram story (or on Facebook, TikTok, Messenger) and tag <b>{CLUB_HANDLE}</b>. Add what you learned
               with the story text tool on the lines at the bottom.
@@ -406,7 +414,8 @@ export function ShareStampsButton({
     const ids = new Set(sessions.filter((s) => s.eventId === event.id && s.requiresStamp).map((s) => s.id));
     return { sessions: sessions.filter((s) => ids.has(s.id)), stamps: stamps.filter((st) => ids.has(st.sessionId)) };
   }, [sessions, stamps, event.id]);
-  if (!person || !mine.stamps.some((st) => st.status === 'approved')) return null;
+  // Shown from registration on (empty slots until the first stamp), for events with stamps
+  if (!person || mine.sessions.length === 0) return null;
   return (
     <>
       <Button
@@ -424,6 +433,32 @@ export function ShareStampsButton({
         Share my stamps
       </Button>
       {open && <StampStoryDialog open onClose={() => setOpen(false)} event={event} sessions={mine.sessions} stamps={mine.stamps} person={person} />}
+    </>
+  );
+}
+
+/** Admin: preview the story card attendees get, with sample stamps (all but the last one collected). */
+export function StoryPreviewButton({ event, sessions, person }: { event: AppEvent; sessions: Session[]; person: { name: string; firstName?: string; avatarUrl?: string } }) {
+  const [open, setOpen] = useState(false);
+  const stampSessions = useMemo(() => sessions.filter((s) => s.eventId === event.id && s.requiresStamp), [sessions, event.id]);
+  const fake = useMemo(
+    () =>
+      [...stampSessions]
+        .sort((a, b) => a.startTime.localeCompare(b.startTime))
+        .slice(0, stampSessions.length > 1 ? -1 : undefined)
+        .map(
+          (s) =>
+            ({ id: `sample-${s.id}`, sessionId: s.id, attendeeId: 'sample', status: 'approved', requestedAt: '', approvedAt: new Date().toISOString() }) as unknown as Stamp,
+        ),
+    [stampSessions],
+  );
+  if (stampSessions.length === 0) return null;
+  return (
+    <>
+      <Button variant="outlined" size="small" startIcon={<AutoAwesomeRoundedIcon />} onClick={() => setOpen(true)} data-testid="story-preview">
+        Preview story card
+      </Button>
+      {open && <StampStoryDialog open sample onClose={() => setOpen(false)} event={event} sessions={stampSessions} stamps={fake} person={person} />}
     </>
   );
 }

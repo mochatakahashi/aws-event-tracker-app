@@ -16,7 +16,14 @@ export function parsePass(text: string): string | null {
   const raw = String(text || '').trim();
   if (!raw) return null;
   const fromLink = raw.match(/[?&]pass=([^&#\s]+)/);
-  const id = fromLink ? decodeURIComponent(fromLink[1]) : raw;
+  let id = raw;
+  if (fromLink) {
+    try {
+      id = decodeURIComponent(fromLink[1]);
+    } catch {
+      return null; // broken link (bad % code)
+    }
+  }
   return /^reg-[A-Za-z0-9_-]{1,80}$/.test(id) ? id : null;
 }
 

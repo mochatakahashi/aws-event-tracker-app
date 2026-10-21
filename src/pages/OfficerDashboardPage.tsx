@@ -243,30 +243,68 @@ export default function OfficerDashboardPage() {
           variant="outlined"
           sx={{ mb: 3, borderRadius: '16px', borderColor: alpha(brand.primary, 0.25), background: alpha(brand.primary, 0.03) }}
         >
-          <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', '&:last-child': { pb: 2 } }}>
-            <Box sx={{ p: 1.25, borderRadius: 2, bgcolor: alpha(brand.primary, 0.1), color: brand.primary, display: 'flex' }}>
-              <QrCodeScannerRoundedIcon />
-            </Box>
-            <Box sx={{ flex: 1, minWidth: 200 }}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Event Desk</Typography>
-              <Typography variant="body2" color="text.secondary">
-                Check people in with the QR scanner, approve their stamps after check-in, and see who’s here - all in one place.
-              </Typography>
-              {user?.role === 'officer' && (
-                <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 1 }} data-testid="my-duties">
-                  {dutyEvents.map((e) => (
-                    <Chip
+          <CardContent sx={{ p: { xs: 2, sm: 2.5 }, '&:last-child': { pb: { xs: 2, sm: 2.5 } } }} data-testid="desk-card">
+            <Stack direction="row" spacing={1.5} alignItems="flex-start">
+              <Box sx={{ p: 1.1, borderRadius: '12px', bgcolor: alpha(brand.primary, 0.1), color: brand.primary, display: 'flex', flexShrink: 0 }}>
+                <QrCodeScannerRoundedIcon />
+              </Box>
+              <Box sx={{ minWidth: 0, flex: 1 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 800, lineHeight: 1.3 }}>
+                  Event Desk
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+                  Your event-day jobs in one place. <b>Check-in</b> is at the door: scan the attendee’s pass. <b>Stamps</b> are
+                  given after each session, only to people already checked in.
+                </Typography>
+              </Box>
+            </Stack>
+            {user?.role === 'officer' && dutyEvents.length > 0 && (
+              <Stack spacing={1} sx={{ mt: 1.5 }} data-testid="my-duties">
+                {dutyEvents.map((e) => {
+                  const jobs = [
+                    canDo(user, e, 'checkin') && 'Check-in',
+                    canDo(user, e, 'stamps') && 'Stamps',
+                    Boolean(e.food?.enabled) && canDo(user, e, 'food') && 'Food',
+                  ].filter(Boolean) as string[];
+                  return (
+                    <Box
                       key={e.id}
-                      size="small"
-                      variant="outlined"
-                      onClick={() => navigate(`/events/${e.id}`)}
-                      label={`${e.title}: ${[canDo(user, e, 'checkin') && 'check-in', canDo(user, e, 'stamps') && 'stamps'].filter(Boolean).join(' + ')}`}
-                    />
-                  ))}
-                </Stack>
-              )}
-            </Box>
-            <Button variant="contained" startIcon={<QrCodeScannerRoundedIcon />} onClick={() => navigate('/officer/scan')}>
+                      onClick={() => navigate(`/officer/scan?event=${encodeURIComponent(e.id)}`)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(k) => (k.key === 'Enter' || k.key === ' ') && navigate(`/officer/scan?event=${encodeURIComponent(e.id)}`)}
+                      sx={{
+                        p: 1.25,
+                        borderRadius: '12px',
+                        bgcolor: '#fff',
+                        border: `1px solid ${alpha(brand.primary, 0.15)}`,
+                        cursor: 'pointer',
+                        '&:hover, &:focus-visible': { borderColor: brand.primary, outline: 'none' },
+                      }}
+                      data-testid={`duty-${e.id}`}
+                    >
+                      <Typography variant="body2" sx={{ fontWeight: 700, wordBreak: 'break-word' }}>
+                        {e.title}
+                      </Typography>
+                      <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5, alignSelf: 'center' }}>
+                          Your jobs:
+                        </Typography>
+                        {jobs.map((j) => (
+                          <Chip key={j} size="small" label={j} color="primary" variant="outlined" sx={{ fontWeight: 700 }} />
+                        ))}
+                      </Stack>
+                    </Box>
+                  );
+                })}
+              </Stack>
+            )}
+            <Button
+              variant="contained"
+              startIcon={<QrCodeScannerRoundedIcon />}
+              onClick={() => navigate('/officer/scan')}
+              sx={{ mt: 2, width: { xs: '100%', sm: 'auto' } }}
+            >
               Open Event Desk
             </Button>
           </CardContent>

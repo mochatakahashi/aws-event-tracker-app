@@ -10,7 +10,7 @@ import { createHash, randomBytes, randomInt } from 'node:crypto';
  *
  * POST /api/notify { type: 'account-reviewed', personId }          → approved / declined (with reason)
  * POST /api/notify { type: 'event-assigned', eventId, personIds }  → officers assigned to an event
- * POST /api/notify { type: 'task-assigned', taskId }               → officers given a task
+ * POST /api/notify { type: 'task-assigned', taskId, personIds? }   → officers given a task (only personIds when given)
  * POST /api/notify { type: 'run-reminders', actorId }              → admin runs today's reminders now
  * POST /api/notify { type: 'signup-pending', personId }            → tells the admin a sign-up is waiting
  * POST /api/notify { type: 'password-code', personId }           → signed in: emails a 6-digit code to change the password
@@ -869,7 +869,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const task = await get(body.taskId);
         if (task?.entityType !== 'task') return res.status(404).json({ error: 'Task not found' });
         const ev = task.eventId ? await get(task.eventId) : undefined;
-        for (const id of task.assigneeIds || []) {
+        // Only the people just added when given, so others on the task aren't emailed again
+        const only = Array.isArray(body.personIds) ? new Set((body.personIds as unknown[]).map(String)) : null;
+        for (const id of (task.assigneeIds || []).filter((x: string) => !only || only.has(x))) {
           const u = await get(id);
           if (u?.entityType === 'user' && (await sendMail(taskMail(u, task, ev, 'assigned'), appUrl))) sent++;
         }

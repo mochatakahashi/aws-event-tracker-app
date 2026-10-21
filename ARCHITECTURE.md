@@ -429,3 +429,10 @@ New accounts have `status: 'pending'` and cannot sign in until an admin approves
 ---
 
 *Last Updated: October 2026*
+
+### Check-in and stamp safety (v0.6.38)
+
+- Stamps have one record per person per session: id `stp-<sessionId>-<attendeeId>`, written with `attribute_not_exists(id)`; approving uses `attribute_exists(id)` so a removed stamp isn't recreated. Staff removal also deletes older duplicates.
+- Registration changes go through `patchRecord` in `api/registrations.ts`: read, change only the given fields, and write with a revision check (`rev`, conditional PutItem), retrying if someone saved in between. It needs only GetItem/PutItem, so the IAM policy in the README is enough. Check-in refuses when already checked in, so two scans at once check in once. Undo check-in sets that event's approved stamps back to pending (`stampsTakenBack`). A declined registration needs `confirmDeclined: true`.
+- Every list read pages through the table with `LastEvaluatedKey` (one Scan page is at most 1 MB).
+- Known limit (ADR-008): the server still trusts the `actorId` the app sends; signed sessions are planned.

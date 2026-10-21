@@ -124,7 +124,7 @@ export default function MorePage() {
         {user?.role === 'officer' && (
           <ListItemButton onClick={() => navigate('/officer')}>
             <ListItemIcon><VerifiedUserIcon /></ListItemIcon>
-            <ListItemText primary="Officer Dashboard" secondary="Approve stamps" />
+            <ListItemText primary="Officer Dashboard" secondary="Tasks and event duties" />
           </ListItemButton>
         )}
 

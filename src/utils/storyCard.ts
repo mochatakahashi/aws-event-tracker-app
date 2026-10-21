@@ -505,6 +505,11 @@ export function drawStory(ctx: CanvasRenderingContext2D, d: StoryData, t = 1) {
 
 /** The caption to paste with the story. */
 export function storyCaption(eventTitle: string, collected: number, total: number, hashtags: string[]): string {
-  const what = total > 0 && collected === total ? `completed my stamp passport (${total} of ${total})` : `collected ${collected} of ${total} stamps`;
-  return `I ${what} at ${eventTitle}! Thank you ${CLUB_HANDLE} ${hashtags.join(' ')}`;
+  const what =
+    total > 0 && collected === total
+      ? `I completed my stamp passport (${total} of ${total})`
+      : collected === 0
+        ? `I’m collecting stamps (${total} to get)`
+        : `I collected ${collected} of ${total} stamps`;
+  return `${what} at ${eventTitle}! Thank you ${CLUB_HANDLE} ${hashtags.join(' ')}`;
 }

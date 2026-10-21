@@ -9,7 +9,7 @@ export type Notification =
   | { type: 'account-reviewed'; personId: string }
   | { type: 'fix-request'; personId: string }
   | { type: 'event-assigned'; eventId: string; personIds: string[] }
-  | { type: 'task-assigned'; taskId: string }
+  | { type: 'task-assigned'; taskId: string; /** Only these officers on the task (e.g. people just added); default all. */ personIds?: string[] }
   | { type: 'run-reminders'; actorId: string }
   | { type: 'signup-pending'; personId: string };
 

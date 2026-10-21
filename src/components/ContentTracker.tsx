@@ -112,7 +112,7 @@ export default function ContentTracker({ items, officers, events, me, isAdmin, o
         link: '/officer',
       });
     }
-    void notifyQuietly({ type: 'task-assigned', taskId: task.id });
+    void notifyQuietly({ type: 'task-assigned', taskId: task.id, personIds });
   }
 
   async function add(e: FormEvent) {

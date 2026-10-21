@@ -10,11 +10,9 @@ import Alert from '@mui/material/Alert';
 import CircularProgress from '@mui/material/CircularProgress';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import CancelRoundedIcon from '@mui/icons-material/CancelRounded';
-import HowToRegRoundedIcon from '@mui/icons-material/HowToRegRounded';
 import { alpha } from '@mui/material/styles';
 import { brand } from '../theme/theme';
 import { approveStamp, declineStamp } from '../services/sessionService';
-import { checkIn, notifyCheckedIn } from '../services/registrationService';
 import { notifyInApp } from '../services/notificationService';
 import { canDo } from '../utils/eventStaff';
 import type { AppEvent } from '../types/event';
@@ -35,8 +33,8 @@ const initials = (name = '?') =>
 /**
  * Event Desk → Stamp requests: stamps people asked for at one event (Give stamp /
  * Don't give), and the stamps given recently, which can be removed if given by
- * mistake. Stamps are given after check-in, so people who aren't checked in yet
- * show "Check in first" (or "Check in & give stamp" for the check-in team).
+ * mistake. Check-in and stamps are separate jobs: stamps are only given to
+ * people already checked in at the door, so others show "Not checked in yet".
  */
 export default function StampRequestsPanel({
   event,
@@ -60,7 +58,6 @@ export default function StampRequestsPanel({
   const [error, setError] = useState('');
   const [note, setNote] = useState('');
   const mayStamp = canDo(actor, event, 'stamps');
-  const mayCheckIn = canDo(actor, event, 'checkin');
   const sessionById = new Map(sessions.map((s) => [s.id, s]));
   const regByPerson = new Map(regs.map((r) => [r.personId, r]));
   const pending = stamps
@@ -97,19 +94,11 @@ export default function StampRequestsPanel({
     }
   }
 
-  async function approve(stamp: Stamp, alsoCheckIn: boolean) {
+  async function approve(stamp: Stamp) {
     setBusy(stamp.id);
     setError('');
     setNote('');
     try {
-      const reg = regByPerson.get(stamp.attendeeId);
-      if (alsoCheckIn) {
-        if (!reg) throw new Error('This person is not registered for the event, so they can’t be checked in.');
-        const { alreadyCheckedIn } = await checkIn(reg.id, actor.personId);
-        if (!alreadyCheckedIn) {
-          void notifyCheckedIn(stamp.attendeeId, event, event.id);
-        }
-      }
       await approveStamp(stamp.id, actor.personId);
       const session = sessionById.get(stamp.sessionId);
       void notifyInApp({
@@ -219,24 +208,14 @@ export default function StampRequestsPanel({
                           color="success"
                           startIcon={busy === st.id ? <CircularProgress size={14} color="inherit" /> : <CheckCircleRoundedIcon />}
                           disabled={Boolean(busy)}
-                          onClick={() => void approve(st, false)}
+                          onClick={() => void approve(st)}
                           sx={{ backgroundImage: 'none' }}
                         >
                           Give stamp
                         </Button>
-                      ) : mayCheckIn && reg ? (
-                        <Button
-                          size="small"
-                          variant="contained"
-                          startIcon={busy === st.id ? <CircularProgress size={14} color="inherit" /> : <HowToRegRoundedIcon />}
-                          disabled={Boolean(busy)}
-                          onClick={() => void approve(st, true)}
-                        >
-                          Check in & give stamp
-                        </Button>
                       ) : (
-                        <Typography variant="caption" color="warning.main" sx={{ alignSelf: 'center', fontWeight: 600 }}>
-                          Check in first
+                        <Typography variant="caption" color="warning.main" sx={{ alignSelf: 'center', fontWeight: 600, maxWidth: 220 }} data-testid={`needs-checkin-${st.id}`}>
+                          {reg ? 'Check them in at the door first.' : 'Not registered for this event.'}
                         </Typography>
                       )}
                       <Button

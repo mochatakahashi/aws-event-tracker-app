@@ -99,13 +99,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json(result.Item);
       }
 
-      const scanResult = await client.send(
-        new ScanCommand({
-          TableName: tableName,
-        })
-      );
+      // Read every page (one Scan page is at most 1 MB of the whole table)
+      const all: any[] = [];
+      let startKey: Record<string, any> | undefined;
+      do {
+        const page = await client.send(new ScanCommand({ TableName: tableName, ExclusiveStartKey: startKey }));
+        all.push(...(page.Items || []));
+        startKey = page.LastEvaluatedKey;
+      } while (startKey);
 
-      let items = (scanResult.Items || []).filter(isUploadRecord);
+      let items = all.filter(isUploadRecord);
 
       if (eventId && typeof eventId === 'string') {
         items = items.filter((item) => item.eventId === eventId);

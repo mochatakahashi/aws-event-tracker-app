@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.38] - 2026-10-22
+
+### Fixed (check-in and stamps)
+- **One stamp per person per session**: a stamp record's id is now made from the session and the attendee, and it is written only if it doesn't exist yet. Before, an attendee asking while the stamp team gave it could make two records, so *Remove stamp* removed one and the other still counted. Removing a stamp also clears any older duplicate.
+- **Two scans at the same moment** check someone in only once (the second says *already checked in*).
+- **Saves no longer undo a check-in**: accepting, declining, session picks and evaluations now change only their own fields, so a save at the same moment as a check-in can't write *not checked in* back.
+- **Giving a stamp that was just removed** is refused instead of bringing it back; at the desk it is asked again and given.
+- **Undo check-in** now also takes back the stamps given at that event (they go back to *asked*, since stamps need check-in), and the desk says how many.
+- **Declined registrations**: scanning a declined pass shows a warning and *Check in anyway*; the server asks for that confirm.
+- **Big tables**: the stamp, session, event and upload lists now read every page of the database (one read returns at most 1 MB), so nothing silently goes missing as notifications pile up.
+- **Stamp requests that fail** now show an error (before, a failed request looked sent but the stamp team never saw it). A bad connection when opening a pass is shown as an error, not as *registration cancelled*. A broken pass link no longer stops the scanner.
+- **Cancelling a registration**: only the attendee themselves, or an admin or the event's check-in team.
+
+### Changed
+- **Check-in and stamps are separate**: the *Check in & give stamp* button is gone. A stamp request from someone not checked in says *Not checked in yet. Check them in at the door first.* Wording across the app (Event Desk card, app tour, session page, event staff) says *check in at the door* and *give stamps after each session*.
+- **Event Desk card** (Officer Dashboard): clearer layout on phones, tablets and computers. Each event shows its full name with *Your jobs: Check-in / Stamps / Food*, tapping it opens that event's desk, and the button is full width on phones.
+- **Sessions and stamps in Edit event**: the event form now has a *Sessions and stamps* section to add sessions and turn on *⭐ Has a stamp* (saved right away). For a new event it says to save first.
+- **Story card**: *Share my stamps* shows from registration on (empty slots until the first stamp), Achievements lists events they were checked in at, and admins have **Preview story card** on the event page (sample stamps).
+- **Task emails**: adding someone to a pubmat or task emails only the people just added (before, everyone on the pubmat got the email again).
+
+---
+
 ## [0.6.37] - 2026-10-21
 
 ### Added

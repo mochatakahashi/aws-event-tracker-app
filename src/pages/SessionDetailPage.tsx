@@ -48,6 +48,7 @@ export default function SessionDetailPage() {
   const [myStamp, setMyStamp] = useState<Stamp | null>(null);
   const [loading, setLoading] = useState(true);
   const [requesting, setRequesting] = useState(false);
+  const [stampError, setStampError] = useState('');
   const [event, setEvent] = useState<AppEvent | null>(null);
   const picks = useSessionPicks(session?.eventId);
 
@@ -215,8 +216,8 @@ export default function SessionDetailPage() {
                 <Typography variant="body2" color="text.secondary">
                   Complete this session's activity to earn your stamp.
                   {canApprove
-                    ? ' You are on the stamp team for this event, so you can approve stamps.'
-                    : ' Request it here; an officer approves it once you’re checked in at the event.'}
+                    ? ' You are on the stamp team for this event, so you can give stamps.'
+                    : ' Ask for it here. Get checked in at the door first; then the stamp team gives it after the session.'}
                 </Typography>
               </Box>
             </Stack>
@@ -234,14 +235,21 @@ export default function SessionDetailPage() {
                 onClick={() => {
                   if (!user?.personId) return;
                   setRequesting(true);
+                  setStampError('');
                   createStamp({ sessionId: session.id, attendeeId: user.personId, status: 'pending' })
                     .then(setMyStamp)
+                    .catch((e) => setStampError(e instanceof Error ? e.message : 'Could not send the stamp request. Try again.'))
                     .finally(() => setRequesting(false));
                 }}
                 sx={{ mt: 1.5, background: brand.gradient }}
               >
                 {requesting ? 'Requesting...' : 'Request Stamp'}
               </Button>
+            )}
+            {stampError && (
+              <Alert severity="error" sx={{ mt: 1.5 }} onClose={() => setStampError('')} data-testid="stamp-request-error">
+                {stampError}
+              </Alert>
             )}
           </CardContent>
         </Card>

@@ -102,7 +102,7 @@ export function tourSteps(role: UserRole | undefined, partnerStaff = false): Tou
         target: 'nav-event-desk',
         emoji: '🧭',
         title: 'Event Desk',
-        text: 'Event day in one place: approve registrations, check people in with the QR scanner, and approve stamps after check-in.',
+        text: 'Event day in one place, as separate steps: accept registrations, check people in at the door with the QR scanner, and give stamps after each session.',
       },
       {
         target: 'nav-leaderboard',
@@ -129,7 +129,7 @@ export function tourSteps(role: UserRole | undefined, partnerStaff = false): Tou
         target: 'nav-event-desk',
         emoji: '🧭',
         title: 'Event Desk',
-        text: 'When an admin puts you on an event’s staff, check people in and approve their stamps here.',
+        text: 'When an admin puts you on an event’s staff, you do your duties here: check people in at the door, or give stamps after a session.',
       },
     );
   }
@@ -138,7 +138,7 @@ export function tourSteps(role: UserRole | undefined, partnerStaff = false): Tou
       target: 'nav-event-desk',
       emoji: '🤝',
       title: 'Event Desk (co-organizer staff)',
-      text: 'When an admin puts you on a co-organized event’s staff list, you check people in and/or approve stamps here - only the duties you were given.',
+      text: 'When an admin puts you on a co-organized event’s staff list, you check people in and/or give stamps here - only the duties you were given.',
     });
   }
   return [...base, profile, done];

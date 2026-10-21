@@ -36,6 +36,7 @@ import {
 } from '../services/speakerService';
 import { useAuth } from '../context/AuthContext';
 import { useEvent } from '../context/EventContext';
+import { alpha } from '@mui/material/styles';
 import { brand, PARTNER } from '../theme/theme';
 import { EVENT_TAGS, type AppEvent } from '../types/event';
 import { tagColor, tagLabel } from '../utils/eventDisplay';
@@ -44,6 +45,7 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import Checkbox from '@mui/material/Checkbox';
 import ProgramFlowEditor from '../components/ProgramFlowEditor';
 import FoodStubsEditor from '../components/FoodStubsEditor';
+import SessionsSection from '../components/SessionsSection';
 import EvaluationEditor from '../components/EvaluationEditor';
 import RegistrationLinkCard from '../components/RegistrationLinkCard';
 import { getPeople } from '../services/registrationService';
@@ -91,6 +93,8 @@ export default function EventBuilderPage() {
   const { selectedEvent, selectEvent } = useEvent();
   
   const isEditing = Boolean(id);
+  // The saved event, for the Sessions and stamps editor (edit mode only)
+  const [savedEvent, setSavedEvent] = useState<AppEvent | null>(null);
   const [loading, setLoading] = useState(isEditing);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -130,6 +134,7 @@ export default function EventBuilderPage() {
     if (isEditing && id) {
       getEvent(id).then(async ev => {
         if (ev) {
+          setSavedEvent(ev);
           setFormData({
             ...ev,
             startAt: toLocalInput(ev.startAt),
@@ -676,8 +681,8 @@ export default function EventBuilderPage() {
           )}
 
           <Alert severity="info" sx={{ borderRadius: '12px' }}>
-            Officers, their role at the event and who can approve stamps or check people in are set on the event page
-            under <strong>Event staff</strong>{isEditing ? '' : ' after you save'}. Sessions are added there too.
+            Officers, their role at the event, and who can check people in or give stamps are set on the event page under{' '}
+            <strong>Event staff</strong>{isEditing ? '' : ' after you save'}. Sessions and stamps are further down this form.
           </Alert>
 
           <Divider sx={{ my: 2 }} />
@@ -686,6 +691,27 @@ export default function EventBuilderPage() {
           <ProgramFlowEditor value={formData.programFlow || []} onChange={(rows) => setFormData((prev) => ({ ...prev, programFlow: rows }))} />
 
           <Divider sx={{ my: 2 }} />
+
+          {/* Sessions and stamps: saved right away, separate from Save event */}
+          <Box
+            data-testid="builder-sessions"
+            sx={{ p: { xs: 1.5, sm: 2 }, borderRadius: '14px', border: '1px solid', borderColor: alpha(brand.primary, 0.18), bgcolor: alpha(brand.primary, 0.03), mb: 2 }}
+          >
+            <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+              Sessions and stamps
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+              To add a stamp, add a session (a talk, workshop or booth) and turn on <b>⭐ Has a stamp</b>. Attendees collect one
+              stamp per session; the stamp team gives it after the session. Sessions are saved as soon as you add them.
+            </Typography>
+            {isEditing && savedEvent ? (
+              <SessionsSection event={savedEvent} isAdmin />
+            ) : (
+              <Alert severity="info" sx={{ borderRadius: '12px' }} data-testid="sessions-after-save">
+                Save the event first. Then open <b>Edit event</b> again (or the event page) to add sessions and stamps.
+              </Alert>
+            )}
+          </Box>
 
           {/* Certificate rule for events with stamp sessions */}
           <FormControlLabel

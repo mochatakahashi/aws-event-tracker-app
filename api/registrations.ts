@@ -19,8 +19,8 @@ import QRCode from 'qrcode';
  * POST   /api/registrations            { eventId, personId } → status `pending` (re-registering after a decline asks again)
  * POST   /api/registrations?action=review { actorId, ids, rsvp: approved|declined|pending } (admins / check-in team)
  * PUT    /api/registrations?id=reg-1   { rsvp, actorId } (admins / check-in team) | { personId, sessionIds } (the attendee's sessions)
- * DELETE refuses a registration that is already checked in.
- * DELETE /api/registrations?id=reg-1 | ?eventId=&personId=
+ * DELETE refuses a registration that is already checked in, and needs actorId (the attendee, an admin or the check-in team).
+ * DELETE /api/registrations?id=reg-1&actorId= | ?eventId=&personId=&actorId=
  *
  * Check-in (admins, and officers on the event's check-in staff list; verified by actorId):
  * POST   /api/registrations?action=checkin  { id, actorId }  → checks in + reserves the certificate code
@@ -95,6 +95,53 @@ async function scanType(client: DynamoDBDocumentClient, tableName: string, type:
     ExclusiveStartKey = page.LastEvaluatedKey;
   } while (ExclusiveStartKey);
   return items;
+}
+
+/**
+ * Change only some fields of a record, safely when others save at the same moment: read it, apply the
+ * change, and write it back only if nobody saved in between (a revision number, checked by DynamoDB);
+ * otherwise read again and retry. Needs only GetItem/PutItem permissions. `remove` deletes fields.
+ * `guard` can refuse the change based on the current record (e.g. "not checked in yet").
+ * Throws an error named ConditionalCheckFailedException when the record is gone or the guard refuses.
+ */
+async function patchRecord(
+  client: DynamoDBDocumentClient,
+  tableName: string,
+  id: string,
+  set: Record<string, any>,
+  remove: string[] = [],
+  guard?: (current: any) => boolean,
+): Promise<any> {
+  const refused = () => {
+    const e: any = new Error('The record changed or is gone');
+    e.name = 'ConditionalCheckFailedException';
+    return e;
+  };
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const cur = (await client.send(new GetCommand({ TableName: tableName, Key: { id }, ConsistentRead: true }))).Item;
+    if (!cur || (guard && !guard(cur))) throw refused();
+    const next: any = { ...cur };
+    for (const [k, v] of Object.entries(set)) if (v !== undefined) next[k] = v;
+    for (const k of remove) delete next[k];
+    const rev = typeof cur.rev === 'number' ? cur.rev : 0;
+    next.rev = rev + 1;
+    try {
+      await client.send(
+        new PutCommand({
+          TableName: tableName,
+          Item: next,
+          ConditionExpression: rev === 0 ? 'attribute_exists(id) AND attribute_not_exists(#rev)' : '#rev = :rev',
+          ExpressionAttributeNames: { '#rev': 'rev' },
+          ...(rev === 0 ? {} : { ExpressionAttributeValues: { ':rev': rev } }),
+        }),
+      );
+      return next;
+    } catch (e: any) {
+      if (e?.name !== 'ConditionalCheckFailedException') throw e;
+      // Someone saved in between: read again and retry
+    }
+  }
+  throw new Error('This record is being changed by someone else right now. Try again.');
 }
 
 /** Registration status. Older records used going/interested. */
@@ -573,7 +620,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!current.certificateId || (s3 && !current.certificateKey)) {
         current = { ...current, ...(await issueCertificate(client, tableName, current, appUrl)) };
       }
-      if (current !== reg) await client.send(new PutCommand({ TableName: tableName, Item: current }));
+      if (current !== reg) {
+        // Only the certificate fields (a check-in change at the same moment is kept)
+        const certFields = ['certificateId', 'certificateIssuedAt', 'certificateKey', 'certificateError'];
+        await patchRecord(
+          client,
+          tableName,
+          reg.id,
+          Object.fromEntries(certFields.filter((k) => current[k] !== undefined).map((k) => [k, current[k]])),
+          certFields.filter((k) => current[k] === undefined),
+        );
+      }
       const fileName = `AWS-SBG-APC-Certificate-${current.certificateId}.pdf`;
       const disposition = `${download ? 'attachment' : 'inline'}; filename="${fileName}"`;
       if (s3 && current.certificateKey) {
@@ -652,8 +709,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         submittedAt: now,
       };
       await client.send(new PutCommand({ TableName: tableName, Item: response }));
-      const updated = { ...reg, evaluatedAt: now, updatedAt: now };
-      await client.send(new PutCommand({ TableName: tableName, Item: updated }));
+      const updated = await patchRecord(client, tableName, reg.id, { evaluatedAt: now, updatedAt: now });
       if (eventEnded(ev) && !(await stampProgress(client, tableName, ev, personId)).missing.length) {
         await client.send(
           new PutCommand({
@@ -717,8 +773,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         if (reg.checkedIn && rsvp !== 'approved') continue;
         const now = new Date().toISOString();
-        const merged = { ...reg, rsvp, reviewedBy: actorId, reviewedAt: now, updatedAt: now };
-        await client.send(new PutCommand({ TableName: tableName, Item: merged }));
+        // Not if they were checked in a moment ago (checking in already accepts them)
+        let merged: any;
+        try {
+          merged = await patchRecord(
+            client,
+            tableName,
+            reg.id,
+            { rsvp, reviewedBy: actorId, reviewedAt: now, updatedAt: now },
+            [],
+            rsvp === 'approved' ? undefined : (cur) => !cur.checkedIn,
+          );
+        } catch (e: any) {
+          if (e?.name === 'ConditionalCheckFailedException') continue;
+          throw e;
+        }
         updated.push(clean(merged));
       }
       return res.status(200).json({ updated });
@@ -803,7 +872,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Check in / undo check-in (officers and admins)
     if (req.method === 'POST' && (action === 'checkin' || action === 'checkout')) {
-      const { id, actorId } = req.body || {};
+      const { id, actorId, confirmDeclined } = req.body || {};
       if (!id) return res.status(400).json({ error: 'Registration id is required' });
       const reg = (await client.send(new GetCommand({ TableName: tableName, Key: { id } }))).Item;
       if (!reg || reg.entityType !== 'registration') {
@@ -817,22 +886,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       const now = new Date().toISOString();
       if (action === 'checkout') {
-        const merged = { ...reg, checkedIn: false, checkedInAt: undefined, checkedInBy: undefined, updatedAt: now };
-        await client.send(new PutCommand({ TableName: tableName, Item: merged }));
-        return res.status(200).json({ registration: clean(merged) });
+        const merged = await patchRecord(client, tableName, reg.id, { checkedIn: false, updatedAt: now }, ['checkedInAt', 'checkedInBy']);
+        // Stamps need check-in, so stamps given at this event go back to "asked" (kept, not lost)
+        const sessionIds = new Set(
+          (await scanType(client, tableName, 'session')).filter((x) => x.eventId === reg.eventId).map((x) => x.id),
+        );
+        let stampsTakenBack = 0;
+        for (const st of await scanType(client, tableName, 'stamp')) {
+          if (st.attendeeId !== reg.personId || !sessionIds.has(st.sessionId) || st.status !== 'approved') continue;
+          await patchRecord(client, tableName, st.id, { status: 'pending', updatedAt: now }, ['approvedBy', 'approvedAt']);
+          stampsTakenBack++;
+        }
+        return res.status(200).json({ registration: clean(merged), stampsTakenBack });
       }
       if (reg.checkedIn) {
         return res.status(200).json({ registration: clean(reg), alreadyCheckedIn: true });
       }
-      const checked = {
-        ...reg,
-        // Checking someone in at the door also approves their registration
-        rsvp: 'approved',
-        checkedIn: true,
-        checkedInAt: now,
-        checkedInBy: actor.id,
-        updatedAt: now,
-      };
+      // A declined registration is only checked in when the officer confirms it
+      if (reg.rsvp === 'declined' && confirmDeclined !== true) {
+        return res.status(409).json({ error: 'This registration was declined. Check them in anyway?', code: 'DECLINED' });
+      }
       // The unique certificate code is reserved now; the certificate itself unlocks after the event ends
       let certificateId = reg.certificateId;
       if (!certificateId) {
@@ -840,9 +913,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         do certificateId = newCertificateId();
         while (taken.has(certificateId));
       }
-      const withCert = { ...checked, certificateId };
-      await client.send(new PutCommand({ TableName: tableName, Item: withCert }));
-      return res.status(200).json({ registration: clean(withCert), alreadyCheckedIn: false });
+      try {
+        // Checking someone in at the door also accepts their registration. Only once: two scans at the same
+        // moment can't both check them in.
+        const withCert = await patchRecord(
+          client,
+          tableName,
+          reg.id,
+          { rsvp: 'approved', checkedIn: true, checkedInAt: now, checkedInBy: actor.id, updatedAt: now, certificateId },
+          [],
+          (cur) => !cur.checkedIn,
+        );
+        return res.status(200).json({ registration: clean(withCert), alreadyCheckedIn: false });
+      } catch (e: any) {
+        if (e?.name !== 'ConditionalCheckFailedException') throw e;
+        const now2 = (await client.send(new GetCommand({ TableName: tableName, Key: { id: reg.id } }))).Item;
+        if (!now2) return res.status(404).json({ error: 'This pass was not found. The registration may have been cancelled.' });
+        return res.status(200).json({ registration: clean(now2), alreadyCheckedIn: true });
+      }
     }
 
     if (req.method === 'GET') {
@@ -936,9 +1024,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         updates.sessionIds = kept;
       }
-      // Check-in only goes through action=checkin (staff-checked)
-      const merged = { ...result.Item, ...updates, updatedAt: new Date().toISOString() };
-      await client.send(new PutCommand({ TableName: tableName, Item: merged }));
+      // Check-in only goes through action=checkin (staff-checked). Only the changed fields are written.
+      const merged = await patchRecord(client, tableName, result.Item.id, { ...updates, updatedAt: new Date().toISOString() });
       return res.status(200).json(clean(merged));
     }
 
@@ -956,8 +1043,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       } else {
         return res.status(400).json({ error: 'id, or eventId and personId, are required' });
       }
+      const actorId = str(q.actorId);
       for (const key of ids) {
         const reg = (await client.send(new GetCommand({ TableName: tableName, Key: { id: key } }))).Item;
+        // Only the attendee themselves, or an admin / the event's check-in team
+        if (!actorId || (actorId !== reg?.personId && !(await requireCheckinStaff(client, tableName, actorId, reg?.eventId)))) {
+          return res.status(403).json({ error: 'You can only cancel your own registration.' });
+        }
         if (reg?.checkedIn) {
           return res.status(409).json({ error: 'You are already checked in, so this registration can no longer be cancelled.' });
         }

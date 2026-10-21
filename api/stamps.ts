@@ -79,6 +79,21 @@ async function checkedInForSession(client: DynamoDBDocumentClient, tableName: st
   return false;
 }
 
+/** Every stamp record, reading all pages of the table (one Scan page is at most 1 MB). */
+async function allStamps(client: DynamoDBDocumentClient, tableName: string): Promise<any[]> {
+  const out: any[] = [];
+  let ExclusiveStartKey: Record<string, any> | undefined;
+  do {
+    const page = await client.send(new ScanCommand({ TableName: tableName, ExclusiveStartKey }));
+    for (const item of page.Items || []) if (isOwnRecord(item)) out.push(item);
+    ExclusiveStartKey = page.LastEvaluatedKey;
+  } while (ExclusiveStartKey);
+  return out;
+}
+
+/** One stamp per person per session: the id is made from both, so two taps can't make two records. */
+const stampIdFor = (sessionId: string, attendeeId: string) => `stp-${sessionId}-${attendeeId}`.replace(/[^\w.-]/g, '_').slice(0, 200);
+
 const NOT_CHECKED_IN = 'Check this attendee in first: stamps are given after check-in.';
 
 const NOT_ON_STAFF =
@@ -111,16 +126,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json(result.Item);
       }
 
-      const scanResult = await client.send(
-        new ScanCommand({
-          TableName: tableName,
-        })
-      );
-
-      let stamps = (scanResult.Items || []).filter(
-        (item: any) =>
-          item.entityType === 'stamp' || (item.id && String(item.id).startsWith('stp-'))
-      );
+      let stamps = await allStamps(client, tableName);
 
       if (attendeeId && typeof attendeeId === 'string') {
         stamps = stamps.filter((s: any) => s.attendeeId === attendeeId);
@@ -142,40 +148,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ error: 'sessionId and attendeeId are required' });
       }
 
-      // Check if stamp already requested for this attendee + session
-      const scanResult = await client.send(
-        new ScanCommand({
-          TableName: tableName,
-        })
-      );
-      const existing = (scanResult.Items || []).find(
-        (s: any) =>
-          (s.entityType === 'stamp' || String(s.id).startsWith('stp-')) &&
-          s.sessionId === stamp.sessionId &&
-          s.attendeeId === stamp.attendeeId
-      );
-
-      if (existing) {
-        return res.status(200).json(existing);
-      }
+      const sessionId = String(stamp.sessionId);
+      const attendeeId = String(stamp.attendeeId);
+      const id = stampIdFor(sessionId, attendeeId);
+      // Already asked / given (this id, or an older record made before ids were fixed)
+      const same = (await client.send(new GetCommand({ TableName: tableName, Key: { id } }))).Item;
+      if (isOwnRecord(same)) return res.status(200).json(same);
+      const existing = (await allStamps(client, tableName)).find((s: any) => s.sessionId === sessionId && s.attendeeId === attendeeId);
+      if (existing) return res.status(200).json(existing);
 
       // A new stamp is always a request; approving happens through PUT
-      const id = `stp-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
       const itemToSave = {
         id,
         entityType: 'stamp',
-        sessionId: String(stamp.sessionId),
-        attendeeId: String(stamp.attendeeId),
+        sessionId,
+        attendeeId,
         status: 'pending',
         requestedAt: new Date().toISOString(),
       };
 
-      await client.send(
-        new PutCommand({
-          TableName: tableName,
-          Item: itemToSave,
-        })
-      );
+      try {
+        // Written only if nobody made it at the same moment (attendee asks while the team gives it)
+        await client.send(new PutCommand({ TableName: tableName, Item: itemToSave, ConditionExpression: 'attribute_not_exists(id)' }));
+      } catch (e: any) {
+        if (e?.name !== 'ConditionalCheckFailedException') throw e;
+        const now = (await client.send(new GetCommand({ TableName: tableName, Key: { id } }))).Item;
+        return res.status(200).json(now);
+      }
       return res.status(201).json(itemToSave);
     }
 
@@ -213,12 +212,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ? { ...existing.Item, id: stampId, entityType: 'stamp', status: 'approved', approvedBy: actor.id, approvedAt: new Date().toISOString() }
         : { ...existing.Item, id: stampId, entityType: 'stamp', status: 'pending', approvedBy: undefined, approvedAt: undefined };
 
-      await client.send(
-        new PutCommand({
-          TableName: tableName,
-          Item: merged,
-        })
-      );
+      try {
+        // Not if someone removed it a moment ago
+        await client.send(new PutCommand({ TableName: tableName, Item: merged, ConditionExpression: 'attribute_exists(id)' }));
+      } catch (e: any) {
+        if (e?.name === 'ConditionalCheckFailedException') return res.status(404).json({ error: 'This stamp was just removed. Ask the attendee to request it again.' });
+        throw e;
+      }
       return res.status(200).json(merged);
     }
 
@@ -248,6 +248,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           Key: { id },
         })
       );
+      // Staff removal also clears any duplicate record for the same person and session (older data)
+      if (!own) {
+        const dupes = (await allStamps(client, tableName)).filter(
+          (s: any) => s.id !== id && s.sessionId === toDelete.Item!.sessionId && s.attendeeId === toDelete.Item!.attendeeId,
+        );
+        for (const d of dupes) await client.send(new DeleteCommand({ TableName: tableName, Key: { id: d.id } }));
+      }
       return res.status(200).json({ success: true, id });
     }
 

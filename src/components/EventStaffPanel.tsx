@@ -295,7 +295,7 @@ export default function EventStaffPanel({
 
       {isAdmin && nobodyOnDuty && team.length > 0 && (
         <Alert severity="info" sx={{ mb: 2 }}>
-          No officer can approve stamps or check people in here yet - tick them below.
+          Nobody can check people in or give stamps here yet - tick them below.
         </Alert>
       )}
       {error && (
