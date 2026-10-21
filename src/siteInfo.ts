@@ -6,7 +6,8 @@ export const SITE = {
   club: 'AWS Student Builder Group - Asia Pacific College (AWS SBG-APC)',
   contactEmail: 'aws.apcofficial@gmail.com',
   clubWebsite: 'https://aws-sbg-apc.vercel.app',
-  developer: 'Rodmina Ibe (AWS SBG-APC President)',
+  /** Credit line: "A project by …" (the project lead, not the sole developer). */
+  projectBy: 'Rodmina Jhoy Ibe (AWS SBG-APC President)',
   /** Effective date of the Terms of Use and Privacy Notice (also saved when someone agrees). */
   termsVersion: '2026-10-21',
   termsDate: 'October 21, 2026',

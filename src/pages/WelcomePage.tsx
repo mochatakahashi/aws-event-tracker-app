@@ -62,12 +62,19 @@ export default function WelcomePage() {
         background: `linear-gradient(180deg, ${brand.background} 0%, ${alpha(brand.secondary, 0.5)} 100%)`,
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        px: { xs: 3, sm: 4, md: 6 },
-        py: { xs: 6, sm: 8 },
       }}
     >
+      {/* Page content, centered above the footer */}
+      <Box
+        sx={{
+          flex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          px: { xs: 3, sm: 4, md: 6 },
+          py: { xs: 6, sm: 8 },
+        }}
+      >
       <Box
         sx={{
           width: '100%',
@@ -169,9 +176,8 @@ export default function WelcomePage() {
           {features}
         </Box>
       </Box>
-      <Box sx={{ width: '100%', maxWidth: { xs: 480, md: 1100 }, mt: { xs: 4, md: 6 } }}>
-        <SiteFooter />
       </Box>
+      <SiteFooter variant="band" />
     </Box>
   );
 }

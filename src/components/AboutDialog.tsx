@@ -27,7 +27,7 @@ export default function AboutDialog({ open, onClose }: { open: boolean; onClose:
           session stamps, certificates, food stubs, officer tasks and notifications.
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
-          Developed by {SITE.developer}.
+          A project by {SITE.projectBy}.
         </Typography>
         <SiteFooter compact />
       </DialogContent>
