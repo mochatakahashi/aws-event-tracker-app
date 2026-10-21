@@ -1,4 +1,5 @@
 import { takeRegisterIntent } from '../utils/registerIntent';
+import { LOGOS } from '../brandAssets';
 import SiteFooter from '../components/SiteFooter';
 import PasswordField from '../components/PasswordField';
 import { useState, type FormEvent } from 'react';
@@ -11,7 +12,6 @@ import Typography from '@mui/material/Typography';
 import Alert from '@mui/material/Alert';
 import CircularProgress from '@mui/material/CircularProgress';
 import Link from '@mui/material/Link';
-import BoltRoundedIcon from '@mui/icons-material/BoltRounded';
 import { alpha } from '@mui/material/styles';
 import { useAuth } from '../context/AuthContext';
 import { brand } from '../theme/theme';
@@ -81,20 +81,11 @@ export default function LoginPage() {
     >
       {/* Logo */}
       <Box
-        sx={{
-          width: 64,
-          height: 64,
-          borderRadius: 3,
-          background: brand.gradient,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          mb: 2,
-          boxShadow: `0 8px 30px ${alpha(brand.primary, 0.3)}`,
-        }}
-      >
-        <BoltRoundedIcon sx={{ color: '#fff', fontSize: 36 }} />
-      </Box>
+        component="img"
+        src={LOGOS.icon}
+        alt="AWS SBG-APC"
+        sx={{ width: 72, height: 72, borderRadius: '50%', mb: 2, border: '3px solid #fff', boxShadow: `0 8px 30px ${alpha(brand.primary, 0.3)}` }}
+      />
 
       <Typography variant="h2" sx={{ mb: 3, fontWeight: 700 }}>
         Welcome back

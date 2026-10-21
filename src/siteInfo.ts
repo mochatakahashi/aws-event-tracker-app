@@ -6,6 +6,13 @@ export const SITE = {
   club: 'AWS Student Builder Group - Asia Pacific College (AWS SBG-APC)',
   contactEmail: 'aws.apcofficial@gmail.com',
   clubWebsite: 'https://aws-sbg-apc.vercel.app',
+  /** The club's social media pages. */
+  socials: {
+    facebook: 'https://www.facebook.com/awssbgapc',
+    instagram: 'https://www.instagram.com/awssbgapc',
+    linkedIn: 'https://www.linkedin.com/company/awssbgapc/',
+    tiktok: 'https://www.tiktok.com/@awssbgapc',
+  },
   /** Credit line: "A project by …" (the project lead, not the sole developer). */
   projectBy: 'Rodmina Jhoy Ibe (AWS SBG-APC President)',
   /** Effective date of the Terms of Use and Privacy Notice (also saved when someone agrees). */

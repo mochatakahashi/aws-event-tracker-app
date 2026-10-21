@@ -69,6 +69,7 @@
 - **💾 Works when the database is down**: the last data the app loaded is kept in the browser. If the database or connection fails, pages show that saved copy with a notice, and changes show an error until it's back. Cleared on sign-out.
 - **🕒 Last sign-in** on each account in Admin Home.
 - **➕ Officers add their own tasks**: *Add my own task* (task, details, event, committee, deadline) → it shows as **Waiting for approval** (no Start / Mark done yet) and admins get a notification; in **Officer Tasks → Tasks officers added** an admin or the officer's committee lead (Director, Assistant Director or VP) **Approves** (it joins the board and counts on the leaderboard) or **Declines** with a reason; the officer is notified. Admin Home shows how many wait.
+- **🐏 Logos**: the AWS SBG-APC logo on the Get Started page, the mascot as the app icon (browser tab, home screen, sidebar, sign-in), and the AWS SBG-APC and Asia Pacific College logos in the footer.
 - **📄 Footer, Privacy and Terms**: the Get Started, sign-in and sign-up pages end with *Contact us*, **Privacy** (`/privacy`), **Terms** (`/terms`), the club website, *Report a problem*, the inquiries email and the project credit. Sign-up needs *I agree to the Terms of Use and the Privacy Notice* (saved with the date and version). The profile has *Your data*: ask for a copy or to delete the account.
 - **🧭 Event Desk (`/officer/scan`, admins and officers on an event's staff list)** - everything for running an event in one place, per event:
   - **Scan**: the QR check-in scanner (below).

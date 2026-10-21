@@ -1,4 +1,5 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
+import { LOGOS } from '../brandAssets';
 import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import SiteFooter from '../components/SiteFooter';
@@ -16,7 +17,6 @@ import Stack from '@mui/material/Stack';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import CircularProgress from '@mui/material/CircularProgress';
-import BoltRoundedIcon from '@mui/icons-material/BoltRounded';
 import SchoolRoundedIcon from '@mui/icons-material/SchoolRounded';
 import PublicRoundedIcon from '@mui/icons-material/PublicRounded';
 import VerifiedUserRoundedIcon from '@mui/icons-material/VerifiedUserRounded';
@@ -120,20 +120,11 @@ export default function SignUpPage() {
     >
       {/* Logo */}
       <Box
-        sx={{
-          width: 64,
-          height: 64,
-          borderRadius: 3,
-          background: brand.gradient,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          mb: 2,
-          boxShadow: `0 8px 30px ${alpha(brand.primary, 0.3)}`,
-        }}
-      >
-        <BoltRoundedIcon sx={{ color: '#fff', fontSize: 36 }} />
-      </Box>
+        component="img"
+        src={LOGOS.icon}
+        alt="AWS SBG-APC"
+        sx={{ width: 72, height: 72, borderRadius: '50%', mb: 2, border: '3px solid #fff', boxShadow: `0 8px 30px ${alpha(brand.primary, 0.3)}` }}
+      />
 
       <Typography variant="h2" sx={{ mb: 0.5, fontWeight: 700 }}>
         Create Account

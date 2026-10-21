@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
-import SiteFooter from '../components/SiteFooter';
+import { LOGOS } from '../brandAssets';
+import FooterBand from '../components/FooterBand';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
@@ -89,20 +90,21 @@ export default function WelcomePage() {
         <Box>
           {/* Logo */}
           <Box
+            component="img"
+            src={LOGOS.club}
+            alt="AWS Student Builder Group - Asia Pacific College logo"
             sx={{
-              width: 72,
-              height: 72,
-              borderRadius: 3,
-              background: brand.gradient,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              display: 'block',
+              width: { xs: 240, md: 300 },
+              height: 'auto',
+              px: 2.5,
+              py: 1.5,
               mb: 3,
-              boxShadow: `0 8px 30px ${alpha(brand.primary, 0.3)}`,
+              borderRadius: '18px',
+              bgcolor: '#fff',
+              boxShadow: `0 8px 30px ${alpha(brand.primary, 0.18)}`,
             }}
-          >
-            <BoltRoundedIcon sx={{ color: '#fff', fontSize: 40 }} />
-          </Box>
+          />
 
           <Typography
             variant="h1"
@@ -177,7 +179,7 @@ export default function WelcomePage() {
         </Box>
       </Box>
       </Box>
-      <SiteFooter variant="band" />
+      <FooterBand />
     </Box>
   );
 }
