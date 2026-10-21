@@ -640,7 +640,7 @@ The app keeps personal data of students and guests (names, emails, student IDs, 
 ### Decision
 - Public `/privacy` and `/terms` pages written from what the app really does, with an effective date (`SITE.termsVersion`).
 - Sign-up needs a ticked agreement; the server refuses sign-ups without it and records `termsAcceptedAt` and `termsVersion`.
-- A footer everywhere with the contact email, Privacy, Terms, the club website, *Report a problem* and the credit. Data requests (copy / deletion) go by email to the club inbox.
+- A footer on the Get Started, sign-in and sign-up pages with the contact email, Privacy, Terms, the club website, *Report a problem* and the credit. Data requests (copy / deletion) go by email to the club inbox.
 - Contact details and credits live in one file (`src/siteInfo.ts`).
 
 ### Consequences

@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import SiteFooter from '../components/SiteFooter';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
@@ -60,6 +61,7 @@ export default function WelcomePage() {
         minHeight: '100vh',
         background: `linear-gradient(180deg, ${brand.background} 0%, ${alpha(brand.secondary, 0.5)} 100%)`,
         display: 'flex',
+        flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         px: { xs: 3, sm: 4, md: 6 },
@@ -166,6 +168,9 @@ export default function WelcomePage() {
           </Typography>
           {features}
         </Box>
+      </Box>
+      <Box sx={{ width: '100%', maxWidth: { xs: 480, md: 1100 }, mt: { xs: 4, md: 6 } }}>
+        <SiteFooter />
       </Box>
     </Box>
   );
