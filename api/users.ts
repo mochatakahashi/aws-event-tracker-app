@@ -316,6 +316,9 @@ function findByLogin(users: any[], login: string) {
   );
 }
 
+/** Version (effective date) of the Terms of Use and Privacy Notice; mirrors src/siteInfo.ts. */
+const TERMS_VERSION = '2026-10-21';
+
 /** APC student ID: 4 digits, a dash, 6 digits (e.g. 2026-140242). */
 const STUDENT_ID_RE = /^\d{4}-\d{6}$/;
 const STUDENT_ID_ERROR = 'Student ID must look like 2026-140242 (4 digits, a dash, 6 digits).';
@@ -476,6 +479,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const d = req.body || {};
       const invalid = validateSignUp(d);
       if (invalid) return res.status(400).json({ error: invalid });
+      // Data Privacy Act: sign-up needs agreement to the Terms and the Privacy Notice
+      if (d.acceptedTerms !== true) {
+        return res.status(400).json({ error: 'Please agree to the Terms of Use and the Privacy Notice.' });
+      }
 
       const users = await scanUsers(client, tableName);
       const email = String(d.email).trim().toLowerCase();
@@ -490,6 +497,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         role: 'attendee',
         requestedRole: d.accountType === 'officer' ? 'officer' : 'attendee',
         status: 'pending',
+        termsAcceptedAt: new Date().toISOString(),
+        termsVersion: TERMS_VERSION,
       };
       await client.send(new PutCommand({ TableName: tableName, Item: item }));
       return res.status(201).json(sanitize(item));

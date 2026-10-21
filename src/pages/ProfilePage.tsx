@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import MuiLink from '@mui/material/Link';
+import { SITE, mailTo } from '../siteInfo';
+import { Link as RouterLink, useSearchParams } from 'react-router-dom';
 import StudentIdField from '../components/StudentIdField';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -494,6 +496,40 @@ export default function ProfilePage() {
             </Box>
             <Button size="small" startIcon={<SchoolRoundedIcon />} onClick={startTour} sx={{ textTransform: 'none', flexShrink: 0 }}>
               Take the tour
+            </Button>
+          </Stack>
+        </CardContent>
+      </Card>
+
+      {/* Data Privacy Act: ask for a copy of your data or to delete the account */}
+      <Card variant="outlined" sx={{ borderRadius: 4, mt: 2 }} data-testid="your-data">
+        <CardContent sx={{ px: 3 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+            Your data
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+            See how we use it in the{' '}
+            <MuiLink component={RouterLink} to="/privacy">
+              Privacy Notice
+            </MuiLink>
+            . You can fix most details with Edit profile.
+          </Typography>
+          <Stack spacing={1} alignItems="flex-start">
+            <Button
+              size="small"
+              variant="outlined"
+              href={mailTo(`[${SITE.appName}] Copy of my data`, `Hi, I would like a copy of the data the app keeps about me.\n\nName: ${user?.name ?? ''}\nEmail: ${user?.email ?? ''}`)}
+              sx={{ textTransform: 'none' }}
+            >
+              Ask for a copy of my data
+            </Button>
+            <Button
+              size="small"
+              color="error"
+              href={mailTo(`[${SITE.appName}] Delete my account`, `Hi, please delete my account and my data.\n\nName: ${user?.name ?? ''}\nEmail: ${user?.email ?? ''}`)}
+              sx={{ textTransform: 'none' }}
+            >
+              Ask to delete my account
             </Button>
           </Stack>
         </CardContent>

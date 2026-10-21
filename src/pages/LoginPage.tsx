@@ -1,4 +1,5 @@
 import { takeRegisterIntent } from '../utils/registerIntent';
+import SiteFooter from '../components/SiteFooter';
 import PasswordField from '../components/PasswordField';
 import { useState, type FormEvent } from 'react';
 import { useNavigate, useLocation, Link as RouterLink } from 'react-router-dom';
@@ -194,6 +195,7 @@ export default function LoginPage() {
       >
         ← Back to home
       </Link>
+      <SiteFooter />
 
       {/* Local development hint (never shown on the deployed app) */}
       {import.meta.env.DEV && import.meta.env.MODE !== 'test' && !import.meta.env.VITE_LOCAL_ADMIN_PASSWORD && (

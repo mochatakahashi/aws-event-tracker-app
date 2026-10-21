@@ -131,6 +131,8 @@ export interface Credentials {
 
 /** Data submitted from the signup form. */
 export interface SignUpData {
+  /** Agreed to the Terms of Use and the Privacy Notice (required at sign-up). */
+  acceptedTerms?: boolean;
   accountType: AccountType;
   firstName: string;
   middleInitial?: string;

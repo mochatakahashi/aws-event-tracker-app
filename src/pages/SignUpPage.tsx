@@ -1,4 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
+import Checkbox from '@mui/material/Checkbox';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import SiteFooter from '../components/SiteFooter';
 import StudentIdField from '../components/StudentIdField';
 import PasswordField from '../components/PasswordField';
 import { Link as RouterLink } from 'react-router-dom';
@@ -36,6 +39,7 @@ const TYPE_OPTIONS: { value: AccountType; label: string; hint: string; icon: Rea
 
 export default function SignUpPage() {
   const [accountType, setAccountType] = useState<AccountType>('apc-student');
+  const [agreed, setAgreed] = useState(false);
   const [firstName, setFirstName] = useState('');
   const [middleInitial, setMiddleInitial] = useState('');
   const [lastName, setLastName] = useState('');
@@ -71,10 +75,15 @@ export default function SignUpPage() {
       officerPosition: isOfficer ? officerPosition || undefined : undefined,
       committee: isOfficer && positionNeedsCommittee(officerPosition || undefined) ? committee || undefined : undefined,
       subcommittee: isOfficer && committee && subcommittee ? subcommittee : undefined,
+      acceptedTerms: agreed,
     };
     const invalid = validateSignUp(data, confirmPassword);
     if (invalid) {
       setError(invalid);
+      return;
+    }
+    if (!agreed) {
+      setError('Please agree to the Terms of Use and the Privacy Notice.');
       return;
     }
     setSubmitting(true);
@@ -308,6 +317,24 @@ export default function SignUpPage() {
             autoComplete="new-password"
           />
 
+          <FormControlLabel
+            sx={{ mt: 1.5, alignItems: 'flex-start', '& .MuiCheckbox-root': { pt: 0.25 } }}
+            control={<Checkbox checked={agreed} onChange={(e) => setAgreed(e.target.checked)} inputProps={{ 'aria-label': 'I agree to the Terms of Use and the Privacy Notice' }} />}
+            label={
+              <Typography variant="body2">
+                I agree to the{' '}
+                <Link component={RouterLink} to="/terms" target="_blank" sx={{ fontWeight: 600 }}>
+                  Terms of Use
+                </Link>{' '}
+                and the{' '}
+                <Link component={RouterLink} to="/privacy" target="_blank" sx={{ fontWeight: 600 }}>
+                  Privacy Notice
+                </Link>
+                , and to AWS SBG-APC using my details for its events.
+              </Typography>
+            }
+          />
+
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
             New accounts are reviewed by an admin before you can sign in.
           </Typography>
@@ -336,6 +363,7 @@ export default function SignUpPage() {
       <Link component={RouterLink} to="/" variant="body2" sx={{ mt: 3, color: brand.textSecondary }}>
         ← Back to home
       </Link>
+      <SiteFooter />
     </Box>
   );
 }

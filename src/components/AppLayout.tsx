@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import AboutDialog from './AboutDialog';
+import SiteFooter from './SiteFooter';
 import { APP_VERSION } from '../version';
 import { Outlet, useNavigate, useLocation, Link as RouterLink } from 'react-router-dom';
 import AppBar from '@mui/material/AppBar';
@@ -458,6 +459,7 @@ export default function AppLayout() {
           <Outlet />
           <TutorialTour />
           <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
+          <SiteFooter compact />
         </Box>
       </Box>
 

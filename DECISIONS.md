@@ -629,5 +629,25 @@ Sign-off requests carried any link, so a random or harmful link could reach the 
 
 ---
 
+## ADR-032: Privacy Notice, Terms and Consent at Sign-up
+
+### Status
+**Accepted** (v0.6.34)
+
+### Context
+The app keeps personal data of students and guests (names, emails, student IDs, photos, attendance, evaluations). The Philippine Data Privacy Act asks for a clear notice and consent, and people needed a way to reach the club.
+
+### Decision
+- Public `/privacy` and `/terms` pages written from what the app really does, with an effective date (`SITE.termsVersion`).
+- Sign-up needs a ticked agreement; the server refuses sign-ups without it and records `termsAcceptedAt` and `termsVersion`.
+- A footer everywhere with the contact email, Privacy, Terms, the club website, *Report a problem* and the credit. Data requests (copy / deletion) go by email to the club inbox.
+- Contact details and credits live in one file (`src/siteInfo.ts`).
+
+### Consequences
+- **Positive**: people know what is kept and how to ask about it; the club has a record of consent.
+- **Negative**: accounts made by an admin, and accounts from before this version, haven't agreed in the app yet. The pages are the club's own wording and should be reviewed by APC's Data Protection Officer.
+
+---
+
 *Last Updated: October 2026*
 

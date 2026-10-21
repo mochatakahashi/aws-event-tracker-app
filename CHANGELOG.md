@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.34] - 2026-10-21
+
+### Added
+- **Footer** on the sign-in and sign-up pages and at the bottom of every page in the app: *Contact us*, **Privacy**, **Terms**, the **AWS SBG-APC website**, *Report a problem*, the inquiries email, the credit (*Developed by Rodmina Ibe, AWS SBG-APC President*) and the version.
+- **Privacy Notice** (`/privacy`) and **Terms of Use** (`/terms`), open without signing in. Written in plain language from what the app actually stores and does, under the Data Privacy Act of 2012 (RA 10173): what is collected, why, who can see it, where it is stored (AWS Singapore, email through Amazon SES or Gmail, hosted on Vercel), how long, and how to see, fix or delete your data. No ads, tracking or analytics.
+- **Agreement at sign-up**: *I agree to the Terms of Use and the Privacy Notice* must be ticked; the server refuses sign-ups without it and saves when and which version was agreed to.
+- **Your data** on the profile: *Ask for a copy of my data* and *Ask to delete my account* open an email to the club inbox with your name and email filled in.
+- **Report a problem** opens an email with the app version, page and device filled in.
+- The About window shows the credit and the same links.
+
+---
+
 ## [0.6.33] - 2026-10-21
 
 ### Fixed

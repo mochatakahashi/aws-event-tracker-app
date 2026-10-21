@@ -38,6 +38,7 @@ import VerifyCertificatePage from './pages/VerifyCertificatePage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import ChangePasswordPage from './pages/ChangePasswordPage';
 import PersonProfilePage from './pages/PersonProfilePage';
+import LegalPage from './pages/LegalPage';
 
 function App() {
   return (
@@ -57,6 +58,8 @@ function App() {
               {/* Shared event links: public preview (signed-in people go to the event page) */}
               <Route path="/e/:id" element={<EventPreviewPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/privacy" element={<LegalPage kind="privacy" />} />
+              <Route path="/terms" element={<LegalPage kind="terms" />} />
 
               <Route
                 path="/change-password"

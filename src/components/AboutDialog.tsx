@@ -1,4 +1,6 @@
 import Dialog from '@mui/material/Dialog';
+import SiteFooter from './SiteFooter';
+import { SITE } from '../siteInfo';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
@@ -24,9 +26,10 @@ export default function AboutDialog({ open, onClose }: { open: boolean; onClose:
           The companion app of the AWS Student Builder Group at Asia Pacific College: event registration and check-in,
           session stamps, certificates, food stubs, officer tasks and notifications.
         </Typography>
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
-          Something not working? Tell an officer or an admin.
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
+          Developed by {SITE.developer}.
         </Typography>
+        <SiteFooter compact />
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Close</Button>
