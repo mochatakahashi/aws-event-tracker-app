@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
@@ -170,9 +171,38 @@ export default function EventStaffPanel({
       </Typography>
       {isAdmin && (
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Only officers and co-organizer staff ticked here can approve stamps or check people in at this event. Admins can
-          always do both. Co-organizer staff get only the duties you tick - no officer features.
+          Only officers and co-organizer staff ticked here can give stamps, check people in{event.food?.enabled ? ' or give food' : ''} at this
+          event. Admins can always do these. Co-organizer staff get only the duties you tick - no officer features.
         </Typography>
+      )}
+
+      {/* Food team: the Food tick only exists once food stubs are on */}
+      {isAdmin && (
+        <Alert
+          severity={event.food?.enabled ? 'success' : 'info'}
+          icon={<RestaurantRoundedIcon fontSize="inherit" />}
+          sx={{ mb: 2, alignItems: 'center' }}
+          data-testid="food-team-hint"
+          action={
+            !event.food?.enabled ? (
+              <Button component={RouterLink} to={`/admin/events/${event.id}/edit?focus=food`} size="small" color="inherit" sx={{ whiteSpace: 'nowrap' }}>
+                Turn on food
+              </Button>
+            ) : undefined
+          }
+        >
+          {event.food?.enabled ? (
+            <>
+              Food stubs are on ({(event.food.meals || []).map((m) => m.label).join(', ')}). Food team: {dutyIds(event, 'food').length || 'nobody yet'}. To add
+              someone, tick <b>Food</b> when you add them below, or tick it on their row.
+            </>
+          ) : (
+            <>
+              Food stubs are off for this event, so there is no food team yet. Turn on <b>Give out food</b> in Edit event, then
+              come back here and tick <b>Food</b> for the people giving out food.
+            </>
+          )}
+        </Alert>
       )}
 
       {isAdmin && (

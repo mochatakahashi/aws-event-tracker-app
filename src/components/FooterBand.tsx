@@ -32,10 +32,6 @@ const shimmer = keyframes`
   0% { transform: translateX(-100%); }
   100% { transform: translateX(100%); }
 `;
-const pulse = keyframes`
-  0%, 100% { box-shadow: 0 0 0 0 rgba(233, 213, 255, 0.45); }
-  50% { box-shadow: 0 0 0 10px rgba(233, 213, 255, 0); }
-`;
 
 /** One link as a glassy pill with an icon that lifts and glows on hover. */
 function Pill({ icon, label, href, to, external }: { icon: ReactNode; label: string; href?: string; to?: string; external?: boolean }) {
@@ -144,12 +140,7 @@ export default function FooterBand() {
       <Box sx={{ position: 'relative', maxWidth: 1100, mx: 'auto', px: 3, pt: { xs: 6, md: 8 }, pb: 3, textAlign: 'center' }}>
         {/* App name */}
         <Stack direction="row" spacing={1.25} alignItems="center" justifyContent="center" sx={{ mb: 0.75 }}>
-          <Box
-            component="img"
-            src={LOGOS.icon}
-            alt=""
-            sx={{ width: 40, height: 40, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.85)', animation: `${pulse} 3s ease-in-out infinite` }}
-          />
+          <Box component="img" src={LOGOS.badge} alt="" sx={{ width: 44, height: 44, display: 'block' }} />
           <Typography sx={{ fontWeight: 800, fontSize: { xs: '1.05rem', md: '1.2rem' }, letterSpacing: 0.2 }}>{SITE.appName}</Typography>
         </Stack>
         <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.72)', mb: 2.5 }}>
@@ -160,17 +151,13 @@ export default function FooterBand() {
         <Stack direction="row" spacing={{ xs: 2, sm: 3 }} alignItems="center" justifyContent="center" sx={{ mb: 3 }} data-testid="footer-logos">
           <Box
             component="img"
-            src={LOGOS.club}
+            src={LOGOS.badge}
             alt="AWS Student Builder Group - Asia Pacific College"
             loading="lazy"
             sx={{
-              height: { xs: 64, sm: 84 },
+              height: { xs: 110, sm: 140 },
               width: 'auto',
-              px: 1.5,
-              py: 0.75,
-              borderRadius: '12px',
-              bgcolor: '#fff',
-              boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
+              filter: 'drop-shadow(0 8px 20px rgba(0,0,0,0.3))',
               transition: 'transform .25s ease',
               '&:hover': { transform: 'translateY(-3px) rotate(-1deg)' },
             }}

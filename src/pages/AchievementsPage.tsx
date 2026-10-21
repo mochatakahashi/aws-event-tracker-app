@@ -29,6 +29,8 @@ import {
 import { brand } from '../theme/theme';
 import type { Session, Stamp } from '../types/session';
 import type { AppEvent } from '../types/event';
+import { ShareStampsButton } from '../components/StampStoryDialog';
+import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 import type { Registration } from '../types/attendee';
 import MyStandingCard from '../components/MyStandingCard';
 
@@ -168,6 +170,12 @@ export default function AchievementsPage() {
     [stamps, sessionById, eventById],
   );
 
+  // Events where they got at least one stamp: each has a story card to share
+  const storyEvents = useMemo(() => {
+    const ids = new Set(earned.map((x) => x.event?.id).filter(Boolean) as string[]);
+    return events.filter((e) => ids.has(e.id)).sort((a, b) => b.startAt.localeCompare(a.startAt));
+  }, [earned, events]);
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
@@ -210,6 +218,31 @@ export default function AchievementsPage() {
             <CertificateRow key={x.reg.id} reg={x.reg} event={x.event} personId={user!.personId} />
           ))}
         </Stack>
+      )}
+
+      {storyEvents.length > 0 && (
+        <>
+          <SectionTitle icon={<AutoAwesomeRoundedIcon />} count={storyEvents.length}>
+            Share my stamps
+          </SectionTitle>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'repeat(2, minmax(0, 1fr))' }, gap: 1.25 }} data-testid="story-events">
+            {storyEvents.map((ev) => {
+              const slots = sessions.filter((x) => x.eventId === ev.id && x.requiresStamp);
+              const got = stamps.filter((st) => st.status === 'approved' && slots.some((x) => x.id === st.sessionId)).length;
+              return (
+                <Paper key={ev.id} variant="outlined" sx={{ p: 2, borderRadius: '14px' }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+                    {ev.title}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.25 }}>
+                    {got} of {slots.length} stamps · a story card for Instagram and other socials
+                  </Typography>
+                  <ShareStampsButton event={ev} sessions={sessions} stamps={stamps} person={user} variant="outlined" />
+                </Paper>
+              );
+            })}
+          </Box>
+        </>
       )}
 
       <SectionTitle icon={<StarsRoundedIcon />} count={earned.length}>

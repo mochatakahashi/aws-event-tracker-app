@@ -1,5 +1,4 @@
 import { useNavigate } from 'react-router-dom';
-import { LOGOS } from '../brandAssets';
 import FooterBand from '../components/FooterBand';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -88,24 +87,6 @@ export default function WelcomePage() {
       >
         {/* Left: intro + call to action */}
         <Box>
-          {/* Logo */}
-          <Box
-            component="img"
-            src={LOGOS.club}
-            alt="AWS Student Builder Group - Asia Pacific College logo"
-            sx={{
-              display: 'block',
-              width: { xs: 240, md: 300 },
-              height: 'auto',
-              px: 2.5,
-              py: 1.5,
-              mb: 3,
-              borderRadius: '18px',
-              bgcolor: '#fff',
-              boxShadow: `0 8px 30px ${alpha(brand.primary, 0.18)}`,
-            }}
-          />
-
           <Typography
             variant="h1"
             sx={{ fontWeight: 800, fontSize: { xs: '2rem', sm: '2.5rem', md: '3.25rem' }, lineHeight: 1.1, mb: 0.5 }}

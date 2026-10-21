@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.37] - 2026-10-21
+
+### Added
+- **Share my stamps**: a story card (Instagram story size, 1080 x 1920) of the stamps someone collected at an event, to post on Instagram, Facebook, TikTok or Messenger.
+  - The card shows the club and APC logos, the event name, date and venue, *Hi, I'm (first name)!* with their profile photo, each session's stamp (collected stamps land with a stamp animation and a check; missing ones show a dashed *?*), a *1 of 2 stamps* or gold **Passport complete!** badge, *I learned that* / *I want to share* lines to fill in with the story text tool, *Tag us on your story* **@awssbgapc**, and hashtags: **#AWSSBGAPC**, one from the event name (for example **#TechBarangay**), and **#PassportComplete** or **#StampCollector**.
+  - **Share** opens the phone's share sheet with the picture; on a computer it saves the picture instead. **Download** saves a PNG, and **Copy** copies a ready caption.
+  - Photo: their profile photo, **Use another photo** (stays on the device, not uploaded or saved), or no photo.
+  - Where: a **Share my stamps** button on the stamp passport (Dashboard and event page) once they have at least one stamp, and a **Share my stamps** section in Achievements for past events.
+- **Food team hint** under Event staff: when food stubs are off it explains that the Food tick appears after turning on *Give out food*, with a **Turn on food** button that opens Edit event at Food stubs; when on, it shows the meals and how many are on the food team.
+
+### Changed
+- **Food given by mistake**: the scan card now has *Given by mistake? Undo* on each given meal (it was only in the Food tab), and both places ask *Take back Lunch?* before undoing. Wording matches the desk: *Food given 12:30 by …*, filter *Given*.
+- **Get Started page**: the logo card at the top was removed (the logos stay in the footer).
+- **Footer**: the new round AWS SBG-APC badge (transparent background) replaces the club logo next to the APC logo, and a small one sits beside the app name instead of the old icon with the pulsing white ring.
+- **Footer**: the AWS SBG-APC logo now uses the version with a transparent background (no white card), shown larger with a soft light edge so it reads on the purple; the round icon next to the app name was removed.
+
+---
+
 ## [0.6.36] - 2026-10-21
 
 ### Added

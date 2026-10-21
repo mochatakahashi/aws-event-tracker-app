@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
@@ -46,9 +48,17 @@ export default function FoodStubsEditor({ value, onChange }: { value: EventFood 
   const enabled = Boolean(value?.enabled);
   const meals = value?.meals?.length ? value.meals : DEFAULT_MEALS;
   const save = (next: FoodMeal[], on = enabled) => onChange({ enabled: on, meals: next });
+  // "Turn on food" from Event staff opens the form here
+  const ref = useRef<HTMLDivElement>(null);
+  const { search } = useLocation();
+  useEffect(() => {
+    if (new URLSearchParams(search).get('focus') !== 'food') return;
+    const t = window.setTimeout(() => ref.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 600);
+    return () => window.clearTimeout(t);
+  }, [search]);
 
   return (
-    <Box data-testid="food-editor">
+    <Box data-testid="food-editor" id="food-stubs" ref={ref} sx={{ scrollMarginTop: 80 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" useFlexGap spacing={1} sx={{ mb: 0.5 }}>
         <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
           Food stubs

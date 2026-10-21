@@ -24,6 +24,7 @@ import { useOptionalEvent } from '../context/EventContext';
 import { getSessionsByEvent, getStampsByAttendee, createStamp } from '../services/sessionService';
 import type { Session, Stamp } from '../types/session';
 import type { AppEvent } from '../types/event';
+import { ShareStampsButton } from './StampStoryDialog';
 
 interface EventStampCardProps {
   /** Optional custom title header */
@@ -338,6 +339,11 @@ export default function EventStampCard({
               </Typography>
             </Box>
           </Stack>
+          {approvedCount > 0 && user && (
+            <Box sx={{ mt: 2 }}>
+              <ShareStampsButton event={selectedEvent} sessions={sessions} stamps={stamps} person={user} onDark />
+            </Box>
+          )}
         </Box>
       </Box>
 

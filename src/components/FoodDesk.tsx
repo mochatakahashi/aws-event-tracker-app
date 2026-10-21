@@ -33,6 +33,41 @@ import {
   type MyFood,
 } from '../services/foodService';
 
+/** "Given by mistake? Undo" with a Keep / Undo confirm. */
+function UndoFood({ label, busy, onUndo, testId }: { label: string; busy: boolean; onUndo: () => void; testId: string }) {
+  const [ask, setAsk] = useState(false);
+  if (!ask) {
+    return (
+      <Button size="small" color="inherit" onClick={() => setAsk(true)} disabled={busy} sx={{ textTransform: 'none', whiteSpace: 'nowrap' }} data-testid={testId}>
+        Given by mistake? Undo
+      </Button>
+    );
+  }
+  return (
+    <Stack direction="row" spacing={0.5} alignItems="center" data-testid={`${testId}-confirm`}>
+      <Typography variant="caption" color="error" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
+        Take back {label}?
+      </Typography>
+      <Button size="small" onClick={() => setAsk(false)} disabled={busy} sx={{ textTransform: 'none' }}>
+        Keep
+      </Button>
+      <Button
+        size="small"
+        variant="contained"
+        color="error"
+        disabled={busy}
+        onClick={() => {
+          setAsk(false);
+          onUndo();
+        }}
+        sx={{ textTransform: 'none' }}
+      >
+        Undo
+      </Button>
+    </Stack>
+  );
+}
+
 /** One meal row with a Give button, or who gave it and when. */
 function MealRow({
   meal,
@@ -58,8 +93,8 @@ function MealRow({
         </Typography>
         {claim ? (
           <Typography variant="caption" sx={{ color: brand.success, fontWeight: 700 }}>
-            Already claimed at {mealTime(claim.claimedAt)}
-            {giverName ? ` (given by ${giverName})` : ''}
+            Food given {mealTime(claim.claimedAt)}
+            {giverName ? ` by ${giverName}` : ''}
           </Typography>
         ) : !open ? (
           <Typography variant="caption" color="text.secondary">
@@ -69,9 +104,7 @@ function MealRow({
       </Box>
       {claim ? (
         onUndo ? (
-          <Button size="small" color="inherit" onClick={onUndo} disabled={busy} sx={{ textTransform: 'none' }}>
-            Undo
-          </Button>
+          <UndoFood label={meal.label} busy={busy} onUndo={onUndo} testId={`undo-food-${meal.id}`} />
         ) : (
           <CheckCircleRoundedIcon sx={{ color: brand.success }} />
         )
@@ -140,6 +173,21 @@ export function ScanFoodSection({
     }
   }
 
+  async function undo(meal: FoodMeal) {
+    setBusy(meal.id);
+    setError('');
+    setNote('');
+    try {
+      await undoMeal(event.id, personId, meal.id, actorId);
+      setNote(`${meal.label} taken back. They can claim it again.`);
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not take it back.');
+    } finally {
+      setBusy(null);
+    }
+  }
+
   if (!data) return error ? <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert> : null;
   return (
     <Box
@@ -161,12 +209,22 @@ export function ScanFoodSection({
         <Stack spacing={1}>
           {data.food.meals.map((m) => {
             const claim = data.claims.find((c) => c.mealId === m.id);
-            return <MealRow key={m.id} meal={m} claim={claim} busy={busy === m.id} onGive={() => void give(m)} giverName={claim ? nameOf(claim.givenBy) : undefined} />;
+            return (
+              <MealRow
+                key={m.id}
+                meal={m}
+                claim={claim}
+                busy={busy === m.id}
+                onGive={() => void give(m)}
+                onUndo={() => void undo(m)}
+                giverName={claim ? nameOf(claim.givenBy) : undefined}
+              />
+            );
           })}
         </Stack>
       )}
       {note && (
-        <Alert severity={/already/.test(note) ? 'warning' : 'success'} sx={{ mt: 1.25 }} data-testid="food-note">
+        <Alert severity={/already|taken back/.test(note) ? 'warning' : 'success'} sx={{ mt: 1.25 }} data-testid="food-note">
           {note}
         </Alert>
       )}
@@ -295,7 +353,7 @@ export function FoodDeskPanel({
         />
         <ToggleButtonGroup exclusive size="small" value={show} onChange={(_e, v) => v && setShow(v)} aria-label="Show">
           <ToggleButton value="waiting">Not yet</ToggleButton>
-          <ToggleButton value="claimed">Claimed</ToggleButton>
+          <ToggleButton value="claimed">Given</ToggleButton>
           <ToggleButton value="all">All</ToggleButton>
         </ToggleButtonGroup>
       </Stack>
@@ -307,7 +365,7 @@ export function FoodDeskPanel({
       <Stack spacing={1} data-testid="food-list">
         {rows.length === 0 && (
           <Typography variant="body2" color="text.secondary">
-            {show === 'waiting' ? 'Everyone here has claimed it.' : 'Nobody to show.'}
+            {show === 'waiting' ? 'Everyone here has gotten it.' : 'Nobody to show.'}
           </Typography>
         )}
         {meal &&
@@ -322,13 +380,11 @@ export function FoodDeskPanel({
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
                       {p.label}
-                      {c ? ` · claimed ${mealTime(c.claimedAt)}${nameOf(c.givenBy) ? ` by ${nameOf(c.givenBy)}` : ''}` : ''}
+                      {c ? ` · given ${mealTime(c.claimedAt)}${nameOf(c.givenBy) ? ` by ${nameOf(c.givenBy)}` : ''}` : ''}
                     </Typography>
                   </Box>
                   {c ? (
-                    <Button size="small" color="inherit" onClick={() => void act(p.personId, true)} disabled={busy === p.personId} sx={{ textTransform: 'none' }}>
-                      Undo
-                    </Button>
+                    <UndoFood label={meal.label} busy={busy === p.personId} onUndo={() => void act(p.personId, true)} testId={`undo-food-row-${p.personId}`} />
                   ) : (
                     <Button
                       size="small"
