@@ -80,8 +80,8 @@ export default function EventDutyCard({ event, user }: { event: AppEvent; user: 
         ) : (
           <>
             <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mb: 1.5 }} data-testid="event-duties">
-              {checkin && <Chip size="small" color="success" icon={<HowToRegRoundedIcon />} label="Check people in & approve registrations" />}
-              {stamps && <Chip size="small" color="primary" icon={<StarsRoundedIcon />} label="Approve stamps" />}
+              {checkin && <Chip size="small" color="success" icon={<HowToRegRoundedIcon />} label="Check people in & accept registrations" />}
+              {stamps && <Chip size="small" color="primary" icon={<StarsRoundedIcon />} label="Give stamps" />}
               {food && <Chip size="small" color="warning" icon={<RestaurantRoundedIcon />} label="Give out food stubs" />}
             </Stack>
             {over ? (

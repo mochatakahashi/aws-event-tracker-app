@@ -33,9 +33,10 @@ const initials = (name = '?') =>
     .toUpperCase();
 
 /**
- * Event Desk → Stamp requests: pending stamp requests for one event.
- * Stamps are approved after check-in, so people who aren't checked in yet
- * show "Check in first" (or "Check in & approve" for the check-in team).
+ * Event Desk → Stamp requests: stamps people asked for at one event (Give stamp /
+ * Don't give), and the stamps given recently, which can be removed if given by
+ * mistake. Stamps are given after check-in, so people who aren't checked in yet
+ * show "Check in first" (or "Check in & give stamp" for the check-in team).
  */
 export default function StampRequestsPanel({
   event,
@@ -65,6 +66,36 @@ export default function StampRequestsPanel({
   const pending = stamps
     .filter((s) => s.status === 'pending')
     .sort((a, b) => (a.requestedAt || '').localeCompare(b.requestedAt || ''));
+  // Given stamps, newest first (to undo a mistake)
+  const given = stamps
+    .filter((s) => s.status === 'approved')
+    .sort((a, b) => (b.approvedAt || '').localeCompare(a.approvedAt || ''));
+  const [showAllGiven, setShowAllGiven] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
+
+  async function remove(stamp: Stamp) {
+    setBusy(stamp.id);
+    setError('');
+    setNote('');
+    try {
+      await declineStamp(stamp.id, actor.personId);
+      const session = sessionById.get(stamp.sessionId);
+      void notifyInApp({
+        personIds: [stamp.attendeeId],
+        kind: 'stamp-declined',
+        title: `Stamp removed: ${session?.title || 'a session'}`,
+        message: `${actor.name} removed the stamp for "${session?.title || 'a session'}" (given by mistake). Ask the stamp team if you think this is wrong.`,
+        link: '/achievements',
+      });
+      setConfirmRemove(null);
+      setNote(`Removed ${people.get(stamp.attendeeId)?.name ?? 'the attendee'}’s stamp for ${session?.title ?? 'the session'}.`);
+      await onChanged();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not remove the stamp.');
+    } finally {
+      setBusy(null);
+    }
+  }
 
   async function approve(stamp: Stamp, alsoCheckIn: boolean) {
     setBusy(stamp.id);
@@ -85,13 +116,13 @@ export default function StampRequestsPanel({
         personIds: [stamp.attendeeId],
         kind: 'stamp-approved',
         title: 'Stamp collected! ⭐',
-        message: `Your stamp for "${session?.title || 'a session'}" was approved by ${actor.name}.`,
+        message: `You got the stamp for "${session?.title || 'a session'}" from ${actor.name}.`,
         link: '/achievements',
       });
-      setNote(`Approved ${people.get(stamp.attendeeId)?.name ?? 'the attendee'}’s stamp.`);
+      setNote(`Gave ${people.get(stamp.attendeeId)?.name ?? 'the attendee'} the stamp. Given by mistake? Remove it under Stamps given.`);
       await onChanged();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not approve the stamp.');
+      setError(e instanceof Error ? e.message : 'Could not give the stamp.');
     } finally {
       setBusy(null);
     }
@@ -107,13 +138,13 @@ export default function StampRequestsPanel({
       void notifyInApp({
         personIds: [stamp.attendeeId],
         kind: 'stamp-declined',
-        title: 'Stamp request not approved',
-        message: `Your stamp request for "${session?.title || 'a session'}" was declined. Finish the activity and request it again, or ask an officer at the booth.`,
+        title: 'Stamp not given',
+        message: `Your stamp for "${session?.title || 'a session'}" wasn't given. Finish the activity and request it again, or ask an officer at the booth.`,
         link: '/achievements',
       });
       await onChanged();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not decline the stamp.');
+      setError(e instanceof Error ? e.message : 'Could not update the stamp.');
     } finally {
       setBusy(null);
     }
@@ -123,7 +154,7 @@ export default function StampRequestsPanel({
     <Box data-testid="stamp-requests">
       {!mayStamp && (
         <Alert severity="info" sx={{ mb: 2 }}>
-          You can see the requests, but only the stamp team for this event can approve them.
+          You can see the requests, but only the stamp team for this event can give stamps.
         </Alert>
       )}
       {error && (
@@ -191,7 +222,7 @@ export default function StampRequestsPanel({
                           onClick={() => void approve(st, false)}
                           sx={{ backgroundImage: 'none' }}
                         >
-                          Approve
+                          Give stamp
                         </Button>
                       ) : mayCheckIn && reg ? (
                         <Button
@@ -201,7 +232,7 @@ export default function StampRequestsPanel({
                           disabled={Boolean(busy)}
                           onClick={() => void approve(st, true)}
                         >
-                          Check in & approve
+                          Check in & give stamp
                         </Button>
                       ) : (
                         <Typography variant="caption" color="warning.main" sx={{ alignSelf: 'center', fontWeight: 600 }}>
@@ -215,7 +246,7 @@ export default function StampRequestsPanel({
                         disabled={Boolean(busy)}
                         onClick={() => void decline(st)}
                       >
-                        Decline
+                        Don't give
                       </Button>
                     </Stack>
                   )}
@@ -224,6 +255,68 @@ export default function StampRequestsPanel({
             );
           })}
         </Stack>
+      )}
+
+      {/* Stamps given: remove one given by mistake */}
+      {given.length > 0 && (
+        <Box sx={{ mt: 3 }} data-testid="stamps-given">
+          <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 0.25 }}>
+            Stamps given ({given.length})
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+            Newest first. Given one by mistake? Remove it; the attendee is told and can ask again.
+          </Typography>
+          <Stack spacing={0.75}>
+            {(showAllGiven ? given : given.slice(0, 8)).map((st) => {
+              const p = people.get(st.attendeeId);
+              const session = sessionById.get(st.sessionId);
+              return (
+                <Stack
+                  key={st.id}
+                  direction="row"
+                  alignItems="center"
+                  spacing={1}
+                  sx={{ p: 1, pl: 1.5, borderRadius: '12px', border: `1px solid ${alpha(brand.success, 0.25)}`, bgcolor: alpha(brand.success, 0.04) }}
+                  data-testid={`stamp-given-${st.id}`}
+                >
+                  <CheckCircleRoundedIcon fontSize="small" sx={{ color: brand.success }} />
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 700 }} noWrap>
+                      {p?.name ?? 'Attendee'} · {session?.title ?? 'Session'}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Given {manila(st.approvedAt)}
+                      {st.approvedBy ? ` by ${people.get(st.approvedBy)?.name ?? (st.approvedBy === actor.personId ? 'you' : 'staff')}` : ''}
+                    </Typography>
+                  </Box>
+                  {mayStamp &&
+                    (confirmRemove === st.id ? (
+                      <Stack direction="row" spacing={0.5} alignItems="center">
+                        <Typography variant="caption" color="error" sx={{ fontWeight: 700 }}>
+                          Remove?
+                        </Typography>
+                        <Button size="small" onClick={() => setConfirmRemove(null)} disabled={Boolean(busy)}>
+                          Keep
+                        </Button>
+                        <Button size="small" color="error" variant="contained" onClick={() => void remove(st)} disabled={Boolean(busy)} sx={{ backgroundImage: 'none' }}>
+                          Remove
+                        </Button>
+                      </Stack>
+                    ) : (
+                      <Button size="small" color="inherit" onClick={() => setConfirmRemove(st.id)} sx={{ textTransform: 'none', color: 'text.secondary' }}>
+                        Remove stamp
+                      </Button>
+                    ))}
+                </Stack>
+              );
+            })}
+          </Stack>
+          {given.length > 8 && (
+            <Button size="small" onClick={() => setShowAllGiven((v) => !v)} sx={{ mt: 0.5 }}>
+              {showAllGiven ? 'Show fewer' : `Show all ${given.length}`}
+            </Button>
+          )}
+        </Box>
       )}
     </Box>
   );

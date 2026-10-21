@@ -18,7 +18,6 @@ import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import { alpha } from '@mui/material/styles';
 import { brand } from '../theme/theme';
 import { checkIn, reviewRegistrations, notifyCheckedIn, undoCheckIn } from '../services/registrationService';
-import { RsvpChip } from './EventChips';
 import type { RsvpStatus } from '../types/attendee';
 import { notifyInApp } from '../services/notificationService';
 import { canDo } from '../utils/eventStaff';
@@ -155,7 +154,7 @@ export default function EventAttendeesPanel({
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ sm: 'center' }} sx={{ mb: 2 }}>
         <ToggleButtonGroup exclusive size="small" value={filter} onChange={(_e, v: Filter | null) => v && setFilter(v)}>
           <ToggleButton value="all">All {going.length}</ToggleButton>
-          <ToggleButton value="pending">Pending {pending.length}</ToggleButton>
+          <ToggleButton value="pending">To accept {pending.length}</ToggleButton>
           <ToggleButton value="waiting">Not in yet {going.length - inCount}</ToggleButton>
           <ToggleButton value="in">Checked in {inCount}</ToggleButton>
           {declinedCount > 0 && <ToggleButton value="declined">Declined {declinedCount}</ToggleButton>}
@@ -181,11 +180,11 @@ export default function EventAttendeesPanel({
           sx={{ mb: 2 }}
           action={
             <Button color="inherit" size="small" disabled={Boolean(busy)} onClick={() => void review(pending, 'approved')}>
-              Approve all {pending.length}
+              Accept all {pending.length}
             </Button>
           }
         >
-          {pending.length} registration{pending.length === 1 ? '' : 's'} waiting for approval.
+          {pending.length} registration{pending.length === 1 ? '' : 's'} waiting to be accepted. Checking someone in at the door also accepts them.
         </Alert>
       )}
       {error && (
@@ -233,7 +232,8 @@ export default function EventAttendeesPanel({
                         {(r.sessionIds?.length ?? 0) > 0 && (
                           <Chip size="small" variant="outlined" label={`${r.sessionIds!.length} session${r.sessionIds!.length === 1 ? '' : 's'} picked`} />
                         )}
-                        {r.rsvp !== 'approved' && <RsvpChip rsvp={r.rsvp} />}
+                        {r.rsvp === 'pending' && !r.checkedIn && <Chip size="small" color="warning" label="Waiting for acceptance" />}
+                        {r.rsvp === 'declined' && <Chip size="small" color="error" variant="outlined" label="Declined" />}
                       </Stack>
                     </Box>
                   </Stack>
@@ -247,16 +247,13 @@ export default function EventAttendeesPanel({
                         onClick={() => void review([r], 'approved')}
                         sx={{ backgroundImage: 'none' }}
                       >
-                        Approve
+                        Accept
                       </Button>
                       {r.rsvp === 'pending' && (
                         <Button size="small" color="error" disabled={Boolean(busy)} onClick={() => void review([r], 'declined')}>
                           Decline
                         </Button>
                       )}
-                      <Button size="small" variant="outlined" disabled={Boolean(busy)} onClick={() => void doCheckIn(r)}>
-                        Check in
-                      </Button>
                     </Stack>
                   ) : r.checkedIn ? (
                     undoId === r.id ? (

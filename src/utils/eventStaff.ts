@@ -9,7 +9,7 @@ import type { AppEvent } from '../types/event';
 export type StaffDuty = 'stamps' | 'checkin' | 'food';
 
 export const DUTY_LABELS: Record<StaffDuty, string> = {
-  stamps: 'Approve stamps',
+  stamps: 'Give stamps',
   checkin: 'Check people in',
   food: 'Food stubs',
 };

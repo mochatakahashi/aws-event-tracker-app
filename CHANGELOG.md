@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.35] - 2026-10-21
+
+### Changed
+- **Event Desk wording**: the desk now uses three clear words so check-in and approval don't get mixed up.
+  - **Accept / Decline** a registration (before the event, in the Attendees tab). *Pending* is now *Waiting for acceptance*, the filter is *To accept*, and *Approve all* is *Accept all*.
+  - **Check in** at the door. There is only one button now; checking someone in also accepts their registration (the old *Approve & check in* button is gone). Rows still waiting for acceptance only show Accept and Decline.
+  - **Give stamp / Don't give** for stamps (was *Approve stamp*). A stamp request shows as *Asked for a stamp*.
+- A short 3-step guide at the top of the Event Desk: *Accept registrations*, *Check in at the door*, *Give stamps*.
+- Event staff duty names: *Check people in & accept registrations* and *Give stamps*.
+
+### Added
+- **Remove stamp**: a stamp given by mistake can be removed. On the scan card, a given stamp shows *Given by mistake? Remove stamp*; the *Stamp requests* tab has a new **Stamps given** list with a Remove button on each. Both ask to confirm, and the attendee gets a notification that the stamp was removed. Only people who can give stamps for the event can remove them.
+
+---
+
 ## [0.6.34] - 2026-10-21
 
 ### Added

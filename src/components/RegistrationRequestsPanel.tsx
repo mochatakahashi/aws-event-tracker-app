@@ -94,7 +94,7 @@ export default function RegistrationRequestsPanel({
               </Stack>
               <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
                 <Button size="small" variant="contained" color="success" disabled={Boolean(busy)} onClick={() => void review([r], 'approved')}>
-                  Approve
+                  Accept
                 </Button>
                 <Button size="small" color="error" disabled={Boolean(busy)} onClick={() => void review([r], 'declined')}>
                   Decline
@@ -106,7 +106,7 @@ export default function RegistrationRequestsPanel({
       </Stack>
       {regs.length > 1 && (
         <Button size="small" sx={{ mt: 1 }} disabled={Boolean(busy)} onClick={() => void review(regs, 'approved')}>
-          Approve all {regs.length}
+          Accept all {regs.length}
         </Button>
       )}
     </Box>

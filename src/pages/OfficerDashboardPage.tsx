@@ -293,7 +293,7 @@ export default function OfficerDashboardPage() {
                 <StarsRoundedIcon sx={{ color: brand.primary }} /> Stamp requests
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                From events where you’re on the stamp team. Stamps are approved after the attendee is checked in.
+                From events where you’re on the stamp team. Stamps are given after the attendee is checked in.
               </Typography>
               {stampEventsWithRequests.length === 0 ? (
                 <Typography color="text.secondary" data-testid="stamp-summary">
@@ -359,8 +359,8 @@ export default function OfficerDashboardPage() {
                             <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{ev.title}</Typography>
                             <Typography variant="body2" color="text.secondary">
                               {waiting.length
-                                ? `${waiting.length} registration${waiting.length === 1 ? '' : 's'} waiting for approval`
-                                : 'No registrations waiting for approval'}{' '}
+                                ? `${waiting.length} registration${waiting.length === 1 ? '' : 's'} waiting to be accepted`
+                                : 'No registrations waiting to be accepted'}{' '}
                               · {approved} approved · {checked} checked in
                             </Typography>
                           </Box>

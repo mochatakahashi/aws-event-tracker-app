@@ -79,10 +79,10 @@ async function checkedInForSession(client: DynamoDBDocumentClient, tableName: st
   return false;
 }
 
-const NOT_CHECKED_IN = 'Check this attendee in first - stamps are approved after check-in.';
+const NOT_CHECKED_IN = 'Check this attendee in first: stamps are given after check-in.';
 
 const NOT_ON_STAFF =
-  'You are not on the stamp team for this event. Ask an admin to tick "Approve stamps" for you on the event page.';
+  'You are not on the stamp team for this event. Ask an admin to tick "Stamps" for you under Event staff on the event page.';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');

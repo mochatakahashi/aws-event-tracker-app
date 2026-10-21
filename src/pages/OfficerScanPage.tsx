@@ -30,7 +30,7 @@ import { useAuth } from '../context/AuthContext';
 import { useEvent } from '../context/EventContext';
 import { getEvents } from '../services/eventService';
 import { checkIn, getPeople, getRegistration, getRegistrationsByEvent, notifyCheckedIn, undoCheckIn } from '../services/registrationService';
-import { approveStamp, createStamp, getSessionsByEvent, getStamps, getStampsByAttendee } from '../services/sessionService';
+import { approveStamp, createStamp, declineStamp, getSessionsByEvent, getStamps, getStampsByAttendee } from '../services/sessionService';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import Badge from '@mui/material/Badge';
@@ -277,11 +277,40 @@ export default function OfficerScanPage() {
         personIds: [scanned.reg.personId],
         kind: 'stamp-approved',
         title: 'Stamp collected! ⭐',
-        message: `Your stamp for "${session.title}" was approved by ${user.name}.`,
+        message: `You got the stamp for "${session.title}" from ${user.name}.`,
         link: '/achievements',
       });
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not approve the stamp. Try again.');
+      setError(e instanceof Error ? e.message : 'Could not give the stamp. Try again.');
+    } finally {
+      setStampBusy(null);
+    }
+  }
+
+  // A stamp given by mistake: take it back (after a confirm) and tell the attendee
+  const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
+  useEffect(() => setConfirmRemove(null), [scanned?.reg.id]);
+  async function handleRemoveStamp(session: Session) {
+    if (!scanned || !user) return;
+    const st = scanned.stamps.find((x) => x.sessionId === session.id);
+    if (!st) return;
+    setStampBusy(session.id);
+    setError('');
+    try {
+      await declineStamp(st.id, user.personId);
+      setScanned((cur) => cur && { ...cur, stamps: cur.stamps.filter((x) => x.id !== st.id) });
+      setConfirmRemove(null);
+      setStampJustApproved(null);
+      void refreshDesk();
+      void notifyInApp({
+        personIds: [scanned.reg.personId],
+        kind: 'stamp-declined',
+        title: `Stamp removed: ${session.title}`,
+        message: `${user.name} removed the stamp for "${session.title}" (given by mistake). Ask the stamp team if you think this is wrong.`,
+        link: '/achievements',
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not remove the stamp. Try again.');
     } finally {
       setStampBusy(null);
     }
@@ -364,8 +393,7 @@ export default function OfficerScanPage() {
           size="small"
           variant="outlined"
           color={scanned.reg.rsvp === 'approved' ? 'success' : scanned.reg.rsvp === 'declined' ? 'error' : 'warning'}
-          label={`Registration: ${scanned.reg.rsvp}`}
-          sx={{ textTransform: 'capitalize' }}
+          label={scanned.reg.rsvp === 'approved' ? 'Registration accepted' : scanned.reg.rsvp === 'declined' ? 'Registration declined' : 'Waiting for acceptance'}
         />
       </Stack>
 
@@ -421,16 +449,41 @@ export default function OfficerScanPage() {
                         </Typography>
                         {live && <Chip size="small" color="primary" label="Now" sx={{ height: 18, fontSize: '0.65rem' }} />}
                         {st?.status === 'pending' && (
-                          <Chip size="small" color="warning" label="Requested" sx={{ height: 18, fontSize: '0.65rem' }} />
+                          <Chip size="small" color="warning" label="Asked for a stamp" sx={{ height: 18, fontSize: '0.65rem' }} />
                         )}
                       </Stack>
                     </Box>
-                    {approved ? (
-                      <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: brand.success, flexShrink: 0 }}>
-                        <CheckCircleRoundedIcon fontSize="small" />
-                        <Typography variant="caption" sx={{ fontWeight: 700 }}>
-                          {st?.approvedBy === user?.personId && stampJustApproved === s.id ? 'Approved!' : 'Approved'}
+                    {approved && confirmRemove === s.id ? (
+                      <Stack direction="row" spacing={0.5} alignItems="center" sx={{ flexShrink: 0 }} data-testid={`remove-stamp-confirm-${s.id}`}>
+                        <Typography variant="caption" color="error" sx={{ fontWeight: 700 }}>
+                          Remove this stamp?
                         </Typography>
+                        <Button size="small" onClick={() => setConfirmRemove(null)} disabled={Boolean(stampBusy)}>
+                          Keep
+                        </Button>
+                        <Button size="small" color="error" variant="contained" onClick={() => void handleRemoveStamp(s)} disabled={Boolean(stampBusy)} sx={{ backgroundImage: 'none' }}>
+                          Remove
+                        </Button>
+                      </Stack>
+                    ) : approved ? (
+                      <Stack alignItems="flex-end" sx={{ flexShrink: 0 }}>
+                        <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: brand.success }}>
+                          <CheckCircleRoundedIcon fontSize="small" />
+                          <Typography variant="caption" sx={{ fontWeight: 700 }}>
+                            {st?.approvedBy === user?.personId && stampJustApproved === s.id ? 'Stamp given!' : `Stamp given${st?.approvedAt ? ` ${manilaTime(st.approvedAt)}` : ''}`}
+                          </Typography>
+                        </Stack>
+                        {mayStamp && (
+                          <Button
+                            size="small"
+                            color="inherit"
+                            onClick={() => setConfirmRemove(s.id)}
+                            sx={{ p: 0, minWidth: 0, textTransform: 'none', fontSize: '0.72rem', color: 'text.secondary' }}
+                            data-testid={`remove-stamp-${s.id}`}
+                          >
+                            Given by mistake? Remove stamp
+                          </Button>
+                        )}
                       </Stack>
                     ) : !mayStamp ? (
                       <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
@@ -449,7 +502,7 @@ export default function OfficerScanPage() {
                         onClick={() => handleApproveStamp(s)}
                         sx={{ flexShrink: 0, borderRadius: '10px', whiteSpace: 'nowrap' }}
                       >
-                        Approve stamp
+                        Give stamp
                       </Button>
                     )}
                   </Stack>
@@ -527,7 +580,7 @@ export default function OfficerScanPage() {
             disabled={working}
             sx={{ py: 1.5, borderRadius: '14px', fontWeight: 800, fontSize: '1.05rem', mb: 1.5 }}
           >
-            {working ? 'Checking in…' : scanned.reg.rsvp === 'approved' ? 'Check in' : 'Approve & check in'}
+            {working ? 'Checking in…' : 'Check in'}
           </Button>
         )}
         <Button fullWidth variant="outlined" startIcon={<QrCodeScannerRoundedIcon />} onClick={scanNext} sx={{ borderRadius: '14px' }}>
@@ -549,10 +602,55 @@ export default function OfficerScanPage() {
       <Typography variant="h1" sx={{ mb: 0.5 }}>
         Event Desk
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
-        Everything for the event in one place: scan passes to check people in, then approve their stamps - from the scan or
-        the stamp request list - and see who’s here.
-      </Typography>
+      {/* How the desk works, in order */}
+      <Box
+        data-testid="desk-steps"
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, minmax(0, 1fr))' },
+          gap: 1,
+          mb: 2.5,
+        }}
+      >
+        {[
+          { n: 1, title: 'Accept registrations', text: 'Before the event, in the Attendees tab.' },
+          { n: 2, title: 'Check in at the door', text: 'Scan the pass. This also accepts them.' },
+          { n: 3, title: 'Give stamps', text: 'After each session. Remove one given by mistake.' },
+        ].map((st) => (
+          <Stack
+            key={st.n}
+            direction="row"
+            spacing={1.25}
+            alignItems="center"
+            sx={{ p: 1.25, borderRadius: '12px', bgcolor: alpha(brand.primary, 0.05), border: `1px solid ${alpha(brand.primary, 0.12)}` }}
+          >
+            <Box
+              sx={{
+                width: 28,
+                height: 28,
+                borderRadius: '50%',
+                flexShrink: 0,
+                display: 'grid',
+                placeItems: 'center',
+                background: brand.gradient,
+                color: '#fff',
+                fontWeight: 800,
+                fontSize: '0.85rem',
+              }}
+            >
+              {st.n}
+            </Box>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography variant="body2" sx={{ fontWeight: 800, lineHeight: 1.3 }}>
+                {st.title}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {st.text}
+              </Typography>
+            </Box>
+          </Stack>
+        ))}
+      </Box>
 
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ sm: 'center' }} sx={{ mb: 2.5 }}>
         <TextField
