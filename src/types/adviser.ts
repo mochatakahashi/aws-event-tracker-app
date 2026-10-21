@@ -45,4 +45,9 @@ export interface SignoffRequest {
   reviewedByName?: string;
   reviewedAt?: string;
   createdAt: string;
+  /** Set when deleted; kept 30 days (until purgeAfter) so it can be restored. */
+  deletedAt?: string;
+  deletedBy?: string;
+  deletedByName?: string;
+  purgeAfter?: string;
 }

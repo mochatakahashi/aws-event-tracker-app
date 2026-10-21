@@ -23,6 +23,8 @@ import { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand, DeleteComm
  * GET  ?action=signoffs&viewerId=               → sign-off requests (adviser/admin: all; officer: their own)
  * POST ?action=signoff { actorId, title, details?, link?, eventId? }   → officer / admin asks the adviser to sign
  * POST ?action=signoff-review { actorId, id, decision: 'approved'|'returned', comment? }  → adviser
+ * DELETE ?action=signoff&id=&actorId=           → delete a request (admins: any; others: their own). Kept 30 days for undo.
+ * POST ?action=signoff-restore { actorId, id }   → bring a deleted request back (admins, or whoever deleted it)
  */
 
 const KINDS = [
@@ -261,7 +263,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'signoffs' && req.method === 'GET') {
       const viewer = await getUser(q.viewerId);
       if (!viewer || !staffRoles.includes(viewer.role)) return res.status(200).json([]);
-      const all = (await scanType(client, tableName, 'signoff')).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+      const all = (await scanType(client, tableName, 'signoff')).filter((x) => !x.deletedAt).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
       const mine = viewer.role === 'officer' ? all.filter((x) => x.requestedBy === viewer.id) : all;
       return res.status(200).json(mine.map(clean));
     }
@@ -306,12 +308,53 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       );
       return res.status(201).json(clean(item));
     }
+    if (action === 'signoff' && req.method === 'DELETE') {
+      const actor = await getUser(q.actorId);
+      const item = str(q.id) ? (await client.send(new GetCommand({ TableName: tableName, Key: { id: String(q.id) } }))).Item : null;
+      if (!item || item.entityType !== 'signoff' || item.deletedAt) return res.status(404).json({ error: 'Request not found' });
+      if (!actor || (actor.status ?? 'approved') !== 'approved' || (actor.role !== 'admin' && actor.id !== item.requestedBy)) {
+        return res.status(403).json({ error: 'Only admins, or the person who sent it, can delete a sign-off request.' });
+      }
+      // Soft delete: hidden everywhere, kept so it can be restored (purged after 30 days)
+      const now = Date.now();
+      const deleted = {
+        ...item,
+        deletedAt: new Date(now).toISOString(),
+        deletedBy: actor.id,
+        deletedByName: actor.name,
+        purgeAfter: new Date(now + 30 * 24 * 3600 * 1000).toISOString(),
+      };
+      await client.send(new PutCommand({ TableName: tableName, Item: deleted }));
+      // The adviser was told about it, so say it was withdrawn
+      if (item.status === 'pending') {
+        const users = await scanType(client, tableName, 'user');
+        await bell(
+          users.filter((u) => u.role === 'adviser' && (u.status ?? 'approved') === 'approved').map((u) => u.id),
+          'signoff-request',
+          `Sign-off request withdrawn: ${item.title}`,
+          `${actor.name} deleted this request, so there is nothing to sign.`,
+          '/home',
+        );
+      }
+      return res.status(200).json({ success: true, id: item.id });
+    }
+    if (action === 'signoff-restore' && req.method === 'POST') {
+      const body = req.body || {};
+      const actor = await getUser(body.actorId);
+      const item = str(body.id) ? (await client.send(new GetCommand({ TableName: tableName, Key: { id: String(body.id) } }))).Item : null;
+      if (!item || item.entityType !== 'signoff' || !item.deletedAt) return res.status(404).json({ error: 'Nothing to restore.' });
+      if (!actor || (actor.role !== 'admin' && actor.id !== item.deletedBy)) return res.status(403).json({ error: 'Not allowed.' });
+      const { deletedAt: _a, deletedBy: _b, deletedByName: _c, purgeAfter: _d, ...rest } = item;
+      void _a; void _b; void _c; void _d;
+      await client.send(new PutCommand({ TableName: tableName, Item: rest }));
+      return res.status(200).json(clean(rest));
+    }
     if (action === 'signoff-review' && req.method === 'POST') {
       const body = req.body || {};
       const actor = await getUser(body.actorId);
       if (!actor || actor.role !== 'adviser') return res.status(403).json({ error: 'Only the adviser can sign off.' });
       const item = str(body.id) ? (await client.send(new GetCommand({ TableName: tableName, Key: { id: body.id } }))).Item : null;
-      if (!item || item.entityType !== 'signoff') return res.status(404).json({ error: 'Request not found' });
+      if (!item || item.entityType !== 'signoff' || item.deletedAt) return res.status(404).json({ error: 'Request not found' });
       const decision = body.decision === 'approved' ? 'approved' : body.decision === 'returned' ? 'returned' : null;
       if (!decision) return res.status(400).json({ error: 'Choose approve or return.' });
       const comment = text(body.comment, 1000);

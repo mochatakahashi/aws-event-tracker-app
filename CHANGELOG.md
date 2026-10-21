@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.36] - 2026-10-21
+
+### Added
+- **Delete a sign-off request**: a trash button on each Adviser sign-off request. Admins can delete any request; officers can delete only the ones they sent. It asks to confirm, and an **Undo** bar shows for a few seconds after. If the request was still waiting, the adviser gets a notice that it was withdrawn.
+- Deleted requests are not erased right away: they are hidden and kept for 30 days so they can be restored (the coming *Recently deleted* page will list them for admins).
+
+---
+
 ## [0.6.35] - 2026-10-21
 
 ### Changed

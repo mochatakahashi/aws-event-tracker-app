@@ -12,7 +12,11 @@ import Link from '@mui/material/Link';
 import DrawRoundedIcon from '@mui/icons-material/DrawRounded';
 import { alpha } from '@mui/material/styles';
 import { brand } from '../theme/theme';
-import { getSignoffs, requestSignoff, reviewSignoff } from '../services/adviserService';
+import { deleteSignoff, getSignoffs, requestSignoff, restoreSignoff, reviewSignoff } from '../services/adviserService';
+import Snackbar from '@mui/material/Snackbar';
+import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import type { SignoffRequest } from '../types/adviser';
 import { DOC_SERVICES, documentKind } from '../utils/linkCheck';
 import { canRequestSignoff } from '../utils/people';
@@ -48,6 +52,8 @@ export default function SignoffPanel({
   const [returning, setReturning] = useState<{ id: string; comment: string } | null>(null);
   const [approveNote, setApproveNote] = useState<Record<string, string>>({});
   const [error, setError] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [undo, setUndo] = useState<SignoffRequest | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -86,6 +92,36 @@ export default function SignoffPanel({
       setError(e instanceof Error ? e.message : 'Could not save your decision.');
     } finally {
       setBusy(null);
+    }
+  }
+
+  /** Admins can delete any request; others only the ones they sent. */
+  const canDelete = (x: SignoffRequest) => viewer.role === 'admin' || x.requestedBy === viewer.personId;
+
+  async function remove(item: SignoffRequest) {
+    setBusy(item.id);
+    setError('');
+    try {
+      await deleteSignoff(item.id, viewer);
+      setItems((prev) => prev.filter((x) => x.id !== item.id));
+      setConfirmDelete(null);
+      setUndo(item);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not delete the request.');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function restore() {
+    if (!undo) return;
+    const item = undo;
+    setUndo(null);
+    try {
+      const back = await restoreSignoff(item.id, viewer.personId);
+      setItems((prev) => [back, ...prev.filter((x) => x.id !== back.id)].sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not bring the request back.');
     }
   }
 
@@ -134,8 +170,36 @@ export default function SignoffPanel({
             </Typography>
           )}
         </Box>
-        <Chip size="small" color={STATUS[x.status].color} variant={x.status === 'pending' ? 'outlined' : 'filled'} label={STATUS[x.status].label} />
+        <Stack direction="row" spacing={0.5} alignItems="center" sx={{ flexShrink: 0 }}>
+          <Chip size="small" color={STATUS[x.status].color} variant={x.status === 'pending' ? 'outlined' : 'filled'} label={STATUS[x.status].label} />
+          {canDelete(x) && confirmDelete !== x.id && (
+            <Tooltip title="Delete request">
+              <IconButton size="small" aria-label={`Delete request: ${x.title}`} onClick={() => setConfirmDelete(x.id)} disabled={busy === x.id}>
+                <DeleteOutlineRoundedIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+        </Stack>
       </Stack>
+      {confirmDelete === x.id && (
+        <Alert
+          severity="warning"
+          sx={{ mt: 1.25, alignItems: 'center' }}
+          data-testid={`signoff-delete-confirm-${x.id}`}
+          action={
+            <Stack direction="row" spacing={1}>
+              <Button size="small" color="inherit" onClick={() => setConfirmDelete(null)}>
+                Keep
+              </Button>
+              <Button size="small" variant="contained" color="error" disabled={busy === x.id} onClick={() => void remove(x)}>
+                Delete
+              </Button>
+            </Stack>
+          }
+        >
+          Delete this request?{x.status === 'pending' ? ' The adviser will be told it was withdrawn.' : ''} You can undo right after.
+        </Alert>
+      )}
       {isAdviser && x.status === 'pending' && (
         <Box sx={{ mt: 1.25 }}>
           {returning?.id === x.id ? (
@@ -258,6 +322,18 @@ export default function SignoffPanel({
           </Stack>
         )}
       </CardContent>
+      <Snackbar
+        open={Boolean(undo)}
+        autoHideDuration={8000}
+        onClose={(_e, reason) => reason !== 'clickaway' && setUndo(null)}
+        message={undo ? `Deleted: ${undo.title}` : ''}
+        action={
+          <Button color="secondary" size="small" onClick={() => void restore()}>
+            Undo
+          </Button>
+        }
+        data-testid="signoff-undo"
+      />
     </Card>
   );
 }

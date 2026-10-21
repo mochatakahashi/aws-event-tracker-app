@@ -88,7 +88,7 @@ export async function deleteAnnouncement(id: string, actorId: string): Promise<v
 
 export async function getSignoffs(viewerId: string): Promise<SignoffRequest[]> {
   if (await isRemoteAvailable(API)) return apiJson<SignoffRequest[]>(`${API}?action=signoffs&viewerId=${encodeURIComponent(viewerId)}`);
-  return delay(localSign.load().sort(newest));
+  return delay(localSign.load().filter((x) => !x.deletedAt).sort(newest));
 }
 
 export async function requestSignoff(
@@ -132,4 +132,39 @@ export async function reviewSignoff(
   all[idx] = { ...all[idx], status: decision, comment: comment?.trim() || undefined, reviewedBy: actor.personId, reviewedByName: actor.name, reviewedAt: new Date().toISOString() };
   localSign.save(all);
   return delay(all[idx]);
+}
+
+/** Delete a sign-off request (admins: any; others: their own). It is kept for 30 days so it can be restored. */
+export async function deleteSignoff(id: string, actor: { personId: string; name: string; role?: string }): Promise<void> {
+  if (await isRemoteAvailable(API)) {
+    await apiJson(`${API}?action=signoff&id=${encodeURIComponent(id)}&actorId=${encodeURIComponent(actor.personId)}`, { method: 'DELETE' });
+    return;
+  }
+  const all = localSign.load();
+  const cur = all.find((x) => x.id === id);
+  if (!cur) throw new Error('Request not found');
+  if (actor.role !== 'admin' && cur.requestedBy !== actor.personId) throw new Error('Only admins, or the person who sent it, can delete a sign-off request.');
+  const now = Date.now();
+  localSign.save(
+    all.map((x) =>
+      x.id === id
+        ? { ...x, deletedAt: new Date(now).toISOString(), deletedBy: actor.personId, deletedByName: actor.name, purgeAfter: new Date(now + 30 * 86400000).toISOString() }
+        : x,
+    ),
+  );
+  await delay(undefined);
+}
+
+/** Bring a deleted sign-off request back (admins, or whoever deleted it). */
+export async function restoreSignoff(id: string, actorId: string): Promise<SignoffRequest> {
+  if (await isRemoteAvailable(API)) {
+    return apiJson<SignoffRequest>(`${API}?action=signoff-restore`, { method: 'POST', body: JSON.stringify({ id, actorId }) });
+  }
+  const all = localSign.load();
+  const cur = all.find((x) => x.id === id);
+  if (!cur || !cur.deletedAt) throw new Error('Nothing to restore.');
+  const { deletedAt: _a, deletedBy: _b, deletedByName: _c, purgeAfter: _d, ...rest } = cur;
+  void _a; void _b; void _c; void _d;
+  localSign.save(all.map((x) => (x.id === id ? rest : x)));
+  return delay(rest);
 }
