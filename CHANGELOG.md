@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Profile photo adjuster**: after picking a photo the circle looked empty (the photo was placed off to the side), and **Re-adjust Photo** showed the current photo pushed into the corner with a black area. The photo is now centered and fills the circle, and what you see is exactly what gets saved. Same fix for speaker photos in the event form.
 - The arrow keys now move the photo, as the hint says (Shift moves faster). If a photo can't be loaded for adjusting, it says so and asks you to pick it again.
 
+### Changed
+- **About AWS SBG-APC** now only says what the app is for and its version (no list of updates).
+
 ---
 
 ## [0.6.32] - 2026-10-20
@@ -27,7 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Adviser sign-off, safer links**: the document link must be from **Google Docs / Slides / Sheets / Drive, Canva, or Microsoft Word / PowerPoint / Excel (OneDrive, SharePoint, Office)**, starting with https://. The form says what kind of file it is as you paste it (e.g. *Google Docs document*), and requests show *Open Google Docs document* with the site name. Older requests with other links are shown as text, not opened. Checked by the server too.
 - **Who sends sign-off requests**: Secretariat, the Marketing Director and Assistant Director, the VPs, the President and admins. Other officers no longer see the sign-off form.
 - **Password reset notice**: when someone uses *Forgot password*, the admin gets a short email saying who asked and when, **without the code**, so they can help if the code doesn't arrive.
-- **About AWS SBG-APC** (account menu and the phone's More page) now opens a window with what the app is, the version and what's new. The version shows the real number (was v0.1.0).
+- **About AWS SBG-APC** (account menu and the phone's More page) now opens a window with what the app is and the version. The version shows the real number (was v0.1.0).
 
 ### Fixed
 - **Social links are checked**: a LinkedIn link must be on linkedin.com, YouTube on youtube.com / youtu.be, and so on for Facebook, Instagram, GitHub, X and TikTok; *Website* and custom links must be web links. The field says what's wrong as you type, and the server refuses wrong links (profiles, Connect and speakers).

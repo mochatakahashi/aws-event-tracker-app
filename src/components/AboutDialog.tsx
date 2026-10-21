@@ -6,11 +6,10 @@ import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
-import Divider from '@mui/material/Divider';
 import { brand } from '../theme/theme';
-import { APP_VERSION, WHATS_NEW } from '../version';
+import { APP_VERSION } from '../version';
 
-/** About the app: what it is, the version and what's new. */
+/** About the app: what it is for and the version. */
 export default function AboutDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs" aria-labelledby="about-title">
@@ -25,25 +24,7 @@ export default function AboutDialog({ open, onClose }: { open: boolean; onClose:
           The companion app of the AWS Student Builder Group at Asia Pacific College: event registration and check-in,
           session stamps, certificates, food stubs, officer tasks and notifications.
         </Typography>
-        <Divider sx={{ my: 2 }} />
-        <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1 }}>
-          What's new
-        </Typography>
-        {WHATS_NEW.map((r) => (
-          <Box key={r.version} sx={{ mb: 1.5 }}>
-            <Typography variant="caption" sx={{ fontWeight: 800, color: brand.primary }}>
-              v{r.version}
-            </Typography>
-            <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
-              {r.items.map((i) => (
-                <Typography key={i} component="li" variant="body2">
-                  {i}
-                </Typography>
-              ))}
-            </Box>
-          </Box>
-        ))}
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
           Something not working? Tell an officer or an admin.
         </Typography>
       </DialogContent>
