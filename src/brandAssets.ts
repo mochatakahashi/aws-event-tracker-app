@@ -2,7 +2,7 @@
 export const LOGOS = {
   /** AWS SBG-APC logo (mascot and wordmark on white). */
   club: '/brand/sbg-apc-logo.webp',
-  /** Round mascot icon (sidebar, sign-in, footer). */
+  /** The logo in a circle (sidebar, sign-in, footer, browser tab). */
   icon: '/brand/icon-192.png',
   /** Asia Pacific College logo (yellow, transparent). */
   school: '/brand/apc-logo.png',
