@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Food given by mistake**: the scan card now has *Given by mistake? Undo* on each given meal (it was only in the Food tab), and both places ask *Take back Lunch?* before undoing. Wording matches the desk: *Food given 12:30 by …*, filter *Given*.
 - **Get Started page**: the logo card at the top was removed (the logos stay in the footer).
+- **Logos**: the new round AWS SBG-APC badge is now the club logo everywhere: browser tab, phone home screen icon, sidebar, sign-in and sign-up, the footer (next to the APC logo) and the story card.
+- **App logo**: beside *AWS SBG-APC Event Tracker* in the footer, the app has its own mark again, the white lightning bolt on the purple gradient from earlier versions, with its soft pulsing ring.
 - **Footer**: the new round AWS SBG-APC badge (transparent background) replaces the club logo next to the APC logo, and a small one sits beside the app name instead of the old icon with the pulsing white ring.
 - **Footer**: the AWS SBG-APC logo now uses the version with a transparent background (no white card), shown larger with a soft light edge so it reads on the purple; the round icon next to the app name was removed.
 

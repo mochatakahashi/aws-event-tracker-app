@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import ClubSocials from './ClubSocials';
 import { LOGOS } from '../brandAssets';
+import AppMark from './AppMark';
 import { Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -140,7 +141,7 @@ export default function FooterBand() {
       <Box sx={{ position: 'relative', maxWidth: 1100, mx: 'auto', px: 3, pt: { xs: 6, md: 8 }, pb: 3, textAlign: 'center' }}>
         {/* App name */}
         <Stack direction="row" spacing={1.25} alignItems="center" justifyContent="center" sx={{ mb: 0.75 }}>
-          <Box component="img" src={LOGOS.badge} alt="" sx={{ width: 44, height: 44, display: 'block' }} />
+          <AppMark size={40} pulse />
           <Typography sx={{ fontWeight: 800, fontSize: { xs: '1.05rem', md: '1.2rem' }, letterSpacing: 0.2 }}>{SITE.appName}</Typography>
         </Stack>
         <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.72)', mb: 2.5 }}>

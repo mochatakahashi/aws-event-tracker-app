@@ -104,7 +104,7 @@ export default function StampStoryDialog({
   useEffect(() => {
     if (!open || images) return;
     let alive = true;
-    Promise.all([loadImage(LOGOS.club, false), loadImage(LOGOS.school, false), loadImage(imageSrc(person.avatarUrl))]).then(([club, school, profile]) => {
+    Promise.all([loadImage(LOGOS.badge, false), loadImage(LOGOS.school, false), loadImage(imageSrc(person.avatarUrl))]).then(([club, school, profile]) => {
       if (alive) setImages({ club, school, profile });
     });
     return () => {

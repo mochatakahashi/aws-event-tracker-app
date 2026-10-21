@@ -227,14 +227,14 @@ export function drawStory(ctx: CanvasRenderingContext2D, d: StoryData, t = 1) {
   // Logos: club (on a white pill) and school
   ctx.save();
   ctx.globalAlpha = appear(0);
-  roundRect(ctx, 70, 92, 300, 118, 26);
-  ctx.fillStyle = '#fff';
-  ctx.fill();
   if (d.clubLogo?.naturalWidth) {
-    const s = Math.min(270 / d.clubLogo.naturalWidth, 96 / d.clubLogo.naturalHeight);
-    const w = d.clubLogo.naturalWidth * s;
-    const h = d.clubLogo.naturalHeight * s;
-    ctx.drawImage(d.clubLogo, 70 + (300 - w) / 2, 92 + (118 - h) / 2, w, h);
+    // Round club badge
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.35)';
+    ctx.shadowBlur = 24;
+    ctx.shadowOffsetY = 8;
+    ctx.drawImage(d.clubLogo, 70, 76, 150, 150);
+    ctx.restore();
   } else {
     ctx.fillStyle = '#4A1259';
     ctx.font = `800 40px ${FONT}`;
@@ -245,7 +245,7 @@ export function drawStory(ctx: CanvasRenderingContext2D, d: StoryData, t = 1) {
     const s = Math.min(200 / d.schoolLogo.naturalWidth, 104 / d.schoolLogo.naturalHeight);
     const w = d.schoolLogo.naturalWidth * s;
     const h = d.schoolLogo.naturalHeight * s;
-    ctx.drawImage(d.schoolLogo, 400, 92 + (118 - h) / 2, w, h);
+    ctx.drawImage(d.schoolLogo, 250, 92 + (118 - h) / 2, w, h);
   }
   // "EVENT PASSPORT" tag on the right
   ctx.font = `800 28px ${FONT}`;
