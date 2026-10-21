@@ -100,6 +100,16 @@ export default function AvatarImageAdjuster({
     try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
   };
 
+  // Arrow keys move the photo (Shift moves faster)
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (uploading || !imageLoaded) return;
+    const step = e.shiftKey ? 20 : 5;
+    const d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
+    if (!d) return;
+    e.preventDefault();
+    setPosition((p) => ({ x: p.x + d[0], y: p.y + d[1] }));
+  };
+
   const handleReset = () => {
     setZoom(fitScale);
     setPosition({ x: 0, y: 0 });
@@ -200,6 +210,12 @@ export default function AvatarImageAdjuster({
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerUp}
+            onKeyDown={handleKeyDown}
+            tabIndex={0}
+            role="img"
+            aria-label="Photo position. Use the arrow keys to move it."
+            data-testid="avatar-crop"
             sx={{
               position: 'relative',
               width: previewSize,
@@ -229,12 +245,19 @@ export default function AvatarImageAdjuster({
                 onLoad={handleImageLoad}
                 crossOrigin="anonymous"
                 draggable={false}
+                onError={() => {
+                  setImageLoaded(false);
+                  setError("This photo couldn't be loaded here. Tap Change Photo and pick it again.");
+                }}
                 sx={{
+                  // Centered in the circle, then moved and zoomed (the saved crop uses the same math)
                   position: 'absolute',
+                  left: '50%',
+                  top: '50%',
                   maxWidth: 'none',
                   maxHeight: 'none',
                   transformOrigin: 'center center',
-                  transform: `translate(${position.x}px, ${position.y}px) scale(${zoom})`,
+                  transform: `translate(-50%, -50%) translate(${position.x}px, ${position.y}px) scale(${zoom})`,
                   transition: isDragging ? 'none' : 'transform 0.05s ease-out',
                   pointerEvents: 'none',
                   opacity: imageLoaded ? 1 : 0,

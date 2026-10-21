@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.33] - 2026-10-21
+
+### Fixed
+- **Profile photo adjuster**: after picking a photo the circle looked empty (the photo was placed off to the side), and **Re-adjust Photo** showed the current photo pushed into the corner with a black area. The photo is now centered and fills the circle, and what you see is exactly what gets saved. Same fix for speaker photos in the event form.
+- The arrow keys now move the photo, as the hint says (Shift moves faster). If a photo can't be loaded for adjusting, it says so and asks you to pick it again.
+
+---
+
 ## [0.6.32] - 2026-10-20
 
 ### Added

@@ -1,8 +1,9 @@
 /** App version (keep in step with package.json and CHANGELOG.md). */
-export const APP_VERSION = '0.6.32';
+export const APP_VERSION = '0.6.33';
 
 /** Short "What's new" for the About window (latest first). */
 export const WHATS_NEW: { version: string; items: string[] }[] = [
+  { version: '0.6.33', items: ['Profile photo: the adjuster shows your photo centered, and re-adjusting works again.'] },
   {
     version: '0.6.32',
     items: [
