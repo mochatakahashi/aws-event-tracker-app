@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.39] - 2026-10-24
+
+### Changed
+- **Dashboard follows your registrations**: the *Switch event* picker is gone (sidebar, Events page and menu). The dashboard shows the registered event that's happening now (sessions now / next, your stamp passport) and your next events by itself, and re-checks every minute and when you come back to the app, so a new registration or an event that just started appears without reloading.
+- **Stamp passport**: only on the dashboard, and only once the event has started (not on the event page, not before the event). Wording matches the desk: *Ask for stamp*, *Asked: waiting for the team*, *Stamp given*. Compact on phones.
+- **Asking for a stamp**: only registered attendees (not declined), and only once the event has started. The server refuses others; the session page explains why (*Register for this event to collect stamps* / *You can ask for this stamp once the event starts*).
+- **Notifications**: each one has **Mark as read / Mark as unread** and **Delete**, with an **Undo** bar for a few seconds after deleting.
+- **Date and time pickers**: tap a day on a calendar, then scroll the hour / minute / AM-PM columns (event start and end, sessions, food opening times, task deadlines, pubmat dates). Phones get a full-screen picker with OK / Cancel.
+- **End before start is blocked**: an event or session can't end before it starts (for example Oct 23 to Oct 21); moving the start keeps the event's length; the server refuses it too.
+- **Event status from the dates**: the event form's Status is now *From the dates (upcoming, happening, past)* or *Cancelled*; nobody needs to update it by hand.
+- **App tour** updated to match the app (accepting registrations, check-in at the door, stamps after the event starts, Share my stamps, notifications, sign-offs, food), with phone directions for steps that aren't in the phone's bottom bar (Leaderboard for admins, Event Desk for officers). Every step now highlights something on phones and computers.
+- **Phones and small screens**:
+  - Alerts with a button no longer squeeze their text into a thin column (adviser sign-off delete, food hint, admin notices); the button moves under the text.
+  - Dropdowns never get wider than the screen; long choices end with "…"; menus fit the screen.
+  - Buttons keep short labels on one line (*QR Card*, *Scan QR*, *Create Event*), with less padding on phones.
+  - Admin Dashboard tiles show their counts under the text; the Event Desk 3-step guide is compact on phones.
+  - Profile photo: *Save photo* is one full-width button with *Change photo* and *Cancel* under it; the upload gives up with a message after 90 seconds instead of waiting forever.
+  - The phone's bottom bar shows every item the same (Achievements no longer looks always selected).
+  - Leaderboard has a back button and a cleaner event filter.
+- **Excel**: times are in Manila time on any computer; the attendee file says *Registration: Accepted / Waiting to be accepted / Declined* and *Last Stamp Given*; the officer file says *Stamps Given*.
+- Wording: *Waiting for acceptance* instead of *Pending approval* on the dashboard and pass.
+
+---
+
 ## [0.6.38] - 2026-10-22
 
 ### Fixed (check-in and stamps)

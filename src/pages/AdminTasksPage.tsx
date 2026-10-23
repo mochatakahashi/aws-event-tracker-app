@@ -32,6 +32,7 @@ import { createTask, deleteTask, getTasks, updateTask } from '../services/taskSe
 import { notifyQuietly } from '../services/notifyService';
 import { notifyInApp } from '../services/notificationService';
 import { brand } from '../theme/theme';
+import { DateField, TimeField } from '../components/Pickers';
 import type { User } from '../types/auth';
 import type { AppEvent } from '../types/event';
 import { TASK_STATUS_LABELS, deadlineInfo, isApprovedTask, type OfficerTask, type TaskStatus } from '../types/task';
@@ -631,26 +632,9 @@ export default function AdminTasksPage() {
                 ))}
               </TextField>
             )}
-            <Stack direction="row" spacing={1.5}>
-              <TextField
-                label="Deadline"
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                size="small"
-                required
-                InputLabelProps={{ shrink: true }}
-                fullWidth
-              />
-              <TextField
-                label="Time"
-                type="time"
-                value={dueTime}
-                onChange={(e) => setDueTime(e.target.value)}
-                size="small"
-                InputLabelProps={{ shrink: true }}
-                sx={{ minWidth: 130 }}
-              />
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+              <DateField label="Deadline" value={dueDate} onChange={setDueDate} required testId="task-due-date" />
+              <TimeField label="Time" value={dueTime} onChange={setDueTime} testId="task-due-time" sx={{ minWidth: { sm: 160 } }} />
             </Stack>
             <Box>
               <Button

@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
+import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import Slider from '@mui/material/Slider';
 import Paper from '@mui/material/Paper';
@@ -192,9 +193,9 @@ export default function AvatarImageAdjuster({
               Drag to reposition • Zoom to resize
             </Typography>
           </Box>
-          <Button size="small" color="inherit" startIcon={<CloseIcon />} onClick={onCancel} disabled={uploading}>
-            Cancel
-          </Button>
+          <IconButton size="small" aria-label="Close" onClick={onCancel} disabled={uploading}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
         </Stack>
 
         {error && (
@@ -247,7 +248,7 @@ export default function AvatarImageAdjuster({
                 draggable={false}
                 onError={() => {
                   setImageLoaded(false);
-                  setError("This photo couldn't be loaded here. Tap Change Photo and pick it again.");
+                  setError("This photo couldn't be loaded here. Tap Change photo and pick it again.");
                 }}
                 sx={{
                   // Centered in the circle, then moved and zoomed (the saved crop uses the same math)
@@ -308,42 +309,35 @@ export default function AvatarImageAdjuster({
         {uploading && (
           <Box>
             <Typography variant="caption" sx={{ fontWeight: 600, mb: 0.5, display: 'block' }}>
-              Uploading to Amazon S3 ({uploadProgress}%)…
+              Saving your photo… {uploadProgress}%
             </Typography>
             <LinearProgress variant="determinate" value={uploadProgress} sx={{ borderRadius: 1, height: 5 }} />
           </Box>
         )}
 
-        {/* Actions */}
-        <Stack direction="row" spacing={1} alignItems="center">
-          {onFileReplace && (
-            <>
-              <Button
-                size="small"
-                variant="text"
-                startIcon={<ImageIcon />}
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                sx={{ textTransform: 'none', fontSize: '0.78rem' }}
-              >
-                Change Photo
-              </Button>
-              <input ref={fileInputRef} type="file" hidden accept="image/*" onChange={handleReplaceFile} />
-            </>
-          )}
-          <Stack direction="row" spacing={1} sx={{ ml: 'auto' }}>
-            <Button variant="outlined" size="small" onClick={onCancel} disabled={uploading}>
+        {/* Actions: Save is the main button (full width on phones); Change photo and Cancel below it */}
+        <Stack direction={{ xs: 'column', sm: 'row-reverse' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
+          <Button
+            variant="contained"
+            startIcon={<CloudUploadIcon />}
+            onClick={handleExportCrop}
+            disabled={uploading || !imageLoaded}
+            sx={{ background: brand.gradient, fontWeight: 700 }}
+            data-testid="photo-save"
+          >
+            {uploading ? 'Saving…' : 'Save photo'}
+          </Button>
+          <Stack direction="row" spacing={1} justifyContent={{ xs: 'space-between', sm: 'flex-start' }} sx={{ flex: { sm: 1 } }}>
+            {onFileReplace && (
+              <>
+                <Button size="small" startIcon={<ImageIcon />} onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+                  Change photo
+                </Button>
+                <input ref={fileInputRef} type="file" hidden accept="image/*" onChange={handleReplaceFile} />
+              </>
+            )}
+            <Button size="small" color="inherit" onClick={onCancel} disabled={uploading} sx={{ ml: { sm: 'auto' } }}>
               Cancel
-            </Button>
-            <Button
-              variant="contained"
-              size="small"
-              startIcon={<CloudUploadIcon />}
-              onClick={handleExportCrop}
-              disabled={uploading || !imageLoaded}
-              sx={{ background: brand.gradient, fontWeight: 700 }}
-            >
-              {uploading ? 'Uploading…' : 'Save & Upload'}
             </Button>
           </Stack>
         </Stack>

@@ -187,7 +187,7 @@ export default function EventStampCard({
                 {title}
               </Typography>
             </Stack>
-            <Typography variant="h3" sx={{ color: '#fff', fontWeight: 800, lineHeight: 1.2 }}>
+            <Typography variant="h3" sx={{ color: '#fff', fontWeight: 800, lineHeight: 1.2, fontSize: { xs: '1.15rem', sm: undefined }, overflowWrap: 'anywhere' }}>
               {selectedEvent.title}
             </Typography>
             <Typography
@@ -230,10 +230,10 @@ export default function EventStampCard({
         <Box sx={{ mt: 2.5 }}>
           <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.8 }}>
             <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.75rem', fontWeight: 600 }}>
-              PASSPORT STATUS DISTRIBUTION
+              YOUR STAMPS
             </Typography>
             <Typography variant="caption" sx={{ fontWeight: 800, color: '#fff' }}>
-              {Math.round(progressPercent)}% Approved
+              {approvedCount} of {totalStampSlots} given
             </Typography>
           </Stack>
 
@@ -265,8 +265,8 @@ export default function EventStampCard({
             />
           </Box>
 
-          {/* Status Breakdown Pills Row */}
-          <Stack direction="row" spacing={1} flexWrap="wrap">
+          {/* Status Breakdown Pills Row (computers; phones show the bar only) */}
+          <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ display: { xs: 'none', sm: 'flex' } }}>
             <Box
               sx={{
                 flex: 1,
@@ -282,7 +282,7 @@ export default function EventStampCard({
               }}
             >
               <Typography variant="caption" sx={{ color: '#A7F3D0', fontWeight: 700, fontSize: '0.7rem' }}>
-                Approved
+                Given
               </Typography>
               <Typography variant="caption" sx={{ color: '#fff', fontWeight: 800, fontSize: '0.75rem' }}>
                 {totalStampSlots > 0 ? Math.round((approvedCount / totalStampSlots) * 100) : 0}%
@@ -305,7 +305,7 @@ export default function EventStampCard({
               }}
             >
               <Typography variant="caption" sx={{ color: '#FDE68A', fontWeight: 700, fontSize: '0.7rem' }}>
-                Pending
+                Asked
               </Typography>
               <Typography variant="caption" sx={{ color: '#fff', fontWeight: 800, fontSize: '0.75rem' }}>
                 {totalStampSlots > 0 ? Math.round((pendingCount / totalStampSlots) * 100) : 0}%
@@ -327,7 +327,7 @@ export default function EventStampCard({
               }}
             >
               <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', fontWeight: 600, fontSize: '0.7rem' }}>
-                Unclaimed
+                Not yet
               </Typography>
               <Typography variant="caption" sx={{ color: '#fff', fontWeight: 800, fontSize: '0.75rem' }}>
                 {totalStampSlots > 0
@@ -356,7 +356,7 @@ export default function EventStampCard({
           variant="h6"
           sx={{ color: brand.primary, fontSize: '0.75rem', mb: 2, letterSpacing: '0.05em' }}
         >
-          EVENT SESSION STAMP SLOTS ({displaySessions.length})
+          SESSIONS WITH A STAMP ({displaySessions.length})
         </Typography>
 
         {requestError && (
@@ -410,7 +410,7 @@ export default function EventStampCard({
                   }}
                 >
                   {/* Image Header with Badges */}
-                  <Box sx={{ position: 'relative', height: 130, width: '100%', bgcolor: alpha(brand.primary, 0.05) }}>
+                  <Box sx={{ position: 'relative', height: coverImage ? 130 : { xs: 52, sm: 130 }, width: '100%', bgcolor: alpha(brand.primary, 0.05) }}>
                     {coverImage ? (
                       <Box
                         component="img"
@@ -431,10 +431,10 @@ export default function EventStampCard({
                           color: 'text.secondary',
                         }}
                       >
-                        <ImageNotSupportedOutlinedIcon sx={{ fontSize: 28, opacity: 0.4 }} />
+                        <ImageNotSupportedOutlinedIcon sx={{ fontSize: 28, opacity: 0.4, display: { xs: 'none', sm: 'block' } }} />
                         <Typography
                           variant="caption"
-                          sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, fontSize: '0.65rem', opacity: 0.7 }}
+                          sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, fontSize: '0.65rem', opacity: 0.7, display: { xs: 'none', sm: 'block' } }}
                         >
                           No image
                         </Typography>
@@ -533,7 +533,7 @@ export default function EventStampCard({
                             color: '#fff',
                           }}
                         >
-                          STAMP APPROVED ✓
+                          STAMP GIVEN ✓
                         </Button>
                       ) : isPending ? (
                         <Button
@@ -551,7 +551,7 @@ export default function EventStampCard({
                             boxShadow: '0 4px 14px rgba(79, 70, 229, 0.35)',
                           }}
                         >
-                          PENDING OFFICER APPROVAL
+                          ASKED: WAITING FOR THE TEAM
                         </Button>
                       ) : (
                         <Button
@@ -569,7 +569,7 @@ export default function EventStampCard({
                             color: '#fff',
                           }}
                         >
-                          {requestingSessionId === session.id ? 'REQUESTING...' : 'CLAIM STAMP'}
+                          {requestingSessionId === session.id ? 'SENDING…' : 'ASK FOR STAMP'}
                         </Button>
                       )}
                     </Box>
@@ -600,7 +600,7 @@ export default function EventStampCard({
               }}
             />
             <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.7rem' }}>
-              Approved Stamp
+              Stamp given
             </Typography>
           </Stack>
           <Stack direction="row" alignItems="center" spacing={0.8}>
@@ -613,7 +613,7 @@ export default function EventStampCard({
               }}
             />
             <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.7rem' }}>
-              Pending Review
+              Asked, waiting
             </Typography>
           </Stack>
           <Stack direction="row" alignItems="center" spacing={0.8}>
@@ -626,7 +626,7 @@ export default function EventStampCard({
               }}
             />
             <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.7rem' }}>
-              Unclaimed Slot
+              Not yet
             </Typography>
           </Stack>
         </Stack>

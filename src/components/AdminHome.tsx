@@ -296,10 +296,11 @@ export default function AdminHome() {
                     <Typography variant="body2" color="text.secondary">
                       {item.description}
                     </Typography>
+                    {/* Under the text, so it never squeezes it on phones */}
+                    {!!item.badge && (
+                      <Chip size="small" color="warning" label={`${item.badge} ${item.badgeLabel}`} sx={{ mt: 0.75, fontWeight: 700 }} />
+                    )}
                   </Box>
-                  {!!item.badge && (
-                    <Chip size="small" color="warning" label={`${item.badge} ${item.badgeLabel}`} sx={{ flexShrink: 0 }} />
-                  )}
                 </Box>
               </CardActionArea>
             </Card>

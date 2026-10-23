@@ -195,8 +195,7 @@ export default function AchievementsPage() {
         </Typography>
       </Stack>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
-        Everything you’ve completed: stamps earned, events attended, certificates and badges. Stamp passports for events that
-        are still coming up are on your Dashboard and the event page.
+        Everything you’ve completed: stamps earned, events attended, certificates and badges. While an event is happening, your stamp passport is on your Dashboard.
       </Typography>
 
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(3, minmax(0, 1fr))' }, gap: 1.5, mb: 3 }}>
@@ -252,7 +251,7 @@ export default function AchievementsPage() {
       </SectionTitle>
       {earned.length === 0 ? (
         <Typography variant="body2" color="text.secondary">
-          No stamps yet. Finish a session’s activity at an event with ⭐ Stamps and an officer approves it.
+          No stamps yet. At an event with ⭐ Stamps, get checked in at the door, finish a session’s activity, and the stamp team gives you the stamp.
         </Typography>
       ) : (
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'repeat(2, minmax(0, 1fr))' }, gap: 1 }} data-testid="stamps-earned">

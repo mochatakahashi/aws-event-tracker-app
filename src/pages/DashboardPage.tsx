@@ -22,12 +22,11 @@ import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
 import { alpha } from '@mui/material/styles';
 import { brand } from '../theme/theme';
 import { useAuth } from '../context/AuthContext';
-import { useEvent } from '../context/EventContext';
 import AdminHome from '../components/AdminHome';
 import AdviserHome from '../components/AdviserHome';
 import { getEvents } from '../services/eventService';
 import { getRegistrationsByPerson } from '../services/registrationService';
-import { getSessions, getSessionsByEvent, getStampsByAttendee } from '../services/sessionService';
+import { getSessions, getStampsByAttendee } from '../services/sessionService';
 import MyDutiesCard from '../components/MyDutiesCard';
 import { isPartnerStaff } from '../utils/eventStaff';
 import EventStampCard from '../components/EventStampCard';
@@ -87,22 +86,17 @@ interface UpdateItem {
 /** Attendee / officer home: what's happening now, your registrations, and the latest updates. */
 export default function DashboardPage() {
   const navigate = useNavigate();
-  const { selectedEvent } = useEvent();
   const { user } = useAuth();
   const [events, setEvents] = useState<AppEvent[]>([]);
   const [regs, setRegs] = useState<Registration[]>([]);
   const [notifs, setNotifs] = useState<AppNotification[]>([]);
-  const [sessions, setSessions] = useState<Session[]>([]);
-  // Events that have stamp activities (their passports show here while live or upcoming)
-  const [stampEventIds, setStampEventIds] = useState<Set<string>>(new Set());
-  useEffect(() => {
-    getSessions()
-      .then((all) => setStampEventIds(new Set(all.filter((x) => x.requiresStamp).map((x) => x.eventId))))
-      .catch(() => undefined);
-  }, []);
+  // Every session (for the event happening now and which events have stamps)
+  const [allSessions, setAllSessions] = useState<Session[]>([]);
+  const stampEventIds = useMemo(() => new Set(allSessions.filter((x) => x.requiresStamp).map((x) => x.eventId)), [allSessions]);
   const [stamps, setStamps] = useState<Stamp[]>([]);
   const [tasks, setTasks] = useState<OfficerTask[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refresh, setRefresh] = useState(0);
   const isAdmin = user?.role === 'admin';
 
   useEffect(() => {
@@ -112,7 +106,7 @@ export default function DashboardPage() {
       getEvents(),
       getRegistrationsByPerson(user.personId),
       getNotifications(user.personId).catch(() => [] as AppNotification[]),
-      selectedEvent ? getSessionsByEvent(selectedEvent.id).catch(() => [] as Session[]) : Promise.resolve([] as Session[]),
+      getSessions().catch(() => [] as Session[]),
       getStampsByAttendee(user.personId).catch(() => [] as Stamp[]),
       user.role === 'officer' ? getTasksForOfficer(user.personId).catch(() => [] as OfficerTask[]) : Promise.resolve([] as OfficerTask[]),
     ])
@@ -121,7 +115,7 @@ export default function DashboardPage() {
         setEvents(ev);
         setRegs(rg);
         setNotifs(nt);
-        setSessions(se);
+        setAllSessions(se);
         setStamps(st);
         setTasks(tk);
       })
@@ -129,7 +123,20 @@ export default function DashboardPage() {
     return () => {
       alive = false;
     };
-  }, [user, isAdmin, selectedEvent]);
+  }, [user, isAdmin, refresh]);
+
+  // Re-check every minute (and when the app comes back to the front), so an event that just started shows
+  // its passport, and a new registration appears, without reloading the page
+  useEffect(() => {
+    const bump = () => setRefresh((n) => n + 1);
+    const t = window.setInterval(bump, 60_000);
+    const onVisible = () => document.visibilityState === 'visible' && bump();
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.clearInterval(t);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, []);
 
   const now = Date.now();
   const myRegs = useMemo(
@@ -171,6 +178,12 @@ export default function DashboardPage() {
   }, [notifs, events]);
 
   // Selected event: sessions now / next and stamp progress
+  // The registered event happening now (no need to pick an event: it follows your registrations)
+  const nowEvent = liveRegs[0]?.event ?? null;
+  const sessions = useMemo(
+    () => (nowEvent ? allSessions.filter((x) => x.eventId === nowEvent.id).sort((a, b) => a.startTime.localeCompare(b.startTime)) : []),
+    [allSessions, nowEvent],
+  );
   const sessionNow = sessions.find((s) => new Date(s.startTime).getTime() <= now && now <= new Date(s.endTime).getTime());
   const sessionNext = sessions
     .filter((s) => new Date(s.startTime).getTime() > now)
@@ -243,7 +256,7 @@ export default function DashboardPage() {
                   {reg.checkedIn
                     ? "You're checked in - enjoy the event!"
                     : reg.rsvp === 'pending'
-                      ? `Your registration is waiting for approval - ask at the registration booth · ${event.venue}`
+                      ? `Your registration is waiting to be accepted. Show your pass at the door · ${event.venue}`
                       : `Show your event pass at the registration booth · ${event.venue}`}
                 </Typography>
                 <Button
@@ -311,13 +324,13 @@ export default function DashboardPage() {
             </Section>
           )}
 
-          {/* At the selected event */}
-          {selectedEvent && sessions.length > 0 && (
+          {/* At the registered event happening now */}
+          {nowEvent && sessions.length > 0 && (
             <Section
-              title={`At ${selectedEvent.title}`}
+              title={`At ${nowEvent.title}`}
               icon={<StarsRoundedIcon />}
               action={
-                <Button size="small" onClick={() => navigate(`/events/${selectedEvent.id}`)}>
+                <Button size="small" onClick={() => navigate(`/events/${nowEvent.id}`)}>
                   Event
                 </Button>
               }
@@ -358,8 +371,8 @@ export default function DashboardPage() {
             </Section>
           )}
 
-          {/* Stamp passports for your live / upcoming events that have stamps */}
-          {[...liveRegs, ...nextRegs]
+          {/* Stamp passports: only for your events that have started (and have stamps) */}
+          {liveRegs
             .filter((x) => stampEventIds.has(x.event.id) && x.reg.rsvp !== 'declined')
             .slice(0, 2)
             .map((x) => (
@@ -397,7 +410,7 @@ export default function DashboardPage() {
                             : event.status === 'accomplished'
                               ? 'Ended'
                               : reg.rsvp === 'pending'
-                                ? 'Pending approval'
+                                ? 'Waiting for acceptance'
                                 : reg.rsvp === 'declined'
                                   ? 'Declined'
                                   : 'Approved'

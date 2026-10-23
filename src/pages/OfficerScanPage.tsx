@@ -641,9 +641,10 @@ export default function OfficerScanPage() {
         data-testid="desk-steps"
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, minmax(0, 1fr))' },
+          // Phones: three short steps side by side (titles only); computers: with the details
+          gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
           gap: 1,
-          mb: 2.5,
+          mb: { xs: 2, sm: 2.5 },
         }}
       >
         {[
@@ -653,10 +654,10 @@ export default function OfficerScanPage() {
         ].map((st) => (
           <Stack
             key={st.n}
-            direction="row"
-            spacing={1.25}
-            alignItems="center"
-            sx={{ p: 1.25, borderRadius: '12px', bgcolor: alpha(brand.primary, 0.05), border: `1px solid ${alpha(brand.primary, 0.12)}` }}
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={{ xs: 0.5, sm: 1.25 }}
+            alignItems={{ xs: 'flex-start', sm: 'center' }}
+            sx={{ p: { xs: 1, sm: 1.25 }, borderRadius: '12px', bgcolor: alpha(brand.primary, 0.05), border: `1px solid ${alpha(brand.primary, 0.12)}` }}
           >
             <Box
               sx={{
@@ -675,10 +676,10 @@ export default function OfficerScanPage() {
               {st.n}
             </Box>
             <Box sx={{ minWidth: 0 }}>
-              <Typography variant="body2" sx={{ fontWeight: 800, lineHeight: 1.3 }}>
+              <Typography variant="body2" sx={{ fontWeight: 800, lineHeight: 1.3, fontSize: { xs: '0.78rem', sm: '0.875rem' } }}>
                 {st.title}
               </Typography>
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>
                 {st.text}
               </Typography>
             </Box>

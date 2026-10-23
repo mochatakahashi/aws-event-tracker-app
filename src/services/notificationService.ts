@@ -71,11 +71,11 @@ export async function notifyInApp(n: NewNotification): Promise<void> {
   }
 }
 
-export async function markRead(id: string): Promise<void> {
+export async function markRead(id: string, read = true): Promise<void> {
   if (await isRemoteAvailable(API)) {
-    await apiJson(`${API}?id=${encodeURIComponent(id)}`, { method: 'PUT', body: '{}' });
+    await apiJson(`${API}?id=${encodeURIComponent(id)}${read ? '' : '&unread=1'}`, { method: 'PUT', body: '{}' });
   } else {
-    local.save(local.load().map((n) => (n.id === id ? { ...n, read: true, readAt: new Date().toISOString() } : n)));
+    local.save(local.load().map((n) => (n.id === id ? { ...n, read, readAt: read ? new Date().toISOString() : undefined } : n)));
   }
   announceChange();
 }

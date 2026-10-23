@@ -19,6 +19,7 @@ import type { Committee, Subcommittee, User } from '../types/auth';
 import type { AppEvent } from '../types/event';
 import type { OfficerTask } from '../types/task';
 import { updateTask } from '../services/taskService';
+import { DateField, TimeField } from './Pickers';
 import { notifyInApp } from '../services/notificationService';
 import { notifyQuietly } from '../services/notifyService';
 import { COMMITTEE_LABELS, SUBCOMMITTEE_LABELS, officerTitle, subcommitteesOf } from '../utils/people';
@@ -225,8 +226,8 @@ export default function TaskEditDialog({
             </TextField>
           )}
           <Stack direction="row" spacing={1.5}>
-            <TextField size="small" type="date" label="Deadline" value={dueDate} onChange={(e) => setDueDate(e.target.value)} InputLabelProps={{ shrink: true }} required fullWidth />
-            <TextField size="small" type="time" label="Time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} InputLabelProps={{ shrink: true }} sx={{ minWidth: 130 }} />
+            <DateField label="Deadline" value={dueDate} onChange={setDueDate} required testId="edit-due-date" />
+            <TimeField label="Time" value={dueTime} onChange={setDueTime} testId="edit-due-time" sx={{ minWidth: { sm: 160 } }} />
           </Stack>
           {task.dueAt && toDate(task.dueAt) !== dueDate && (
             <Typography variant="caption" color="text.secondary">

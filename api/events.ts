@@ -196,6 +196,14 @@ function appBase(req: VercelRequest): string {
   return `${proto}://${host}`;
 }
 
+const END_BEFORE_START = 'The end must be after the start.';
+/** An end date earlier than the start (e.g. Oct 23 to Oct 21) is refused. */
+function endsBeforeStart(ev: any): boolean {
+  const a = new Date(ev?.startAt || '').getTime();
+  const b = new Date(ev?.endAt || '').getTime();
+  return Number.isFinite(a) && Number.isFinite(b) && b < a;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -259,6 +267,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ error: 'Event title is required' });
       }
 
+      if (endsBeforeStart(event)) return res.status(400).json({ error: END_BEFORE_START });
       const id = event.id || `evt-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
       // Duty lists are only set through action=staff (admin-checked)
       const { stampOfficerIds: _s, checkinOfficerIds: _c, foodOfficerIds: _f, ...fields } = event;
@@ -346,6 +355,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         entityType: 'event',
         updatedAt: new Date().toISOString(),
       });
+      if (endsBeforeStart(merged)) return res.status(400).json({ error: END_BEFORE_START });
       // Moving the event re-arms its reminder emails
       if (existing.Item?.startAt && eventUpdates?.startAt && existing.Item.startAt !== eventUpdates.startAt) {
         delete (merged as any).remindersSent;

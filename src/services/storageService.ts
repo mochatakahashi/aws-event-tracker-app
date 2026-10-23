@@ -49,7 +49,10 @@ export async function uploadImageToS3(
       }
     };
 
-    xhr.onerror = () => reject(new Error('Network error during S3 upload'));
+    xhr.onerror = () => reject(new Error('The upload failed: check your connection and try again.'));
+    // Never wait forever on a stalled connection
+    xhr.timeout = 90_000;
+    xhr.ontimeout = () => reject(new Error('The upload is taking too long. Check your connection and try again.'));
     xhr.send(file);
   });
 }

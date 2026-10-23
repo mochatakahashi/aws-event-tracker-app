@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -8,7 +8,7 @@ import Stack from '@mui/material/Stack';
 import Avatar from '@mui/material/Avatar';
 import Chip from '@mui/material/Chip';
 import Button from '@mui/material/Button';
-import IconButton from '@mui/material/IconButton';
+import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 import CircularProgress from '@mui/material/CircularProgress';
 import CampaignIcon from '@mui/icons-material/Campaign';
@@ -23,7 +23,9 @@ import AssignmentIcon from '@mui/icons-material/Assignment';
 import StarsIcon from '@mui/icons-material/Stars';
 import BlockIcon from '@mui/icons-material/Block';
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
-import CloseIcon from '@mui/icons-material/Close';
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
+import DraftsOutlinedIcon from '@mui/icons-material/DraftsOutlined';
+import MarkEmailUnreadOutlinedIcon from '@mui/icons-material/MarkEmailUnreadOutlined';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
 import NotificationsOffOutlinedIcon from '@mui/icons-material/NotificationsOffOutlined';
 import { alpha } from '@mui/material/styles';
@@ -142,9 +144,31 @@ export default function NotificationsPage() {
     if (n.link) navigate(n.link);
   }
 
-  async function remove(n: AppNotification) {
+  // Delete with Undo: hidden right away, deleted on the server when the Undo bar closes
+  const [undo, setUndo] = useState<AppNotification | null>(null);
+  const pendingDelete = useRef<AppNotification | null>(null);
+  const flush = useCallback(() => {
+    const n = pendingDelete.current;
+    pendingDelete.current = null;
+    if (n) void deleteNotification(n.id).catch(() => undefined);
+  }, []);
+  useEffect(() => () => flush(), [flush]); // leaving the page still deletes it
+  function remove(n: AppNotification) {
+    flush(); // a previous one waiting
+    pendingDelete.current = n;
     setItems((prev) => prev.filter((x) => x.id !== n.id));
-    await deleteNotification(n.id).catch(() => void load());
+    setUndo(n);
+  }
+  function undoDelete() {
+    const n = pendingDelete.current;
+    pendingDelete.current = null;
+    setUndo(null);
+    if (n) setItems((prev) => [n, ...prev].sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
+  }
+  function toggleRead(n: AppNotification) {
+    const read = !n.read;
+    setItems((prev) => prev.map((x) => (x.id === n.id ? { ...x, read } : x)));
+    void markRead(n.id, read).catch(() => void load());
   }
 
   async function readAll() {
@@ -176,7 +200,7 @@ export default function NotificationsPage() {
           bgcolor: n.read ? 'background.paper' : alpha(brand.primary, 0.03),
         }}
       >
-        <CardActionArea onClick={() => open(n)} sx={{ p: 2, pr: 6 }}>
+        <CardActionArea onClick={() => open(n)} sx={{ p: 2, pb: 1 }}>
           <Stack direction="row" spacing={1.5} alignItems="flex-start">
             <Avatar sx={{ width: 36, height: 36, bgcolor: alpha(k.color, 0.12), backgroundImage: 'none', color: k.color }}>{k.icon}</Avatar>
             <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -202,14 +226,30 @@ export default function NotificationsPage() {
             <ConnectButton personId={pendingRequester(n)!} name={n.title.replace(/ wants to connect$/, '')} size="small" />
           </Box>
         )}
-        <IconButton
-          size="small"
-          aria-label="Remove notification"
-          onClick={() => remove(n)}
-          sx={{ position: 'absolute', top: 8, right: 8 }}
-        >
-          <CloseIcon fontSize="small" />
-        </IconButton>
+        {/* Actions: mark read / unread, delete */}
+        <Stack direction="row" spacing={0.5} justifyContent="flex-end" sx={{ px: 1, pb: 0.75, mt: -0.5 }}>
+          <Button
+            size="small"
+            color="inherit"
+            startIcon={n.read ? <MarkEmailUnreadOutlinedIcon fontSize="small" /> : <DraftsOutlinedIcon fontSize="small" />}
+            onClick={() => toggleRead(n)}
+            sx={{ textTransform: 'none', color: 'text.secondary', fontWeight: 600 }}
+            data-testid={`notif-toggle-${n.id}`}
+          >
+            {n.read ? 'Mark as unread' : 'Mark as read'}
+          </Button>
+          <Button
+            size="small"
+            color="error"
+            startIcon={<DeleteOutlineRoundedIcon fontSize="small" />}
+            onClick={() => remove(n)}
+            sx={{ textTransform: 'none', fontWeight: 600 }}
+            aria-label={`Delete notification: ${n.title}`}
+            data-testid={`notif-delete-${n.id}`}
+          >
+            Delete
+          </Button>
+        </Stack>
       </Card>
     );
   };
@@ -296,6 +336,22 @@ export default function NotificationsPage() {
           )}
         </>
       )}
+      <Snackbar
+        open={Boolean(undo)}
+        autoHideDuration={6000}
+        onClose={(_e, reason) => {
+          if (reason === 'clickaway') return;
+          setUndo(null);
+          flush();
+        }}
+        message="Notification deleted"
+        action={
+          <Button color="secondary" size="small" onClick={undoDelete}>
+            Undo
+          </Button>
+        }
+        data-testid="notif-undo"
+      />
     </Box>
   );
 }

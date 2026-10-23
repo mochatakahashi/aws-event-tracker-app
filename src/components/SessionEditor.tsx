@@ -12,6 +12,7 @@ import Switch from '@mui/material/Switch';
 import Autocomplete from '@mui/material/Autocomplete';
 import Chip from '@mui/material/Chip';
 import { alpha } from '@mui/material/styles';
+import { DateTimeField } from './Pickers';
 import { brand } from '../theme/theme';
 import { createSession, updateSession, type SessionInput } from '../services/sessionService';
 import { getSpeakers, createSpeaker } from '../services/speakerService';
@@ -177,24 +178,8 @@ export default function SessionEditor({
             ))}
           </TextField>
         )}
-        <TextField
-          size="small"
-          label="Starts (Manila time)"
-          type="datetime-local"
-          value={start}
-          onChange={(e) => setStart(e.target.value)}
-          InputLabelProps={{ shrink: true }}
-          required
-        />
-        <TextField
-          size="small"
-          label="Ends (Manila time)"
-          type="datetime-local"
-          value={end}
-          onChange={(e) => setEnd(e.target.value)}
-          InputLabelProps={{ shrink: true }}
-          required
-        />
+        <DateTimeField label="Starts (Manila time)" value={start} onChange={setStart} required testId="session-start" />
+        <DateTimeField label="Ends (Manila time)" value={end} onChange={setEnd} min={start || undefined} minLabel="the start" required testId="session-end" />
         <TextField size="small" label="Room / location" value={room} onChange={(e) => setRoom(e.target.value)} />
         <TextField select size="small" label="Type" value={type} onChange={(e) => setType(e.target.value as SessionType)}>
           {TYPES.map((t) => (

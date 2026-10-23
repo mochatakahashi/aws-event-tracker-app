@@ -27,12 +27,10 @@ import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded';
 import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
 import LogoutIcon from '@mui/icons-material/Logout';
 import LockResetIcon from '@mui/icons-material/LockReset';
-import EventNoteIcon from '@mui/icons-material/EventNote';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import { alpha } from '@mui/material/styles';
 import { useAuth } from '../context/AuthContext';
-import { useEvent } from '../context/EventContext';
 import { brand } from '../theme/theme';
 import BottomNav from './BottomNav';
 import OfflineNotice from './OfflineNotice';
@@ -73,7 +71,6 @@ const ALL_NAV_ITEMS: NavItem[] = [
 
 export default function AppLayout() {
   const { user, logout } = useAuth();
-  const { selectedEvent } = useEvent();
   const navigate = useNavigate();
   const location = useLocation();
   const unread = useUnreadNotifications(user?.personId);
@@ -118,33 +115,6 @@ export default function AppLayout() {
       <Box sx={{ p: 2.5, pb: 1 }}>
         <EventOrganizerLogo size="medium" showSubtitle={true} />
       </Box>
-
-      {/* Selected event indicator */}
-      {selectedEvent && user?.role !== 'admin' && (
-        <Box sx={{ px: 2, py: 1 }}>
-          <Box
-            component={RouterLink}
-            to="/select-event"
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1,
-              p: 1.5,
-              borderRadius: 2,
-              backgroundColor: alpha(brand.primary, 0.06),
-              textDecoration: 'none',
-              color: 'inherit',
-              transition: 'background-color 0.2s',
-              '&:hover': { backgroundColor: alpha(brand.primary, 0.1) },
-            }}
-          >
-            <EventNoteIcon sx={{ color: brand.primary, fontSize: 18 }} />
-            <Typography variant="body2" noWrap sx={{ fontWeight: 500, fontSize: '0.8rem' }}>
-              {selectedEvent.title}
-            </Typography>
-          </Box>
-        </Box>
-      )}
 
       <Divider sx={{ mx: 2, my: 1 }} />
 

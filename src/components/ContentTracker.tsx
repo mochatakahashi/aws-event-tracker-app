@@ -19,6 +19,7 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import { alpha } from '@mui/material/styles';
 import { brand } from '../theme/theme';
+import { DateField } from './Pickers';
 import { createTask, deleteTask, updateTask } from '../services/taskService';
 import { notifyInApp } from '../services/notificationService';
 import { notifyQuietly } from '../services/notifyService';
@@ -270,8 +271,8 @@ export default function ContentTracker({ items, officers, events, me, isAdmin, o
               ))}
             </Box>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: '1fr 1fr 2fr' }, columnGap: 1.5 }}>
-              <TextField size="small" margin="dense" type="date" label="Post date" value={postDate} onChange={(e) => setPostDate(e.target.value)} InputLabelProps={{ shrink: true }} />
-              <TextField size="small" margin="dense" type="date" label="Draft deadline" value={deadline} onChange={(e) => setDeadline(e.target.value)} InputLabelProps={{ shrink: true }} />
+              <DateField margin="dense" label="Post date" value={postDate} onChange={setPostDate} testId="pubmat-post-date" />
+              <DateField margin="dense" label="Draft deadline" value={deadline} onChange={setDeadline} testId="pubmat-deadline" />
               <TextField size="small" margin="dense" label="Notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
             </Box>
             <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ mt: 1.5 }}>
@@ -400,15 +401,11 @@ export default function ContentTracker({ items, officers, events, me, isAdmin, o
                       ))}
                     </TextField>
                     {isAdmin ? (
-                      <TextField
-                        size="small"
-                        type="date"
+                      <DateField
                         label="Post date"
-                        InputLabelProps={{ shrink: true }}
                         value={toDateInput(p.postDate)}
-                        onChange={(e) =>
-                          void patch(t, { postDate: e.target.value ? new Date(`${e.target.value}T09:00:00+08:00`).toISOString() : undefined })
-                        }
+                        onChange={(v) => void patch(t, { postDate: v ? new Date(`${v}T09:00:00+08:00`).toISOString() : undefined })}
+                        fullWidth={false}
                       />
                     ) : (
                       <Typography variant="body2">

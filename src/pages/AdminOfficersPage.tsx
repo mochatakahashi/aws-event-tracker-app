@@ -234,7 +234,7 @@ export default function AdminOfficersPage() {
             'Student ID',
             'Events Volunteered',
             'Event Roles',
-            'Stamps Approved',
+            'Stamps Given',
             'Tasks Done',
             'Tasks Assigned',
           ],

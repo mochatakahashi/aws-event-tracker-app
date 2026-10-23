@@ -62,7 +62,6 @@ import LockRoundedIcon from '@mui/icons-material/LockRounded';
 import SpeakerItem from '../components/SpeakerItem';
 import HandshakeOutlinedIcon from '@mui/icons-material/HandshakeOutlined';
 import SessionsSection from '../components/SessionsSection';
-import EventStampCard from '../components/EventStampCard';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import { formatDateRange } from '../utils/eventDisplay';
 import { useAuth } from '../context/AuthContext';
@@ -386,7 +385,7 @@ export default function EventDetailPage() {
                   Register for {event.title}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  One tap and you're in. An officer approves registrations; you'll be notified.
+                  One tap and you're in. The event team accepts registrations; you'll be notified.
                 </Typography>
               </Box>
               <Button
@@ -524,12 +523,6 @@ export default function EventDetailPage() {
 
             <SessionsSection event={event} refreshKey={`${myReg?.id ?? ''}:${myReg?.rsvp ?? ''}`} isAdmin={user?.role === 'admin'} onSessionsChanged={() => void lineupFor(event).then(setSpeakers).catch(() => undefined)} />
 
-            {/* Your stamp passport for this event (registered, event not over, has stamps) */}
-            {myReg && myReg.rsvp !== 'declined' && event.status !== 'accomplished' && event.status !== 'cancelled' && (
-              <Box sx={{ mt: 3, '&:empty': { display: 'none' } }} data-testid="event-passport">
-                <EventStampCard event={event} title="YOUR STAMP PASSPORT" hideWhenEmpty />
-              </Box>
-            )}
 
             {/* Food stubs: registered attendees, the event team and speakers */}
             {user && user.role !== 'admin' && event.food?.enabled && event.status !== 'cancelled' && (

@@ -150,10 +150,10 @@ export default function AdminAttendeesPage() {
       await downloadExcel(`${safeFileName(event.title)}-attendees`, [
         {
           name: 'Attendees',
-          headers: [...PERSON_HEADERS, 'RSVP', 'Checked In', 'Registered At', `Stamps (${stampSessions.length} required)`],
+          headers: [...PERSON_HEADERS, 'Registration', 'Checked In', 'Registered At', `Stamps (${stampSessions.length} required)`],
           rows: eventRegs.map((r) => [
             ...personCells(userById.get(r.personId), r.personId),
-            r.rsvp,
+            r.rsvp === 'approved' ? 'Accepted' : r.rsvp === 'declined' ? 'Declined' : 'Waiting to be accepted',
             r.checkedIn ? 'Yes' : 'No',
             toDate(r.registeredAt),
             doneBy.get(r.personId)?.size ?? 0,
@@ -188,7 +188,7 @@ export default function AdminAttendeesPage() {
         },
         {
           name: 'Finished All Sessions',
-          headers: [...PERSON_HEADERS, 'Last Stamp Approved'],
+          headers: [...PERSON_HEADERS, 'Last Stamp Given'],
           rows: finisherIds.map((id) => {
             const last = [...doneBy.get(id)!.values()].map((s) => s.approvedAt || '').sort().pop();
             return [...personCells(userById.get(id), id), toDate(last)];
@@ -266,7 +266,7 @@ export default function AdminAttendeesPage() {
               }`}
               color={brand.primaryLight}
             />
-            <StatTile label="Pending approval" value={eventRegs.filter((r) => r.rsvp === 'pending').length} color={brand.warning} />
+            <StatTile label="Waiting to be accepted" value={eventRegs.filter((r) => r.rsvp === 'pending').length} color={brand.warning} />
           </StatRow>
 
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mb: 2 }}>
@@ -349,7 +349,7 @@ export default function AdminAttendeesPage() {
           <StatRow>
             <StatTile label="Stamp sessions" value={stampSessions.length} />
             <StatTile label="Approved stamps" value={approvedStamps.length} color={brand.success} />
-            <StatTile label="Waiting for approval" value={eventStamps.filter((s) => s.status === 'pending').length} color={brand.warning} />
+            <StatTile label="Stamps asked, not given" value={eventStamps.filter((s) => s.status === 'pending').length} color={brand.warning} />
             <StatTile label="Finished all sessions" value={finisherIds.length} color={brand.primaryLight} />
           </StatRow>
 
@@ -392,7 +392,7 @@ export default function AdminAttendeesPage() {
                               {s.title}
                             </Typography>
                             <Typography variant="caption" color="text.secondary">
-                              {approved.length} finished · {pendingCount} waiting for approval
+                              {approved.length} finished · {pendingCount} asked, not given yet
                             </Typography>
                             <LinearProgress
                               variant="determinate"

@@ -8,7 +8,7 @@ import { DynamoDBDocumentClient, ScanCommand, GetCommand, PutCommand, DeleteComm
  * GET    /api/notifications?personId=per-1           → newest first (max 100)
  * POST   /api/notifications { personIds?: string[], toRole?: 'admin', kind, title, message, link? }
  *                                                     → one notification per recipient
- * PUT    /api/notifications?id=ntf-1                  → mark one as read
+ * PUT    /api/notifications?id=ntf-1[&unread=1]       → mark one as read (or back to unread)
  * PUT    /api/notifications?personId=per-1&all=1      → mark all as read
  * DELETE /api/notifications?id=ntf-1
  *
@@ -424,7 +424,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (id) {
         const found = (await client.send(new GetCommand({ TableName: tableName, Key: { id } }))).Item;
         if (found?.entityType !== 'notification') return res.status(404).json({ error: 'Notification not found' });
-        const updated = { ...found, read: true, readAt: new Date().toISOString() };
+        const unread = q.unread === '1' || q.unread === 'true';
+        const updated = unread ? { ...found, read: false, readAt: undefined } : { ...found, read: true, readAt: new Date().toISOString() };
         await client.send(new PutCommand({ TableName: tableName, Item: updated }));
         return res.status(200).json(clean(updated));
       }

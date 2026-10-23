@@ -107,7 +107,12 @@ const theme = createTheme({
           padding: '10px 24px',
           fontSize: '0.95rem',
           transition: 'all 0.2s ease-in-out',
+          // Short labels stay on one line ("QR Card", "Create Event"), with less padding on phones
+          whiteSpace: 'nowrap',
+          lineHeight: 1.3,
+          '@media (max-width: 600px)': { padding: '9px 16px' },
         },
+        sizeSmall: { '@media (max-width: 600px)': { padding: '6px 10px' } },
         // Brand gradient only on primary buttons; success/error keep their own colours
         containedPrimary: {
           background: brand.gradient,
@@ -163,9 +168,54 @@ const theme = createTheme({
         },
       },
     },
+    // Alerts with a button: on phones the button goes under the text instead of squeezing it into a thin column
+    MuiAlert: {
+      styleOverrides: {
+        root: {
+          '@media (max-width: 600px)': {
+            flexWrap: 'wrap',
+            '& .MuiAlert-message': { flex: '1 1 calc(100% - 48px)', minWidth: 0 },
+            '& .MuiAlert-action': { marginLeft: 'auto', paddingLeft: 0, paddingTop: 0, marginRight: 0, flexWrap: 'wrap', justifyContent: 'flex-end', gap: 4 },
+          },
+        },
+        message: { minWidth: 0, overflowWrap: 'anywhere' },
+      },
+    },
+    // Dropdowns and fields never get wider than the screen; long choices end with "…"
+    MuiFormControl: {
+      styleOverrides: { root: { maxWidth: '100%', minWidth: 0 } },
+    },
+    MuiInputBase: {
+      styleOverrides: { root: { maxWidth: '100%' } },
+    },
+    MuiSelect: {
+      styleOverrides: {
+        select: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+      },
+      defaultProps: {
+        MenuProps: { PaperProps: { sx: { maxWidth: 'calc(100vw - 24px)' } } },
+      },
+    },
+    MuiMenu: {
+      styleOverrides: { paper: { maxWidth: 'calc(100vw - 24px)' } },
+    },
+    MuiMenuItem: {
+      styleOverrides: {
+        root: {
+          whiteSpace: 'normal',
+          wordBreak: 'break-word',
+          lineHeight: 1.35,
+          '@media (max-width: 600px)': { minHeight: 44 },
+        },
+      },
+    },
+    MuiAutocomplete: {
+      styleOverrides: { paper: { maxWidth: 'calc(100vw - 24px)' }, option: { wordBreak: 'break-word' } },
+    },
     MuiTextField: {
       styleOverrides: {
         root: {
+          maxWidth: '100%',
           '& .MuiOutlinedInput-root': {
             borderRadius: 12,
             '&.Mui-focused .MuiOutlinedInput-notchedOutline': {

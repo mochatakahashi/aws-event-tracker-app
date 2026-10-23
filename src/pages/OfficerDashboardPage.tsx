@@ -19,6 +19,7 @@ import StarsRoundedIcon from '@mui/icons-material/StarsRounded';
 import HowToRegRoundedIcon from '@mui/icons-material/HowToRegRounded';
 import { alpha } from '@mui/material/styles';
 import { brand } from '../theme/theme';
+import { DateField, TimeField } from '../components/Pickers';
 import { getStamps, getSessions } from '../services/sessionService';
 import { getPeople, getRegistrationsByEvent } from '../services/registrationService';
 import { deleteTask, getTasksForOfficer, proposeTask, updateTask } from '../services/taskService';
@@ -491,8 +492,8 @@ export default function OfficerDashboardPage() {
                     <MenuItem key={c} value={c}>{COMMITTEE_LABELS[c]}</MenuItem>
                   ))}
                 </TextField>
-                <TextField label="Deadline date" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} size="small" InputLabelProps={{ shrink: true }} />
-                <TextField label="Time" type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} size="small" InputLabelProps={{ shrink: true }} />
+                <DateField label="Deadline date" value={dueDate} onChange={setDueDate} fullWidth={false} testId="my-task-date" />
+                <TimeField label="Time" value={dueTime} onChange={setDueTime} fullWidth={false} testId="my-task-time" />
               </Box>
               <Stack direction="row" spacing={1} justifyContent="flex-end">
                 <Button onClick={() => setAdding(false)}>Cancel</Button>

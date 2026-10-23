@@ -160,13 +160,13 @@ export default function ConnectPage() {
                 }}
               />
             </Box>
-            <Stack direction="row" spacing={1}>
+            <Stack direction="row" spacing={1} sx={{ width: { xs: '100%', sm: 'auto' }, mt: 1 }}>
             <Button
               size="small"
               variant={showQR ? 'contained' : 'outlined'}
               startIcon={<QrCode2Icon />}
               onClick={() => setShowQR((v) => !v)}
-              sx={{ mt: 1 }}
+              sx={{ flex: { xs: 1, sm: 'none' } }}
             >
               {showQR ? 'Hide QR Card' : 'QR Card'}
             </Button>
@@ -175,7 +175,7 @@ export default function ConnectPage() {
               variant={scanning ? 'contained' : 'outlined'}
               startIcon={<QrCodeScannerRoundedIcon />}
               onClick={() => setScanning((v) => !v)}
-              sx={{ mt: 1 }}
+              sx={{ flex: { xs: 1, sm: 'none' } }}
             >
               Scan QR
             </Button>

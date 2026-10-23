@@ -436,3 +436,13 @@ New accounts have `status: 'pending'` and cannot sign in until an admin approves
 - Registration changes go through `patchRecord` in `api/registrations.ts`: read, change only the given fields, and write with a revision check (`rev`, conditional PutItem), retrying if someone saved in between. It needs only GetItem/PutItem, so the IAM policy in the README is enough. Check-in refuses when already checked in, so two scans at once check in once. Undo check-in sets that event's approved stamps back to pending (`stampsTakenBack`). A declined registration needs `confirmDeclined: true`.
 - Every list read pages through the table with `LastEvaluatedKey` (one Scan page is at most 1 MB).
 - Known limit (ADR-008): the server still trusts the `actorId` the app sends; signed sessions are planned.
+
+### Dashboard, pickers and phones (v0.6.39)
+
+- No selected event: `DashboardPage` works from the user's registrations (`liveRegs` = events happening now via `liveStatus`), re-checking every minute and on `visibilitychange`. `/select-event` redirects to `/home`. The stamp passport (`EventStampCard`) only renders there, for events that have started.
+- Stamp requests (`POST /api/stamps`) need a non-declined registration for the session's event (`NOT_REGISTERED`) and the event to have started (`NOT_STARTED`).
+- Dates and times use `components/Pickers.tsx` (`DateTimeField`, `DateField`, `TimeField`; MUI X pickers with dayjs, `LocalizationProvider` in `main.tsx`). Values stay plain Manila-time strings. Phones and windows under 760px get the full-screen picker. `api/events.ts` refuses an end before the start.
+- Notifications: `PUT /api/notifications?id=&unread=1` marks one unread; deleting waits for the Undo bar to close.
+- Theme (`theme/theme.ts`): alerts wrap their action under the text on phones; form controls are capped at 100% width; selects ellipsize; menus fit the screen; buttons don't wrap.
+- `TutorialTour` sets `data-highlight` / `data-step` on the tour; `.apitest/e2e36.mjs` walks every role's tour on phone and computer.
+- Excel dates (`utils/excelExport.ts` `toDate`) are shifted to Manila time (+8 h), not the viewer's zone.

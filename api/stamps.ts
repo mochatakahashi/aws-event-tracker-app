@@ -79,6 +79,20 @@ async function checkedInForSession(client: DynamoDBDocumentClient, tableName: st
   return false;
 }
 
+/** The person's registration for the event (not declined), or null. Reads every page. */
+async function registrationOf(client: DynamoDBDocumentClient, tableName: string, personId: string, eventId: string): Promise<any | null> {
+  let ExclusiveStartKey: Record<string, any> | undefined;
+  do {
+    const page = await client.send(
+      new ScanCommand({ TableName: tableName, FilterExpression: 'entityType = :t', ExpressionAttributeValues: { ':t': 'registration' }, ExclusiveStartKey }),
+    );
+    const reg = (page.Items || []).find((r: any) => r.eventId === eventId && r.personId === personId && r.rsvp !== 'declined');
+    if (reg) return reg;
+    ExclusiveStartKey = page.LastEvaluatedKey;
+  } while (ExclusiveStartKey);
+  return null;
+}
+
 /** Every stamp record, reading all pages of the table (one Scan page is at most 1 MB). */
 async function allStamps(client: DynamoDBDocumentClient, tableName: string): Promise<any[]> {
   const out: any[] = [];
@@ -151,6 +165,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const sessionId = String(stamp.sessionId);
       const attendeeId = String(stamp.attendeeId);
       const id = stampIdFor(sessionId, attendeeId);
+      // Registered (not declined) for the session's event, and the event has started
+      const ses = (await client.send(new GetCommand({ TableName: tableName, Key: { id: sessionId } }))).Item;
+      if (!ses?.eventId) return res.status(404).json({ error: 'Session not found' });
+      const ev = (await client.send(new GetCommand({ TableName: tableName, Key: { id: ses.eventId } }))).Item;
+      if (!ev) return res.status(404).json({ error: 'Event not found' });
+      if (await registrationOf(client, tableName, attendeeId, ses.eventId) === null) {
+        return res.status(403).json({ error: 'Register for this event to collect stamps.', code: 'NOT_REGISTERED' });
+      }
+      const startMs = new Date(ev.startAt).getTime();
+      if (Number.isFinite(startMs) && Date.now() < startMs) {
+        return res.status(409).json({ error: 'Stamps open when the event starts.', code: 'NOT_STARTED' });
+      }
       // Already asked / given (this id, or an older record made before ids were fixed)
       const same = (await client.send(new GetCommand({ TableName: tableName, Key: { id } }))).Item;
       if (isOwnRecord(same)) return res.status(200).json(same);

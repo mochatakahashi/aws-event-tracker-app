@@ -46,6 +46,7 @@ import Checkbox from '@mui/material/Checkbox';
 import ProgramFlowEditor from '../components/ProgramFlowEditor';
 import FoodStubsEditor from '../components/FoodStubsEditor';
 import SessionsSection from '../components/SessionsSection';
+import { DateTimeField } from '../components/Pickers';
 import EvaluationEditor from '../components/EvaluationEditor';
 import RegistrationLinkCard from '../components/RegistrationLinkCard';
 import { getPeople } from '../services/registrationService';
@@ -98,6 +99,11 @@ export default function EventBuilderPage() {
   const [loading, setLoading] = useState(isEditing);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  // Show the error where people are looking (the form is long)
+  const errorRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [error]);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadError, setUploadError] = useState('');
@@ -290,13 +296,22 @@ export default function EventBuilderPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
     setError('');
+    if (!formData.startAt || !formData.endAt) {
+      setError('Pick when the event starts and ends.');
+      return;
+    }
+    if (new Date(formData.endAt).getTime() <= new Date(formData.startAt).getTime()) {
+      setError('The end must be after the start (for example, Oct 21 to Oct 23, not Oct 23 to Oct 21).');
+      return;
+    }
+    setSaving(true);
     try {
       const eventToSave: any = {
         title: formData.title || 'Untitled Event',
         modality: (formData.modality as any) || 'onsite',
-        status: (formData.status as any) || 'upcoming',
+        // Only Cancelled is stored by hand; upcoming / happening / past come from the dates
+        status: formData.status === 'cancelled' ? 'cancelled' : 'upcoming',
         tags: formData.tags || [],
         venue: formData.venue || 'TBA',
         startAt: fromManilaInput(formData.startAt),
@@ -379,7 +394,9 @@ export default function EventBuilderPage() {
 
       <Paper component="form" onSubmit={handleSubmit} sx={{ p: { xs: 2, sm: 4 }, borderRadius: 3 }}>
         {error && (
-          <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>
+          <Alert severity="error" sx={{ mb: 2 }} ref={errorRef} data-testid="event-form-error">
+            {error}
+          </Alert>
         )}
         
         <Stack spacing={3}>
@@ -403,10 +420,14 @@ export default function EventBuilderPage() {
             
             <FormControl fullWidth>
               <InputLabel>Status</InputLabel>
-              <Select value={formData.status} label="Status" onChange={handleChange('status')}>
-                <MenuItem value="upcoming">Upcoming</MenuItem>
-                <MenuItem value="ongoing">Ongoing</MenuItem>
-                <MenuItem value="accomplished">Accomplished</MenuItem>
+              {/* Upcoming / happening now / past follow the dates; only Cancelled is set by hand */}
+              <Select
+                value={formData.status === 'cancelled' ? 'cancelled' : 'auto'}
+                label="Status"
+                onChange={(e) => setFormData((prev) => ({ ...prev, status: e.target.value === 'cancelled' ? 'cancelled' : 'upcoming' }))}
+                data-testid="event-status"
+              >
+                <MenuItem value="auto">From the dates (upcoming, happening, past)</MenuItem>
                 <MenuItem value="cancelled">Cancelled</MenuItem>
               </Select>
             </FormControl>
@@ -482,23 +503,37 @@ export default function EventBuilderPage() {
           />
 
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-            <TextField
-              label="Start Date & Time"
-              type="datetime-local"
+            <DateTimeField
+              label="Starts (Manila time)"
               required
-              fullWidth
-              InputLabelProps={{ shrink: true }}
-              value={formData.startAt}
-              onChange={handleChange('startAt')}
+              size="medium"
+              value={formData.startAt || ''}
+              onChange={(v) =>
+                setFormData((prev) => {
+                  // Moving the start later keeps the same length (end follows), so the end is never before the start
+                  const next = { ...prev, startAt: v };
+                  if (v && prev.startAt && prev.endAt) {
+                    const len = new Date(prev.endAt).getTime() - new Date(prev.startAt).getTime();
+                    if (len > 0 && new Date(prev.endAt).getTime() <= new Date(v).getTime()) {
+                      const end = new Date(new Date(v).getTime() + len);
+                      const pad = (n: number) => String(n).padStart(2, '0');
+                      next.endAt = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}T${pad(end.getHours())}:${pad(end.getMinutes())}`;
+                    }
+                  }
+                  return next;
+                })
+              }
+              testId="event-start"
             />
-            <TextField
-              label="End Date & Time"
-              type="datetime-local"
+            <DateTimeField
+              label="Ends (Manila time)"
               required
-              fullWidth
-              InputLabelProps={{ shrink: true }}
-              value={formData.endAt}
-              onChange={handleChange('endAt')}
+              size="medium"
+              value={formData.endAt || ''}
+              min={formData.startAt || undefined}
+              minLabel="the start"
+              onChange={(v) => setFormData((prev) => ({ ...prev, endAt: v }))}
+              testId="event-end"
             />
           </Stack>
 

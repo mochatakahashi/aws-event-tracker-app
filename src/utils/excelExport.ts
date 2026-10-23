@@ -59,12 +59,13 @@ export async function downloadExcel(fileName: string, sheets: ExcelSheet[]): Pro
 }
 
 /**
- * ISO string → Date for an Excel cell. The Excel writer stores a Date's UTC
- * clock time, so shift it to show the viewer's local time (e.g. Manila).
+ * ISO string → Date for an Excel cell, in Manila time (like the rest of the app). The Excel writer
+ * stores a Date's UTC clock time, so shift it by +8 hours: the file shows the same times on any
+ * computer, whatever its own time zone.
  */
 export function toDate(value?: string | null): Date | null {
   if (!value) return null;
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return null;
-  return new Date(d.getTime() - d.getTimezoneOffset() * 60_000);
+  return new Date(d.getTime() + 8 * 3600_000);
 }

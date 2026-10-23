@@ -12,7 +12,6 @@ import Divider from '@mui/material/Divider';
 import Avatar from '@mui/material/Avatar';
 import Stack from '@mui/material/Stack';
 import IconButton from '@mui/material/IconButton';
-import EventNoteIcon from '@mui/icons-material/EventNote';
 import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded';
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
 import PeopleAltIcon from '@mui/icons-material/PeopleAlt';
@@ -112,10 +111,6 @@ export default function MorePage() {
             <ListItemButton onClick={() => navigate('/connect')}>
               <ListItemIcon><PeopleAltIcon /></ListItemIcon>
               <ListItemText primary="Connect" secondary="Networking & Bio" />
-            </ListItemButton>
-            <ListItemButton onClick={() => navigate('/select-event')}>
-              <ListItemIcon><EventNoteIcon /></ListItemIcon>
-              <ListItemText primary="Switch Event" />
             </ListItemButton>
           </>
         )}

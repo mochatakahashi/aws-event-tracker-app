@@ -17,7 +17,6 @@ import ShareEventButton from '../components/ShareEventButton';
 import CircularProgress from '@mui/material/CircularProgress';
 import PlaceIcon from '@mui/icons-material/PlaceRounded';
 import AccessTimeIcon from '@mui/icons-material/AccessTimeRounded';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import BookmarkBorderRoundedIcon from '@mui/icons-material/BookmarkBorderRounded';
 import BookmarkRoundedIcon from '@mui/icons-material/BookmarkRounded';
@@ -149,26 +148,7 @@ export default function EventsPage() {
               + Create Event
             </Button>
           )}
-          {user?.role !== 'admin' && (
-            <Chip
-              icon={<ArrowForwardIcon sx={{ fontSize: 16 }} />}
-              label="Switch Event"
-              onClick={() => navigate('/select-event')}
-              clickable
-              sx={{
-                fontWeight: 700,
-                fontSize: '0.78rem',
-                bgcolor: alpha(brand.primary, 0.1),
-                color: brand.primary,
-                border: `1px solid ${alpha(brand.primary, 0.25)}`,
-                py: 1.8,
-                px: 1,
-                '&:hover': {
-                  bgcolor: alpha(brand.primary, 0.18),
-                },
-              }}
-            />
-          )}
+
         </Box>
       </Stack>
 

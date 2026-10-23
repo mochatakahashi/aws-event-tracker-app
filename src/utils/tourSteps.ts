@@ -14,29 +14,29 @@ const dashboard: TourStep = {
   target: 'nav-dashboard',
   emoji: '🏠',
   title: 'Dashboard',
-  text: 'What’s happening now: the event that’s live, your next event, your registrations and the latest updates.',
+  text: 'What’s happening now: the event you’re at (with your stamp passport while it’s on), your next event, your registrations and the latest updates. It updates by itself.',
 };
 const events: TourStep = {
   target: 'nav-events',
   emoji: '📅',
   title: 'Events',
-  text: 'Find events and register. An officer approves your registration, then you can pick the sessions you’ll attend. Events with ⭐ Stamps have a stamp passport.',
+  text: 'Find events and register. The event team accepts your registration, then you can pick the sessions you’ll attend. Events with ⭐ Stamps: once the event starts, ask for each session’s stamp; the team gives it after you’re checked in at the door.',
 };
 const pass: TourStep = {
   target: 'nav-pass',
   emoji: '🎟️',
   title: 'My Event Pass',
-  text: 'Your QR pass for approved registrations. Show it at the registration booth to check in. After the event ends, your certificate appears here - view it, download it or share its link.',
+  text: 'Your QR pass for accepted registrations. Show it at the door to check in. After the event ends, your certificate appears here - view it, download it or share its link.',
   fallback: {
     target: 'profile',
-    text: 'Tap your picture → My Event Pass. It’s your QR pass for approved registrations: show it at the registration booth to check in. After the event ends, your certificate appears there too.',
+    text: 'Tap your picture → My Event Pass. It’s your QR pass for accepted registrations: show it at the door to check in. After the event ends, your certificate appears there too.',
   },
 };
 const achievements: TourStep = {
   target: 'nav-achievements',
   emoji: '🏆',
   title: 'Achievements',
-  text: 'What you’ve completed: stamps earned, events attended, certificates and badges. Stamp passports for live and upcoming events are on your Dashboard and the event page.',
+  text: 'What you’ve completed: stamps earned, events attended, certificates and badges, plus Share my stamps to post your stamp card on Instagram and other socials.',
 };
 const connect: TourStep = {
   target: 'nav-connect',
@@ -48,7 +48,7 @@ const bell: TourStep = {
   target: 'nav-notifications',
   emoji: '🔔',
   title: 'Notifications',
-  text: 'Approvals, check-ins, stamps, tasks and “your certificate is ready” show up here.',
+  text: 'Approvals, check-ins, stamps, tasks and “your certificate is ready” show up here. Mark each one as read or unread, or delete it.',
 };
 const profile: TourStep = {
   target: 'profile',
@@ -96,7 +96,7 @@ export function tourSteps(role: UserRole | undefined, partnerStaff = false): Tou
         target: 'nav-dashboard',
         emoji: '🛠️',
         title: 'Admin Dashboard',
-        text: 'Manage accounts (approve sign-ups, add accounts), edit events, attendees, officers, tasks and the content tracker. On an event’s page you add sessions and set the event staff.',
+        text: 'Manage accounts (approve sign-ups, add accounts), events, attendees, officers, tasks, adviser sign-offs and announcements. In Edit event you add sessions and stamps; on the event page you set the event staff (check-in, stamps, food).',
       },
       {
         target: 'nav-event-desk',
@@ -109,6 +109,7 @@ export function tourSteps(role: UserRole | undefined, partnerStaff = false): Tou
         emoji: '📊',
         title: 'Leaderboard',
         text: 'Rankings and progress of attendees and officers, for monitoring.',
+        fallback: { target: 'nav-dashboard', text: 'On a phone: open the Admin Dashboard and tap Leaderboard. It shows the rankings and progress of attendees and officers.' },
       },
       bell,
       profile,
@@ -123,13 +124,17 @@ export function tourSteps(role: UserRole | undefined, partnerStaff = false): Tou
         target: 'nav-officer-dashboard',
         emoji: '🛡️',
         title: 'Officer Dashboard',
-        text: 'Your tasks with deadlines, your pubmats in the Content Tracker, and your event duties.',
+        text: 'Your tasks with deadlines, your pubmats in the Content Tracker, adviser sign-offs (if your role sends them) and your event duties.',
       },
       {
         target: 'nav-event-desk',
         emoji: '🧭',
         title: 'Event Desk',
         text: 'When an admin puts you on an event’s staff, you do your duties here: check people in at the door, or give stamps after a session.',
+        fallback: {
+          target: 'nav-officer-dashboard',
+          text: 'On a phone: tap Officer, then Open Event Desk. When an admin puts you on an event’s staff, you check people in at the door or give stamps after a session there.',
+        },
       },
     );
   }

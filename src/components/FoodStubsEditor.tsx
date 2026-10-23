@@ -11,6 +11,7 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import type { EventFood, FoodMeal } from '../types/event';
+import { DateTimeField } from './Pickers';
 
 export const DEFAULT_MEALS: FoodMeal[] = [
   { id: 'lunch', label: 'Lunch' },
@@ -82,14 +83,12 @@ export default function FoodStubsEditor({ value, onChange }: { value: EventFood 
                 sx={{ flex: 1 }}
               />
               <Stack direction="row" spacing={1} alignItems="center">
-                <TextField
-                  size="small"
-                  type="datetime-local"
+                <DateTimeField
                   label="Opens at (optional)"
                   value={toInput(m.opensAt)}
-                  onChange={(e) => save(meals.map((x, j) => (j === i ? { ...x, opensAt: fromInput(e.target.value) } : x)))}
-                  InputLabelProps={{ shrink: true }}
+                  onChange={(v) => save(meals.map((x, j) => (j === i ? { ...x, opensAt: fromInput(v) } : x)))}
                   sx={{ minWidth: 220, flex: 1 }}
+                  testId={`meal-opens-${i}`}
                 />
                 <IconButton
                   size="small"

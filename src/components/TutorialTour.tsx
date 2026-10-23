@@ -206,6 +206,8 @@ export default function TutorialTour() {
       aria-modal="true"
       aria-label="App tour"
       data-testid="app-tour"
+      data-highlight={mode === 'tour' && rect ? 'yes' : 'no'}
+      data-step={mode === 'tour' ? step?.title : 'welcome'}
       sx={{ position: 'fixed', inset: 0, zIndex: 2000 }}
     >
       {/* Dim backdrop with a cut-out box around what we're explaining */}

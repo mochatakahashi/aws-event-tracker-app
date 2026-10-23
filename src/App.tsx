@@ -16,7 +16,6 @@ import SignUpPage from './pages/SignUpPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 
 // Protected pages
-import SelectEventPage from './pages/SelectEventPage';
 import DashboardPage from './pages/DashboardPage';
 import AchievementsPage from './pages/AchievementsPage';
 import SessionDetailPage from './pages/SessionDetailPage';
@@ -70,15 +69,8 @@ function App() {
                 }
               />
 
-              {/* Protected: Select event (no layout, standalone) */}
-              <Route
-                path="/select-event"
-                element={
-                  <ProtectedRoute>
-                    <SelectEventPage />
-                  </ProtectedRoute>
-                }
-              />
+              {/* Old event switcher: the dashboard follows your registrations now */}
+              <Route path="/select-event" element={<Navigate to="/home" replace />} />
 
               {/* Protected: Main app with layout */}
               <Route

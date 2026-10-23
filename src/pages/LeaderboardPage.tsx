@@ -7,6 +7,8 @@ import Typography from '@mui/material/Typography';
 import Avatar from '@mui/material/Avatar';
 import Tooltip from '@mui/material/Tooltip';
 import TextField from '@mui/material/TextField';
+import EventRoundedIcon from '@mui/icons-material/EventRounded';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import MenuItem from '@mui/material/MenuItem';
 import Button from '@mui/material/Button';
 import Tabs from '@mui/material/Tabs';
@@ -155,6 +157,9 @@ export default function LeaderboardPage() {
 
   return (
     <Box>
+      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/home')} sx={{ mb: 1 }} data-testid="leaderboard-back">
+        {user?.role === 'admin' ? 'Admin Dashboard' : 'Dashboard'}
+      </Button>
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ md: 'flex-end' }} sx={{ mb: 2 }}>
         <Box>
           <Typography variant="h1" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -170,7 +175,9 @@ export default function LeaderboardPage() {
           label="Event"
           value={eventId}
           onChange={(e) => setEventId(e.target.value)}
-          sx={{ minWidth: { md: 300 } }}
+          fullWidth
+          sx={{ maxWidth: { md: 340 }, minWidth: { md: 300 } }}
+          InputProps={{ startAdornment: <EventRoundedIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} /> }}
         >
           <MenuItem value="all">All events</MenuItem>
           {events.map((e) => (

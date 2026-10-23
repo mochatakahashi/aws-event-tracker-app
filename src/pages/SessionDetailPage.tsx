@@ -74,6 +74,9 @@ export default function SessionDetailPage() {
   }, [id]);
 
   const canApprove = canDo(user, event, 'stamps');
+  // Asking for a stamp: registered (not declined) and the event has started
+  const eventStarted = Boolean(event && new Date(event.startAt).getTime() <= Date.now());
+  const mayRequest = picks.canPick && eventStarted;
   const going = session ? picks.counts.get(session.id) ?? 0 : 0;
   const attending = session ? picks.mine.has(session.id) : false;
 
@@ -227,6 +230,14 @@ export default function SessionDetailPage() {
                 color={myStamp.status === 'approved' ? 'success' : 'warning'}
                 sx={{ mt: 1.5 }}
               />
+            ) : !mayRequest ? (
+              user?.role !== 'admin' && (
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }} data-testid="stamp-request-locked">
+                  {!picks.canPick
+                    ? 'Register for this event to collect stamps.'
+                    : 'You can ask for this stamp once the event starts.'}
+                </Typography>
+              )
             ) : (
               <Button
                 variant="contained"

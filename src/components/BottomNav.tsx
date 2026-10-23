@@ -71,7 +71,7 @@ export default function BottomNav() {
         }}
         showLabels
       >
-        {navItems.map((item, index) => (
+        {navItems.map((item) => (
           <BottomNavigationAction
             key={item.label}
             label={item.label}
@@ -85,21 +85,13 @@ export default function BottomNav() {
                     ? 'nav-event-desk'
                     : `nav-${item.label.toLowerCase()}`
             }
-            sx={
-              index === 2
-                ? {
-                    '& .MuiBottomNavigationAction-label': {
-                      fontWeight: 700,
-                    },
-                    '& .MuiSvgIcon-root': {
-                      fontSize: 28,
-                    },
-                    '&.Mui-selected': {
-                      color: brand.primary,
-                    },
-                  }
-                : {}
-            }
+            sx={{
+              // All items look the same; five fit on a small phone
+              minWidth: 0,
+              px: 0.25,
+              '& .MuiBottomNavigationAction-label': { fontSize: '0.68rem', whiteSpace: 'nowrap', '&.Mui-selected': { fontSize: '0.72rem', fontWeight: 700 } },
+              '&.Mui-selected': { color: brand.primary },
+            }}
           />
         ))}
       </BottomNavigation>
